@@ -161,18 +161,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Both Delivery and Pickup go to Order History first.
-                  // QR pickup is a later step from Order Details,
-                  // only once seller marks order as "Ready for Pickup".
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const OrderHistoryScreen()),
+                  // Show fake payment success dialog
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => AlertDialog(
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 72),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Payment Successful!',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Your order has been placed.',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Order ID: #ORD-013',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                // Close dialog then go to Order History
+                                Navigator.pop(context);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const OrderHistoryScreen()),
+                                );
+                              },
+                              child: const Text('View My Orders'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
                 child: const Padding(
                   padding: EdgeInsets.all(12.0),
                   child: Text('Place Order', style: TextStyle(fontSize: 16)),
+
                 ),
               ),
             ),
