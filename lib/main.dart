@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
+import 'screens/auth/login_screen.dart';
 
 void main() {
-  runApp(const MainApp());
+  runApp(const PrisconApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class PrisconApp extends StatelessWidget {
+  const PrisconApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World1234!'),
-        ),
+    return MaterialApp(
+      title: 'Priscon',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
+        useMaterial3: true,
       ),
+      // Navigation: all screens use Navigator.push, home is LoginScreen
+      home: const LoginScreen(),
     );
   }
 }
