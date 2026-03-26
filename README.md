@@ -1,15 +1,15 @@
-# mobile_project
+## mobile_project
 
 A new Flutter project.
 
-**Andriod SDK**
-Name : 16.0 ("Baklava")
-API Level : 36.0
-Revision : 2
+## Andriod SDK
+**Name** :** 16.0 ("Baklava")
+**API Level :** 36.0
+**Revision :** 2
 
-**Dart**
-Version : 3.10.7
+## Dart
+**Version :** 3.10.7
 
-**Flutter**
-Version : 3.38.8
-Path : C:\flutter
+## Flutter
+**Version :** 3.38.8
+**Path :** C:\flutter
