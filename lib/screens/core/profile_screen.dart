@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../order/order_history_screen.dart';
 import '../shop/seller_central_screen.dart';
 import '../auth/login_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,10 +12,28 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  String _name = 'Loading...';
+  String _email = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData(); // 加载数据
+  }
+
+  Future<void> _loadUserData() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+
+    if (user != null) {
+      setState(() {
+        _name = user.userMetadata?['username'] ?? 'Default Username';
+        _email = user.email ?? 'Default Email';
+      });
+    }
+  }
   // Personal Info State
-  String _name = 'John Doe';
-  String _email = 'johndoe@email.com';
-  
+
   // Seller State
   bool _isSeller = false;
   String _shopName = '';
@@ -58,7 +77,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       backgroundColor: Colors.blue,
                       radius: 14,
                       child: IconButton(
-                        icon: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                        icon: const Icon(
+                          Icons.camera_alt,
+                          size: 14,
+                          color: Colors.white,
+                        ),
                         padding: EdgeInsets.zero,
                         onPressed: () {},
                       ),
@@ -139,7 +162,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 });
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Congratulations! "$_shopName" is now registered.')),
+                  SnackBar(
+                    content: Text(
+                      'Congratulations! "$_shopName" is now registered.',
+                    ),
+                  ),
                 );
               }
             },
@@ -179,7 +206,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   Text(
                     _name,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(_email, style: const TextStyle(color: Colors.grey)),
                 ],
@@ -195,7 +225,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const OrderHistoryScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const OrderHistoryScreen(),
+                  ),
                 );
               },
             ),
@@ -205,24 +237,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (!_isSeller)
               ListTile(
                 leading: const Icon(Icons.store, color: Colors.lightBlue),
-                title: const Text('Become a Seller',
-                    style: TextStyle(color: Colors.lightBlue)),
+                title: const Text(
+                  'Become a Seller',
+                  style: TextStyle(color: Colors.lightBlue),
+                ),
                 subtitle: const Text('Start listing products to sell'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _showBecomeSellerDialog,
               )
             else
               ListTile(
-                leading: const Icon(Icons.dashboard_customize, color: Colors.green),
-                title: const Text('Seller Central',
-                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                leading: const Icon(
+                  Icons.dashboard_customize,
+                  color: Colors.green,
+                ),
+                title: const Text(
+                  'Seller Central',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 subtitle: Text('Manage "$_shopName"'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => SellerCentralScreen(shopName: _shopName),
+                      builder: (context) =>
+                          SellerCentralScreen(shopName: _shopName),
                     ),
                   );
                 },
@@ -237,7 +280,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      (route) => false, // This condition (false) tells Flutter to remove EVERY previous screen
+                  (route) =>
+                      false, // This condition (false) tells Flutter to remove EVERY previous screen
                 );
               },
             ),
