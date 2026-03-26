@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../order/order_history_screen.dart';
 import '../shop/seller_central_screen.dart';
+import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -233,7 +234,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Logout', style: TextStyle(color: Colors.red)),
               onTap: () {
-                Navigator.popUntil(context, (route) => route.isFirst);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      (route) => false, // This condition (false) tells Flutter to remove EVERY previous screen
+                );
               },
             ),
           ],
