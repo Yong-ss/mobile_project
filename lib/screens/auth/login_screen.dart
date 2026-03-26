@@ -79,19 +79,6 @@ class LoginScreen extends StatelessWidget {
                 child: const Text("Don't have an account? Register"),
               ),
 
-              // Dev menu link (temporary, for testing)
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const DevMenuScreen()),
-                  );
-                },
-                child: const Text(
-                  '[DEV] Screen Navigator',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ),
               // Admin Dashboard link
               TextButton(
                 onPressed: () {
