@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/home_screen.dart';
 import 'register_screen.dart';
 import '../dev_menu_screen.dart';
+import '../admin/admin_dashboard_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -89,6 +90,19 @@ class LoginScreen extends StatelessWidget {
                 child: const Text(
                   '[DEV] Screen Navigator',
                   style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ),
+              // Admin Dashboard link
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+                  );
+                },
+                child: const Text(
+                  'Admin Dashboard',
+                  style: TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.bold),
                 ),
               ),
             ],

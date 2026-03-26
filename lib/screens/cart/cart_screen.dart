@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'checkout_screen.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
 
-  // Dummy cart items
-  final List<Map<String, dynamic>> _cartItems = const [
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  // Dummy cart items moved to state (Ch 3.3: StatefulWidget)
+  final List<Map<String, dynamic>> _cartItems = [
     {'name': 'Bluetooth Speaker', 'price': 60.0, 'qty': 1},
     {'name': 'Denim Jacket', 'price': 85.0, 'qty': 2},
   ];
@@ -34,11 +39,46 @@ class CartScreen extends StatelessWidget {
                       child: Placeholder(),
                     ),
                     title: Text(item['name'] as String),
-                    subtitle: Text('Qty: ${item['qty']}'),
-                    trailing: Text(
-                      'RM ${((item['price'] as double) * (item['qty'] as int)).toStringAsFixed(2)}',
-
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    subtitle: Text('Price: RM ${(item['price'] as double).toStringAsFixed(2)}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Decrement button
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, color: Colors.blue),
+                          onPressed: () {
+                            setState(() {
+                              if ((item['qty'] as int) > 1) {
+                                item['qty'] = (item['qty'] as int) - 1;
+                              }
+                            });
+                          },
+                        ),
+                        // Quantity display
+                        Text(
+                          '${item['qty']}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        // Increment button
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
+                          onPressed: () {
+                            setState(() {
+                              item['qty'] = (item['qty'] as int) + 1;
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        // Delete button
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () {
+                            setState(() {
+                              _cartItems.removeAt(index);
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 );

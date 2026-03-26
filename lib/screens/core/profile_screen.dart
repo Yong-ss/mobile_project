@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import '../order/order_history_screen.dart';
-import '../order/seller_orders_screen.dart';
-import '../product/my_listings_screen.dart';
-import '../dashboard/sales_dashboard_screen.dart';
+import '../shop/seller_central_screen.dart';
 
-// ProfileScreen is StatefulWidget because it tracks seller mode toggle
-// (Lecture Ch 3.1: stateful widget for UI that changes with interaction)
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -14,33 +10,177 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Personal Info State
+  String _name = 'John Doe';
+  String _email = 'johndoe@email.com';
+  
+  // Seller State
   bool _isSeller = false;
+  String _shopName = '';
+
+  // Controllers for dialogs
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _shopNameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _shopNameController.dispose();
+    super.dispose();
+  }
+
+  void _showEditProfileDialog() {
+    _nameController.text = _name;
+    _emailController.text = _email;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Photo upload simulation
+              Stack(
+                children: [
+                  const CircleAvatar(
+                    radius: 40,
+                    child: Icon(Icons.person, size: 40),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.blue,
+                      radius: 14,
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                        padding: EdgeInsets.zero,
+                        onPressed: () {},
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _name = _nameController.text;
+                _email = _emailController.text;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBecomeSellerDialog() {
+    _shopNameController.clear();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Register as Seller'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your shop name to start selling.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _shopNameController,
+              decoration: const InputDecoration(
+                labelText: 'Shop Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (_shopNameController.text.isNotEmpty) {
+                setState(() {
+                  _isSeller = true;
+                  _shopName = _shopNameController.text;
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Congratulations! "$_shopName" is now registered.')),
+                );
+              }
+            },
+            child: const Text('Complete Registration'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(
+        title: const Text('My Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: _showEditProfileDialog,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Avatar area
+            // Avatar area (Buyer Info)
             Container(
               width: double.infinity,
               color: Colors.lightBlue.shade50,
               padding: const EdgeInsets.symmetric(vertical: 32),
-              child: const Column(
+              child: Column(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 48,
                     child: Icon(Icons.person, size: 48),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
-                    'John Doe',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    _name,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  Text('johndoe@email.com',
-                      style: TextStyle(color: Colors.grey)),
+                  Text(_email, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
@@ -54,14 +194,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const OrderHistoryScreen()),
+                  MaterialPageRoute(builder: (context) => const OrderHistoryScreen()),
                 );
               },
             ),
             const Divider(),
 
-            // ── Seller Mode Toggle ──
+            // ── Seller Mode Toggle / Entry ──
             if (!_isSeller)
               ListTile(
                 leading: const Icon(Icons.store, color: Colors.lightBlue),
@@ -69,62 +208,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(color: Colors.lightBlue)),
                 subtitle: const Text('Start listing products to sell'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  setState(() {
-                    _isSeller = true;
-                  });
-                },
-              ),
-
-            // ── Seller-Only Menus (shown only after enabling seller mode) ──
-            if (_isSeller) ...[
+                onTap: _showBecomeSellerDialog,
+              )
+            else
               ListTile(
-                leading: const Icon(Icons.inventory),
-                title: const Text('My Listings'),
+                leading: const Icon(Icons.dashboard_customize, color: Colors.green),
+                title: const Text('Seller Central',
+                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                subtitle: Text('Manage "$_shopName"'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const MyListingsScreen()),
+                      builder: (context) => SellerCentralScreen(shopName: _shopName),
+                    ),
                   );
                 },
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.inbox),
-                title: const Text('Seller Orders'),
-                subtitle: const Text('Manage incoming orders'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SellerOrdersScreen()),
-                  );
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.bar_chart),
-                title: const Text('Sales Dashboard'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SalesDashboardScreen()),
-                  );
-                },
-              ),
-            ],
             const Divider(),
 
             // ── Logout ──
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title:
-                  const Text('Logout', style: TextStyle(color: Colors.red)),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.popUntil(context, (route) => route.isFirst);
               },
