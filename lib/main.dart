@@ -28,10 +28,10 @@ class PrisconApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Priscon',
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,// hide debug function
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
-        useMaterial3: true,
+        useMaterial3: true,// Use modern M3 UI
       ),
       home: const LoginScreen(),
     );

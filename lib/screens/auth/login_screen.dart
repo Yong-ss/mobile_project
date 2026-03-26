@@ -2,9 +2,65 @@ import 'package:flutter/material.dart';
 import '../core/home_screen.dart';
 import 'register_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+
+  Future<void> _login() async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      
+      final response = await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (response.user == null) {
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid email or password!'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +82,9 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 32),
 
               // Email field (Ch 3.1: TextField)
-              const TextField(
-                decoration: InputDecoration(
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
                   labelText: 'Email',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.email),
@@ -36,9 +93,10 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Password field
-              const TextField(
+              TextField(
+                controller: _passwordController,
                 obscureText: true,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Password',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock),
@@ -50,15 +108,7 @@ class LoginScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // pushReplacement removes LoginScreen from the stack —
-                    // pressing Back on HomeScreen will not return to login.
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HomeScreen()),
-                    );
-                  },
-
+                  onPressed: _login,
                   child: const Padding(
                     padding: EdgeInsets.all(12.0),
                     child: Text('Login', style: TextStyle(fontSize: 16)),
@@ -72,7 +122,9 @@ class LoginScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const RegisterScreen(),
+                    ),
                   );
                 },
                 child: const Text("Don't have an account? Register"),
@@ -83,12 +135,17 @@ class LoginScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const AdminDashboardScreen(),
+                    ),
                   );
                 },
                 child: const Text(
                   'Admin Dashboard',
-                  style: TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.lightBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
