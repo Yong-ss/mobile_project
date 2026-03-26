@@ -2,7 +2,7 @@
 
 A new Flutter project.
 
-## Andriod SDK
+## Android SDK
 
 **Name** :** 16.0 ("Baklava")
 
