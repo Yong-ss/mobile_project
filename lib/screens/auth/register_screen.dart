@@ -18,7 +18,7 @@ class RegisterScreen extends StatelessWidget {
             // Name field
             const TextField(
               decoration: InputDecoration(
-                labelText: 'Full Name',
+                labelText: 'Username',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
               ),
