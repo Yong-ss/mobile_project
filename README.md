@@ -4,7 +4,7 @@ A new Flutter project.
 
 ## Android SDK
 
-**Name** :** 16.0 ("Baklava")
+**Name** : 16.0 ("Baklava")
 
 **API Level :** 36.0
 
