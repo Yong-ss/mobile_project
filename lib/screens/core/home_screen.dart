@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../shop/shop_screen.dart';
 import '../shop/product_details_screen.dart';
 import '../cart/cart_screen.dart';
 import '../core/profile_screen.dart';
 import '../../widgets/product_card.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,12 +14,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase = Supabase.instance.client;
   final int _selectedIndex = 0;
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _featuredProducts = [];
 
-  // 原有的分类列表保持图标样式
+  // Announcements state
+  List<Map<String, dynamic>> _announcements = [];
+  bool _isLoadingAnnouncements = true;
+  final PageController _pageController = PageController();
+  int _currentBannerIndex = 0;
+
+  // Products state
+  List<Map<String, dynamic>> _featuredProducts = [];
+  bool _isLoadingProducts = true;
+
   final List<Map<String, dynamic>> _categories = const [
     {'label': 'Furniture', 'icon': Icons.chair},
     {'label': 'Electronics', 'icon': Icons.devices},
@@ -32,28 +39,70 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchAllProducts();
+    _fetchAnnouncements();
+    _fetchProducts();
   }
 
-  Future<void> _fetchAllProducts() async {
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleRefresh() async {
+    await Future.wait([
+      _fetchAnnouncements(),
+      _fetchProducts(),
+    ]);
+  }
+
+  Future<void> _fetchAnnouncements() async {
     try {
-      setState(() => _isLoading = true);
-      
+      final response = await _supabase
+          .from('announcements')
+          .select('id, title, image_url')
+          .eq('status', 'published')
+          .not('image_url', 'is', null)
+          .order('created_at', ascending: false)
+          .limit(5);
+
+      if (mounted) {
+        setState(() {
+          _announcements = List<Map<String, dynamic>>.from(response);
+          _isLoadingAnnouncements = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching announcements: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingAnnouncements = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchProducts() async {
+    try {
+      if (mounted) setState(() => _isLoadingProducts = true);
+
       final data = await _supabase
           .from('product')
           .select('*')
           .eq('for_sale', true)
           .order('created_at', ascending: false)
-          .limit(10); // 首页先展示最新的 10 个
+          .limit(10);
 
-      setState(() {
-        _featuredProducts = List<Map<String, dynamic>>.from(data);
-        _isLoading = false;
-      });
-    } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
-        // 静默失败或简单报错
+        setState(() {
+          _featuredProducts = List<Map<String, dynamic>>.from(data);
+          _isLoadingProducts = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching products: $e');
+      if (mounted) {
+        setState(() => _isLoadingProducts = false);
       }
     }
   }
@@ -85,36 +134,120 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _fetchAllProducts, // 下拉刷新
+        onRefresh: _handleRefresh,
         child: SafeArea(
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Banner ──
+                // ── Welcome Banner Section ──
                 Container(
                   width: double.infinity,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.lightBlue.shade100, Colors.white],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                  color: Colors.lightBlue.shade100,
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '🛍️ Welcome to Priscon!',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Buy & Sell with your community',
+                        style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Banner / Announcement Slider ──
+                if (_isLoadingAnnouncements)
+                  const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()))
+                else if (_announcements.isNotEmpty)
+                  SizedBox(
+                    height: 180,
+                    width: double.infinity,
+                    child: Stack(
+                      alignment: Alignment.bottomCenter,
                       children: [
-                        Text(
-                          '🛍️ Welcome to Priscon!',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: _announcements.length,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentBannerIndex = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final ann = _announcements[index];
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                image: DecorationImage(
+                                  image: NetworkImage(ann['image_url']),
+                                  fit: BoxFit.cover,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  gradient: LinearGradient(
+                                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(16),
+                                alignment: Alignment.bottomLeft,
+                                child: Text(
+                                  ann['title'] ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        Text('Buy & Sell with your community'),
+                        Positioned(
+                          bottom: 8,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              _announcements.length,
+                                  (index) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: _currentBannerIndex == index ? 16 : 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _currentBannerIndex == index ? Colors.white : Colors.white60,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ),
+
                 const SizedBox(height: 16),
 
                 // ── Categories ──
@@ -129,7 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       return GestureDetector(
                         onTap: () {
-                          // TODO: 传分类参数去 ShopScreen
                           Navigator.push(context, MaterialPageRoute(builder: (context) => const ShopScreen()));
                         },
                         child: Padding(
@@ -167,38 +299,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 // ── Featured GridView ──
-                _isLoading
+                _isLoadingProducts
                     ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
                     : _featuredProducts.isEmpty
-                        ? const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No products found')))
-                        : GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.75,
-                            ),
-                            itemCount: _featuredProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = _featuredProducts[index];
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => ProductDetailsScreen(productId: product['id'])),
-                                  );
-                                },
-                                child: ProductCard(
-                                  name: product['name'] ?? 'Unnamed',
-                                  price: product['price'].toString(),
-                                  imageUrl: product['image_url'],
-                                ),
-                              );
-                            },
-                          ),
+                    ? const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No products found')))
+                    : GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.75,
+                  ),
+                  itemCount: _featuredProducts.length,
+                  itemBuilder: (context, index) {
+                    final product = _featuredProducts[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ProductDetailsScreen(productId: product['id'])),
+                        );
+                      },
+                      child: ProductCard(
+                        name: product['name'] ?? 'Unnamed',
+                        price: product['price'].toString(),
+                        imageUrl: product['image_url'],
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 32),
               ],
             ),
