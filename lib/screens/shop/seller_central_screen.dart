@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../order/seller_orders_screen.dart';
 import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 
 class SellerCentralScreen extends StatefulWidget {
