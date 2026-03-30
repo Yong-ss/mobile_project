@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../widgets/product_card.dart';
 import 'product_details_screen.dart';
+import '../../utils/globals.dart';
 
 class SellerPageScreen extends StatelessWidget {
-  const SellerPageScreen({super.key});
+  SellerPageScreen({super.key});
 
+  final String _currentShopName = currentUser!['shop_name'] ?? '';
   final List<Map<String, String>> _sellerProducts = const [
     {'name': 'Bluetooth Speaker', 'price': '60.00'},
     {'name': 'Phone Charger', 'price': '20.00'},
@@ -22,7 +24,7 @@ class SellerPageScreen extends StatelessWidget {
             width: double.infinity,
             color: Colors.lightBlue.shade50,
             padding: const EdgeInsets.symmetric(vertical: 20),
-            child: const Column(
+            child: Column(
               children: [
                 CircleAvatar(
                   radius: 36,
@@ -30,7 +32,7 @@ class SellerPageScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Ahmad Store',
+                  _currentShopName,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text('Kuala Lumpur • Joined 2023',

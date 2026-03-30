@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'edit_profile.dart';
 
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -17,11 +18,13 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _showName = 'Loading...';
   String _showEmail = 'Loading...';
+  bool _isSeller = false;
+  String _shopName = '';
 
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // 加载数据
+    _loadUserData();
   }
 
   Future<void> _loadUserData() async {
@@ -29,14 +32,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _showName = currentUser!['username'] ?? 'Default Username';
         _showEmail = currentUser!['email'] ?? 'Default Email';
+        _isSeller = currentUser!['is_seller'] ?? false;
+        _shopName = currentUser!['shop_name'] ?? '';
       });
     }
   }
-  // Personal Info State
-
-  // Seller State
-  bool _isSeller = false;
-  String _shopName = '';
 
   // Controllers for dialogs
   final TextEditingController _shopNameController = TextEditingController();
@@ -60,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showBecomeSellerDialog() {
     _shopNameController.clear();
+    final parentContext = this.context;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -84,20 +85,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (_shopNameController.text.isNotEmpty) {
-                setState(() {
-                  _isSeller = true;
-                  _shopName = _shopNameController.text;
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Congratulations! "$_shopName" is now registered.',
+                final shopNameInput = _shopNameController.text.trim();
+                try {
+                  final supabase = Supabase.instance.client;
+
+                  await supabase
+                      .from('user')
+                      .update({
+                        'is_seller': true,
+                        'shop_name': shopNameInput,
+                        'shop_created_at': DateTime.now().toIso8601String(),
+                      })
+                      .eq('id', currentUser!['id']);
+
+                  setState(() {
+                    currentUser!['is_seller'] = true;
+                    currentUser!['shop_name'] = shopNameInput;
+                    _isSeller = true;
+                    _shopName = shopNameInput;
+                  });
+
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(
+                        content: Text('Congratulations! "$shopNameInput" is now registered.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
                     ),
-                  ),
-                );
+                  );
+                }
               }
             },
             child: const Text('Complete Registration'),
@@ -129,9 +155,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Column(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 48,
-                    child: Icon(Icons.person, size: 48),
+                    backgroundImage: currentUser!['user_pic'] != null
+                        ? NetworkImage(currentUser!['user_pic'])
+                        : null,
+                    child: currentUser!['user_pic'] == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 48,
+                            color: Colors.lightBlue,
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -215,7 +250,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (mounted) {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
                     (route) => false,
                   );
                 }

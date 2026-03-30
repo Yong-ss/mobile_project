@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -18,6 +20,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
+  String? _newImageUrl; // 存刚才传好的 URL，用来做预览
+  bool _isUploading = false; // 上传时的转圈圈标志
 
   @override
   void initState() {
@@ -39,6 +43,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _pickAndUploadImage() async {
+    final ImagePicker picker = ImagePicker();
+    // 只从相册选
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = currentUser!['id'];
+
+      // 用 userId 命名，保证每个用户只有一个文件夹
+      final path =
+          'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final bytes = await image.readAsBytes();
+
+      // 1. 上传图片到 Storage
+      await supabase.storage.from('avatars').uploadBinary(path, bytes);
+
+      // 2. 拿到公网 URL
+      final String imageUrl = supabase.storage
+          .from('avatars')
+          .getPublicUrl(path);
+
+      // 3.关键：只更新本地变量，不更新数据库
+      setState(() {
+        _newImageUrl = imageUrl;
+        _isUploading = false;
+      });
+    } catch (e) {
+      setState(() => _isUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Upload error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _handleSave() async {
     final newName = _nameController.text.trim();
     final newEmail = _emailController.text.trim();
@@ -58,20 +104,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final supabase = Supabase.instance.client;
 
-      // 更新数据库
+      Map<String, dynamic> updateData = {
+        'username': newName,
+        'email': newEmail,
+      };
+
+      if (_newImageUrl != null) {
+        updateData['user_pic'] = _newImageUrl;
+      }
+
       await supabase
           .from('user')
-          .update({'username': newName, 'email': newEmail})
+          .update(updateData)
           .eq('id', currentUser!['id']);
 
-      // 更新全局变量
       if (currentUser != null) {
         currentUser!['username'] = newName;
         currentUser!['email'] = newEmail;
       }
 
+      if (_newImageUrl != null) {
+        currentUser!['user_pic'] = _newImageUrl;
+      }
+
       if (mounted) {
-        // 返回 profile 页面并告诉它：更新了
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -198,29 +254,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        actions: [
-          _isLoading
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.lightBlue,
-                      ),
-                    ),
-                  ),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.check),
-                  onPressed: _handleSave,
-                ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Edit Profile')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -232,12 +266,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.blue.shade50,
-                    child: const Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Colors.lightBlue,
-                    ),
+                    backgroundImage: _newImageUrl != null
+                        ? NetworkImage(_newImageUrl!)
+                        : (currentUser!['user_pic'] != null &&
+                                  currentUser!['user_pic'].toString().isNotEmpty
+                              ? NetworkImage(currentUser!['user_pic'])
+                              : null),
+                    child:
+                        (_newImageUrl == null &&
+                            currentUser!['user_pic'] == null)
+                        ? const Icon(
+                            Icons.person,
+                            size: 60,
+                            color: Colors.lightBlue,
+                          )
+                        : null,
                   ),
+
+
+                  if (_isUploading)
+                    const Positioned.fill(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 4,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+
                   Positioned(
                     right: 0,
                     bottom: 0,
@@ -250,9 +306,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           color: Colors.white,
                           size: 18,
                         ),
-                        onPressed: () {
-                          // TODO: 图片上传逻辑
-                        },
+                        onPressed: _pickAndUploadImage,
                       ),
                     ),
                   ),
