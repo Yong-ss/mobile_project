@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../order/order_history_screen.dart';
 import '../shop/seller_central_screen.dart';
 import '../auth/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/globals.dart';
+import 'edit_profile.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,153 +16,51 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _name = 'Loading...';
-  String _email = 'Loading...';
+  String _showName = 'Loading...';
+  String _showEmail = 'Loading...';
+  bool _isSeller = false;
+  String _shopName = '';
 
   @override
   void initState() {
     super.initState();
-    _loadUserData(); // 加载数据
+    _loadUserData();
   }
 
   Future<void> _loadUserData() async {
-    final supabase = Supabase.instance.client;
-    final userdata = supabase.auth.currentUser;
-
-    if (userdata != null) {
+    if (currentUser != null) {
       setState(() {
-        _name = userdata.userMetadata?['username'] ?? 'Default Username';
-        _email = userdata.email ?? 'Default Email';
+        _showName = currentUser!['username'] ?? 'Default Username';
+        _showEmail = currentUser!['email'] ?? 'Default Email';
+        _isSeller = currentUser!['is_seller'] ?? false;
+        _shopName = currentUser!['shop_name'] ?? '';
       });
     }
   }
-  // Personal Info State
-
-  // Seller State
-  bool _isSeller = false;
-  String _shopName = '';
 
   // Controllers for dialogs
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _shopNameController = TextEditingController();
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
     _shopNameController.dispose();
     super.dispose();
   }
 
-  void _showEditProfileDialog() {
-    _nameController.text = _name;
-    _emailController.text = _email;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Photo upload simulation
-              Stack(
-                children: [
-                  const CircleAvatar(
-                    radius: 40,
-                    child: Icon(Icons.person, size: 40),
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.blue,
-                      radius: 14,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.camera_alt,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                        padding: EdgeInsets.zero,
-                        onPressed: () {},
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email Address',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final supabase = Supabase.instance.client;
-                await supabase.auth.updateUser(
-                  UserAttributes(
-                    data: {
-                      'username': _nameController.text.trim(),
-                      'email': _emailController.text.trim(),
-                    },
-                  ),
-                );
-                setState(() {
-                  _name = _nameController.text.trim();
-                  _email = _emailController.text.trim();
-                });
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile updated!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
-      ),
+  void _navigateToEditProfile() async {
+    final bool? result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
     );
+
+    if (result == true) {
+      _loadUserData();
+    }
   }
 
   void _showBecomeSellerDialog() {
     _shopNameController.clear();
+    final parentContext = this.context;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -183,20 +85,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (_shopNameController.text.isNotEmpty) {
-                setState(() {
-                  _isSeller = true;
-                  _shopName = _shopNameController.text;
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Congratulations! "$_shopName" is now registered.',
+                final shopNameInput = _shopNameController.text.trim();
+                try {
+                  final supabase = Supabase.instance.client;
+
+                  await supabase
+                      .from('user')
+                      .update({
+                        'is_seller': true,
+                        'shop_name': shopNameInput,
+                        'shop_created_at': DateTime.now().toIso8601String(),
+                      })
+                      .eq('id', currentUser!['id']);
+
+                  setState(() {
+                    currentUser!['is_seller'] = true;
+                    currentUser!['shop_name'] = shopNameInput;
+                    _isSeller = true;
+                    _shopName = shopNameInput;
+                  });
+
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(parentContext).showSnackBar(
+                      SnackBar(
+                        content: Text('Congratulations! "$shopNameInput" is now registered.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
                     ),
-                  ),
-                );
+                  );
+                }
               }
             },
             child: const Text('Complete Registration'),
@@ -214,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: _showEditProfileDialog,
+            onPressed: _navigateToEditProfile,
           ),
         ],
       ),
@@ -228,19 +155,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Column(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 48,
-                    child: Icon(Icons.person, size: 48),
+                    backgroundImage: currentUser!['user_pic'] != null
+                        ? NetworkImage(currentUser!['user_pic'])
+                        : null,
+                    child: currentUser!['user_pic'] == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 48,
+                            color: Colors.lightBlue,
+                          )
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _name,
+                    _showName,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(_email, style: const TextStyle(color: Colors.grey)),
+                  Text(_showEmail, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
@@ -305,13 +241,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Logout', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) =>
-                      false, // This condition (false) tells Flutter to remove EVERY previous screen
-                );
+              onTap: () async {
+                // Clear state
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+                currentUser = null;
+
+                if (mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                }
               },
             ),
           ],

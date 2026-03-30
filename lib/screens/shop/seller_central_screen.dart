@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../order/seller_orders_screen.dart';
 import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
+import '../../utils/globals.dart';
 
 class SellerCentralScreen extends StatefulWidget {
   final String shopName;
@@ -22,7 +23,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
   @override
   void initState() {
     super.initState();
-    _currentShopName = widget.shopName;
+    _currentShopName = currentUser!['shop_name'] ?? '';
   }
 
   @override
