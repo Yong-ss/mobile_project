@@ -3,6 +3,8 @@ import '../core/home_screen.dart';
 import 'register_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../utils/globals.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,12 +30,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final supabase = Supabase.instance.client;
 
-      
-      final data = await supabase.from('user').select()
+      //find the speciic user with inserted email and password
+      final foundedData = await supabase.from('user').select()
       .eq('email',_emailController.text.trim(),)
-      .eq('password',_passwordController.text,);
+      .eq('password',_passwordController.text,)
+      .maybeSingle();
 
-      if (data.isEmpty) {
+      if (foundedData == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -44,6 +47,12 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         if (mounted) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_id', foundedData['id']);
+          await prefs.setString('user_email', foundedData['email']);
+          await prefs.setString('user_name', foundedData['username']);
+
+          currentUser = foundedData;
 
           Navigator.pushReplacement(
             context,

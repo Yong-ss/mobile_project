@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 加上这个
 import 'package:supabase_flutter/supabase_flutter.dart'; // 加上这个
 import 'utils/supabase_config.dart'; // 导入配置类
+import 'package:shared_preferences/shared_preferences.dart';
+import 'utils/globals.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/core/home_screen.dart';
 
@@ -17,15 +19,21 @@ void main() async {
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
-  final session = Supabase.instance.client.auth.currentSession;
+  // 4. Persistence check
+  final prefs = await SharedPreferences.getInstance();
+  final userId = prefs.getString('user_id');
+  
+  if (userId != null) {
+     final supabase = Supabase.instance.client;
+     currentUser = await supabase.from('user').select().eq('id', userId).maybeSingle();
+  }
 
   // 4. 运行 App
-  runApp(PrisconApp(initialSession: session));
+  runApp(const PrisconApp());
 }
 
 class PrisconApp extends StatelessWidget {
-  final Session? initialSession;
-  const PrisconApp({super.key, this.initialSession});
+  const PrisconApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +44,7 @@ class PrisconApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
         useMaterial3: true, // Use modern M3 UI
       ),
-      home: initialSession != null ? const HomeScreen() : const LoginScreen(),
+      home: currentUser != null ? const HomeScreen() : const LoginScreen(),
     );
   }
 }
