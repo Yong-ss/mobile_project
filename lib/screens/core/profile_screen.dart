@@ -23,12 +23,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserData() async {
     final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
+    final userdata = supabase.auth.currentUser;
 
-    if (user != null) {
+    if (userdata != null) {
       setState(() {
-        _name = user.userMetadata?['username'] ?? 'Default Username';
-        _email = user.email ?? 'Default Email';
+        _name = userdata.userMetadata?['username'] ?? 'Default Username';
+        _email = userdata.email ?? 'Default Email';
       });
     }
   }
