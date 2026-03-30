@@ -29,13 +29,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final supabase = Supabase.instance.client;
 
       
-      final response = await supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final data = await supabase.from('user').select()
+      .eq('email',_emailController.text.trim(),)
+      .eq('password',_passwordController.text,);
 
-      if (response.user == null) {
-        
+      if (data.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -45,8 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        
         if (mounted) {
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomeScreen()),

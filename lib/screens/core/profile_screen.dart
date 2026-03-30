@@ -114,14 +114,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _name = _nameController.text;
-                _email = _emailController.text;
-              });
-              Navigator.pop(context);
+            onPressed: () async {
+              try {
+                final supabase = Supabase.instance.client;
+                await supabase.auth.updateUser(
+                  UserAttributes(
+                    data: {
+                      'username': _nameController.text.trim(),
+                      'email': _emailController.text.trim(),
+                    },
+                  ),
+                );
+                setState(() {
+                  _name = _nameController.text.trim();
+                  _email = _emailController.text.trim();
+                });
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile updated!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
-            child: const Text('Save'),
+            child: const Text('Save Changes'),
           ),
         ],
       ),

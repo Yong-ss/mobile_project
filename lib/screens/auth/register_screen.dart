@@ -25,9 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-
   Future<void> _registerUser() async {
-
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -41,27 +39,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final supabase = Supabase.instance.client;
 
-      
-      final response = await supabase.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        data: {'username': _usernameController.text.trim()},
-      );
+      await supabase.from('user').insert({
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text,
+        'username': _usernameController.text.trim(),
+      });
 
-      
-      if (response.user != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registration Successful!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pop(context);
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration Successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context);
       }
     } catch (e) {
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
