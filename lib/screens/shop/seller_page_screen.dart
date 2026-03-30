@@ -5,7 +5,8 @@ import '../../utils/globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SellerPageScreen extends StatefulWidget {
-  const SellerPageScreen({super.key});
+  final String? sellerId; // 可选参数：要查看的商家 ID
+  const SellerPageScreen({super.key, this.sellerId});
 
   @override
   State<SellerPageScreen> createState() => _SellerPageScreenState();
@@ -15,6 +16,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _allSellerProducts = [];
+  Map<String, dynamic>? _sellerProfile; // 存店主资料
 
   @override
   void initState() {
@@ -26,14 +28,27 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
     try {
       setState(() => _isLoading = true);
 
-      final allProductData = await _supabase
+      // 1. 确定要查看哪个卖家的 ID
+      final targetSellerId = widget.sellerId ?? currentUser!['id'];
+
+      // 2. 先去抓店主的个人资料 (店名、头像、加入日期)
+      final profile = await _supabase
+          .from('user')
+          .select('shop_name, shop_pic, shop_created_at')
+          .eq('id', targetSellerId)
+          .single();
+
+      // 3. 再去抓这个卖家的商品列表
+      final products = await _supabase
           .from('product')
           .select('*')
-          .eq('seller_id', currentUser!['id'])
-          .eq('for_sale', true); // 只显示上架的商品
+          .eq('seller_id', targetSellerId)
+          .eq('for_sale', true);
 
+      // 4. 全部抓完，一次性更新 UI
       setState(() {
-        _allSellerProducts = List<Map<String, dynamic>>.from(allProductData);
+        _sellerProfile = profile;
+        _allSellerProducts = List<Map<String, dynamic>>.from(products);
         _isLoading = false;
       });
     } catch (e) {
@@ -41,18 +56,19 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error loading products: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error loading shop: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String shopName = currentUser!['shop_name'] ?? 'Mystery Shop';
-    final String shopLogo = currentUser!['shop_pic'] ?? '';
-    final String joinDate = currentUser!['shop_created_at'] != null
-        ? currentUser!['shop_created_at'].toString().split('T')[0]
-        : '2023';
+    // 逻辑：直接使用刚才抓回来的 _sellerProfile 资料
+    final String shopName = _sellerProfile?['shop_name'] ?? 'Shop Name';
+    final String shopLogo = _sellerProfile?['shop_pic'] ?? '';
+    final String joinDate = _sellerProfile?['shop_created_at'] != null
+        ? _sellerProfile!['shop_created_at'].toString().split('T')[0]
+        : 'Unknown';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Seller Shop')),
@@ -125,8 +141,9 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  const ProductDetailsScreen(),
+                              builder: (context) => ProductDetailsScreen(
+                                productId: product['id'],
+                              ),
                             ),
                           );
                         },

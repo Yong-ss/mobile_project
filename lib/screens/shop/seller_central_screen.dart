@@ -3,6 +3,7 @@ import '../order/seller_orders_screen.dart';
 import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
 import '../../utils/globals.dart';
+import '../shop/seller_page_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -38,7 +39,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
 
   void _showEditShopDialog() {
     _shopNameController.text = _currentShopName;
-    _newShopPicUrl = null; // 重置预览链接
+    _newShopPicUrl = null; 
 
     showDialog(
       context: context,
@@ -241,8 +242,28 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                     ),
                   ),
                   Text(
-                    'Created at: ${_shopCreatedAt.split('T')[0]}', 
+                    'Created at: ${_shopCreatedAt.split('T')[0]}',
                     style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SellerPageScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text('View My Shop'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.blue,
+                      side: const BorderSide(color: Colors.blue),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
                   ),
                 ],
               ),
