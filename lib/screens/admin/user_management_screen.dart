@@ -22,34 +22,30 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Future<void> _fetchUsers() async {
     try {
       final supabase = Supabase.instance.client;
-      // Fetch user and join user_details table using Supabase foreign key relationship
-      final response = await supabase.from('user').select('*, user_details(*)');
-      
+      // Fetch only from the main user table as it now contains all seller info
+      // Sort by username ascending
+      final response = await supabase.from('user').select('*').order('username', ascending: true);
+
       final List<Map<String, dynamic>> fetchedUsers = [];
       for (var row in response) {
-        // user_details might be returned as a list or a map depending on relationship
-        var detailsObj = {};
-        if (row['user_details'] != null) {
-          if (row['user_details'] is List && (row['user_details'] as List).isNotEmpty) {
-            detailsObj = (row['user_details'] as List).first;
-          } else if (row['user_details'] is Map) {
-            detailsObj = row['user_details'];
-          }
-        }
-
         fetchedUsers.add({
           'id': row['id']?.toString() ?? '',
           'customer_name': row['username'] ?? 'Unknown',
           'customer_email': row['email'] ?? 'No email',
-          'customer_verified': detailsObj['customer_verified'] ?? 'Not Verified',
+          // New column: customer_verified
+          'customer_verified': row['customer_verified'] == true ? 'Verified' : 'Not Verified',
           'customer_joined_at': _formatDate(row['created_at']),
-          'seller_name': detailsObj['seller_name'] ?? '',
-          'seller_status': detailsObj['seller_status'] ?? '',
-          'seller_joined_at': _formatDate(detailsObj['seller_joined_at']),
+          'user_pic': row['user_pic'] ?? '',
+          // Seller info from the same table
+          'seller_name': row['shop_name'] ?? '',
+          'seller_status': row['is_seller'] == true ? 'Registered' : 'Unregistered',
+          'seller_joined_at': _formatDate(row['shop_created_at']),
+          'shop_pic': row['shop_pic'] ?? '',
+          'is_seller': row['is_seller'] ?? false,
           'isChecked': false,
         });
       }
-      
+
       setState(() {
         _users = fetchedUsers;
         _isLoading = false;
@@ -116,113 +112,109 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final TextEditingController nameController = TextEditingController(text: user['customer_name']);
     final TextEditingController emailController = TextEditingController(text: user['customer_email']);
     final TextEditingController sellerNameController = TextEditingController(text: user['seller_name']);
-    
+
     String customerVerified = user['customer_verified'] == 'Verified' ? 'Verified' : 'Not Verified';
-    String sellerStatus = user['seller_status'] == '' ? 'Success' : user['seller_status']; 
-    if (!['Success', 'Pending', 'Failed'].contains(sellerStatus)) sellerStatus = 'Pending';
-    
+    String sellerStatus = user['seller_status'] == 'Registered' ? 'Registered' : 'Unregistered';
+
     await showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Edit User'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Customer Info', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Name', isDense: true),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(labelText: 'Email', isDense: true),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: customerVerified,
-                      decoration: const InputDecoration(labelText: 'Verification', isDense: true),
-                      items: ['Verified', 'Not Verified'].map((status) {
-                        return DropdownMenuItem(value: status, child: Text(status));
-                      }).toList(),
-                      onChanged: (val) => setDialogState(() => customerVerified = val!),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    const Text('Seller Info', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: sellerNameController,
-                      decoration: const InputDecoration(labelText: 'Seller Name', isDense: true),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: sellerStatus,
-                      decoration: const InputDecoration(labelText: 'Seller Status', isDense: true),
-                      items: ['Success', 'Pending', 'Failed'].map((status) {
-                        return DropdownMenuItem(value: status, child: Text(status));
-                      }).toList(),
-                      onChanged: (val) => setDialogState(() => sellerStatus = val!),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      // Update main user table
-                      await Supabase.instance.client.from('user').update({
-                        'username': nameController.text.trim(),
-                        'email': emailController.text.trim(),
-                      }).eq('id', user['id']);
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Edit User'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Customer Info', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Name', isDense: true),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: emailController,
+                        decoration: const InputDecoration(labelText: 'Email', isDense: true),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: customerVerified,
+                        decoration: const InputDecoration(labelText: 'Verification', isDense: true),
+                        items: ['Verified', 'Not Verified'].map((status) {
+                          return DropdownMenuItem(value: status, child: Text(status));
+                        }).toList(),
+                        onChanged: (val) => setDialogState(() => customerVerified = val!),
+                      ),
 
-                      // Upsert admin details to user_details table
-                      await Supabase.instance.client.from('user_details').upsert({
-                        'user_id': user['id'],
-                        'customer_verified': customerVerified,
-                        'seller_name': sellerNameController.text.trim().isNotEmpty ? sellerNameController.text.trim() : null,
-                        'seller_status': sellerNameController.text.trim().isNotEmpty ? sellerStatus : null,
-                      });
-
-                      // Update locally
-                      setState(() {
-                        _users[index]['customer_name'] = nameController.text.trim();
-                        _users[index]['customer_email'] = emailController.text.trim();
-                        _users[index]['customer_verified'] = customerVerified;
-                        _users[index]['seller_name'] = sellerNameController.text.trim();
-                        _users[index]['seller_status'] = sellerNameController.text.trim().isNotEmpty ? sellerStatus : '';
-                      });
-                      
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('User updated successfully')),
-                        );
-                      }
-                    } catch(e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error updating user: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('Save'),
+                      const SizedBox(height: 16),
+                      const Text('Seller Info', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: sellerNameController,
+                        decoration: const InputDecoration(labelText: 'Seller Name', isDense: true),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: sellerStatus,
+                        decoration: const InputDecoration(labelText: 'Seller Status', isDense: true),
+                        items: ['Registered', 'Unregistered'].map((status) {
+                          return DropdownMenuItem(value: status, child: Text(status));
+                        }).toList(),
+                        onChanged: (val) => setDialogState(() => sellerStatus = val!),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            );
-          }
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        final supabase = Supabase.instance.client;
+                        // Update consolidated user table
+                        await supabase.from('user').update({
+                          'username': nameController.text.trim(),
+                          'email': emailController.text.trim(),
+                          'customer_verified': customerVerified == 'Verified',
+                          'shop_name': sellerStatus == 'Registered' ? sellerNameController.text.trim() : null,
+                          'is_seller': sellerStatus == 'Registered',
+                        }).eq('id', user['id']);
+
+                        // Update locally
+                        setState(() {
+                          _users[index]['customer_name'] = nameController.text.trim();
+                          _users[index]['customer_email'] = emailController.text.trim();
+                          _users[index]['customer_verified'] = customerVerified;
+                          _users[index]['seller_name'] = sellerStatus == 'Registered' ? sellerNameController.text.trim() : '';
+                          _users[index]['is_seller'] = sellerStatus == 'Registered';
+                          _users[index]['seller_status'] = sellerStatus;
+                        });
+
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('User updated successfully')),
+                          );
+                        }
+                      } catch(e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error updating user: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text('Save'),
+                  ),
+                ],
+              );
+            }
         );
       },
     );
@@ -273,24 +265,26 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     Color bgColor;
     Color dotColor;
 
-    if (status.toLowerCase().contains('success') || status.toLowerCase().contains('verified') && status != 'Not Verified') {
+    // Normalize status for comparison
+    final normalizedStatus = status.trim();
+
+    if (normalizedStatus == 'Verified' || normalizedStatus == 'Registered' || normalizedStatus.toLowerCase().contains('success')) {
       textColor = const Color(0xFF1B5E20); // Dark green
       bgColor = Colors.white;
       dotColor = const Color(0xFF4CAF50); // Green
-    } else if (status.toLowerCase().contains('pending')) {
+    } else if (normalizedStatus == 'Not Verified' || normalizedStatus == 'Unregistered' || normalizedStatus.toLowerCase().contains('fail')) {
+      textColor = const Color(0xFFD32F2F); // Dark Red
+      bgColor = Colors.white;
+      dotColor = const Color(0xFFF44336); // Red
+    } else if (normalizedStatus.toLowerCase().contains('pending')) {
       textColor = const Color(0xFFE65100); // Dark Orange/Yellow
       bgColor = Colors.white;
       dotColor = const Color(0xFFFFB300); // Amber/Yellow
     } else {
-      // Failed, Not Verified
+      // Default (e.g., empty or other)
       textColor = const Color(0xFF616161); // Grey
       bgColor = Colors.white;
       dotColor = const Color(0xFF9E9E9E); // Grey
-      
-      if (status.toLowerCase().contains('fail')) {
-        textColor = const Color(0xFFD32F2F); // Red
-        dotColor = const Color(0xFFF44336); // Light red
-      }
     }
 
     return Container(
@@ -336,212 +330,270 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         elevation: 0,
         centerTitle: true,
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
-        : _users.isEmpty
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _users.isEmpty
           ? const Center(child: Text('No users found.'))
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              itemCount: _users.length,
-              itemBuilder: (context, index) {
-                final user = _users[index];
-                
-                final bool hasSellerInfo = user['seller_name'] != null && user['seller_name'].toString().trim().isNotEmpty;
+          : _buildUserList(),
+    );
+  }
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header Row
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: Checkbox(
-                                value: user['isChecked'] ?? false,
-                                onChanged: (bool? value) {
-                                  setState(() {
-                                    user['isChecked'] = value;
-                                  });
-                                },
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                side: const BorderSide(color: Color(0xFFBDBDBD)),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Flexible(
-                              child: Text(
-                                user['id'].toString().length > 8 
-                                    ? user['id'].toString().substring(0, 8).toUpperCase() 
-                                    : user['id'].toString().toUpperCase(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Color(0xFF212121),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const Spacer(),
-                            IconButton(
-                              icon: const Icon(Icons.copy_outlined, size: 20, color: Color(0xFF757575)),
-                              onPressed: () => _copyToClipboard(user['id']),
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                            ),
-                            const SizedBox(width: 12),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFF757575)),
-                              onPressed: () => _deleteUser(index),
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                            ),
-                            const SizedBox(width: 12),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF757575)),
-                              onPressed: () => _editUser(index),
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                        const SizedBox(height: 12),
-                        
-                        // CUSTOMER SECTION
-                        const Text(
-                          'CUSTOMER INFO',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        _buildDetailRow(
-                          'Customer',
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user['customer_name'],
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                user['customer_email'],
-                                style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                        ),
-                        
-                        _buildDetailRow(
-                          'Profile',
-                          const CircleAvatar(
-                            radius: 16,
-                            backgroundColor: Color(0xFFE3F2FD),
-                            child: Icon(Icons.person, size: 18, color: Color(0xFF1E88E5)),
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                        ),
+  Widget _buildUserList() {
+    final List<Map<String, dynamic>> customers = _users.where((u) => u['is_seller'] != true).toList();
+    final List<Map<String, dynamic>> sellers = _users.where((u) => u['is_seller'] == true).toList();
 
-                        _buildDetailRow(
-                          'Status',
-                          _buildStatusChip(user['customer_verified']),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                        ),
-                        
-                        _buildDetailRow(
-                          'Date & Time',
-                          Text(
-                            user['customer_joined_at'],
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
-                          ),
-                        ),
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      children: [
+        if (customers.isNotEmpty) ...[
+          _buildCategoryHeader('Customer'),
+          ...customers.map((user) => _buildUserCard(user, _users.indexOf(user))),
+          const SizedBox(height: 24),
+        ],
+        if (sellers.isNotEmpty) ...[
+          _buildCategoryHeader('Seller'),
+          ...sellers.map((user) => _buildUserCard(user, _users.indexOf(user))),
+          const SizedBox(height: 32),
+        ],
+      ],
+    );
+  }
 
-                        if (hasSellerInfo) ...[
-                          const SizedBox(height: 24),
-                          // SELLER SECTION
-                          const Text(
-                            'SELLER INFO',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-                          ),
-                          const SizedBox(height: 8),
-
-                          _buildDetailRow(
-                            'Seller',
-                            Text(
-                              user['seller_name'],
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                          ),
-
-                          _buildDetailRow(
-                            'Status',
-                            _buildStatusChip(user['seller_status']),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                          ),
-                          
-                          _buildDetailRow(
-                            'Profile',
-                            const CircleAvatar(
-                              radius: 16,
-                              backgroundColor: Color(0xFFFFF3E0),
-                              child: Icon(Icons.store, size: 18, color: Color(0xFFF57C00)),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-                          ),
-                          
-                          _buildDetailRow(
-                            'Date & Time',
-                            Text(
-                              user['seller_joined_at'],
-                              style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
+  Widget _buildCategoryHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF212121),
+              letterSpacing: 0.5,
             ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            height: 2,
+            width: 60,
+            color: title == 'Seller' ? Colors.orange : Colors.blue,
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserCard(Map<String, dynamic> user, int index) {
+    final bool isSeller = user['is_seller'] == true;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row
+            Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: user['isChecked'] ?? false,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        user['isChecked'] = value;
+                      });
+                    },
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    side: const BorderSide(color: Color(0xFFBDBDBD)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    user['id'].toString().length > 8
+                        ? user['id'].toString().substring(0, 8).toUpperCase()
+                        : user['id'].toString().toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF212121),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.copy_outlined, size: 20, color: Color(0xFF757575)),
+                  onPressed: () => _copyToClipboard(user['id']),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFF757575)),
+                  onPressed: () => _deleteUser(index),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF757575)),
+                  onPressed: () => _editUser(index),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            const SizedBox(height: 12),
+
+            // CUSTOMER SECTION
+            const Text(
+              'CUSTOMER INFO',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+            ),
+            const SizedBox(height: 8),
+
+            _buildDetailRow(
+              'Customer',
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user['customer_name'],
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    user['customer_email'],
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
+                  ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            ),
+
+            _buildDetailRow(
+              'Profile',
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFE3F2FD),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: user['user_pic'].isNotEmpty
+                    ? Image.network(user['user_pic'], fit: BoxFit.contain)
+                    : const Icon(Icons.person, size: 18, color: Color(0xFF1E88E5)),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            ),
+
+            _buildDetailRow(
+              'Status',
+              _buildStatusChip(user['customer_verified']),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            ),
+
+            _buildDetailRow(
+              'Date & Time',
+              Text(
+                user['customer_joined_at'],
+                style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
+              ),
+            ),
+
+            if (isSeller) ...[
+              const SizedBox(height: 24),
+              // SELLER SECTION
+              const Text(
+                'SELLER INFO',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+              ),
+              const SizedBox(height: 8),
+
+              _buildDetailRow(
+                'Seller',
+                Text(
+                  user['seller_name'],
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+              ),
+
+              _buildDetailRow(
+                'Status',
+                _buildStatusChip(user['seller_status']),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+              ),
+
+              _buildDetailRow(
+                'Profile',
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFFFF3E0),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: user['shop_pic'].isNotEmpty
+                      ? Image.network(user['shop_pic'], fit: BoxFit.contain)
+                      : const Icon(Icons.store, size: 18, color: Color(0xFFF57C00)),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+              ),
+
+              _buildDetailRow(
+                'Date & Time',
+                Text(
+                  user['seller_joined_at'],
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

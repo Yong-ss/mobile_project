@@ -32,8 +32,25 @@ class _AnnouncementManagementScreenState extends State<AnnouncementManagementScr
           .select()
           .order('created_at', ascending: false);
 
+      final List<Map<String, dynamic>> fetched = List<Map<String, dynamic>>.from(response);
+
+      // Define priority order: High (0), Medium (1), Low (2)
+      final Map<String, int> priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
+
+      fetched.sort((a, b) {
+        // Compare priority levels first
+        int pA = priorityMap[a['priority_level']] ?? 3;
+        int pB = priorityMap[b['priority_level']] ?? 3;
+        if (pA != pB) return pA.compareTo(pB);
+
+        // Within same priority, sort by date (newest first)
+        DateTime dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime(0);
+        DateTime dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime(0);
+        return dateB.compareTo(dateA);
+      });
+
       setState(() {
-        _announcements = List<Map<String, dynamic>>.from(response);
+        _announcements = fetched;
       });
     } catch (e) {
       debugPrint('Error fetching announcements: $e');

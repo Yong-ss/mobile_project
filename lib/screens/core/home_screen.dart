@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final response = await _supabase
           .from('announcements')
-          .select('id, title, content, image_url')
+          .select('id, title, content, image_url, priority_level, created_at')
           .eq('status', 'published')
           .not('image_url', 'is', null)
           .or('target_role.eq.All Users,target_role.eq.${userRole}s') // e.g. Customers or Sellers
@@ -89,8 +89,25 @@ class _HomeScreenState extends State<HomeScreen> {
           .limit(5);
 
       if (mounted) {
+        final List<Map<String, dynamic>> fetched = List<Map<String, dynamic>>.from(response);
+
+        // Define priority order: High (0), Medium (1), Low (2)
+        final Map<String, int> priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
+
+        fetched.sort((a, b) {
+          // Compare priority levels first
+          int pA = priorityMap[a['priority_level']] ?? 3;
+          int pB = priorityMap[b['priority_level']] ?? 3;
+          if (pA != pB) return pA.compareTo(pB);
+
+          // Within same priority, sort by date (newest first)
+          DateTime dateA = DateTime.tryParse(a['created_at'].toString()) ?? DateTime(0);
+          DateTime dateB = DateTime.tryParse(b['created_at'].toString()) ?? DateTime(0);
+          return dateB.compareTo(dateA);
+        });
+
         setState(() {
-          _announcements = List<Map<String, dynamic>>.from(response);
+          _announcements = fetched;
           _isLoadingAnnouncements = false;
         });
         if (_announcements.isNotEmpty) {

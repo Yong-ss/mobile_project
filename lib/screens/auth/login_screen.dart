@@ -32,9 +32,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       //find the speciic user with inserted email and password
       final foundedData = await supabase.from('user').select()
-      .eq('email',_emailController.text.trim(),)
-      .eq('password',_passwordController.text,)
-      .maybeSingle();
+          .eq('email',_emailController.text.trim(),)
+          .eq('password',_passwordController.text,)
+          .maybeSingle();
 
       if (foundedData == null) {
         if (mounted) {
@@ -78,8 +78,13 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App logo / title
-              const Icon(Icons.store, size: 80, color: Colors.lightBlue),
+              // App logo
+              Image.network(
+                'https://xwglzdiyzjmuukgvdbgu.supabase.co/storage/v1/object/public/announcements/images/logostri.png',
+                height: 120,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const Icon(Icons.store, size: 80, color: Colors.lightBlue),
+              ),
               const SizedBox(height: 8),
               const Text(
                 'Priscon',
