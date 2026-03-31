@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../shop/shop_screen.dart';
 import '../shop/product_details_screen.dart';
@@ -5,6 +6,8 @@ import '../cart/cart_screen.dart';
 import '../core/profile_screen.dart';
 import '../../widgets/product_card.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/globals.dart';
+import 'announcement_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingAnnouncements = true;
   final PageController _pageController = PageController();
   int _currentBannerIndex = 0;
+  Timer? _bannerTimer;
 
   // Products state
   List<Map<String, dynamic>> _featuredProducts = [];
@@ -45,8 +49,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _bannerTimer?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _startBannerTimer() {
+    _bannerTimer?.cancel();
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_announcements.isNotEmpty && _pageController.hasClients) {
+        int nextIndex = (_currentBannerIndex + 1) % _announcements.length;
+        _pageController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   Future<void> _handleRefresh() async {
@@ -58,11 +77,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchAnnouncements() async {
     try {
+      final userRole = currentUser?['role'] ?? 'Customer';
+
       final response = await _supabase
           .from('announcements')
-          .select('id, title, image_url')
+          .select('id, title, content, image_url')
           .eq('status', 'published')
           .not('image_url', 'is', null)
+          .or('target_role.eq.All Users,target_role.eq.${userRole}s') // e.g. Customers or Sellers
           .order('created_at', ascending: false)
           .limit(5);
 
@@ -71,6 +93,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _announcements = List<Map<String, dynamic>>.from(response);
           _isLoadingAnnouncements = false;
         });
+        if (_announcements.isNotEmpty) {
+          _startBannerTimer();
+        }
       }
     } catch (e) {
       debugPrint('Error fetching announcements: $e');
@@ -180,46 +205,58 @@ class _HomeScreenState extends State<HomeScreen> {
                             setState(() {
                               _currentBannerIndex = index;
                             });
+                            // Reset timer on manual swipe to prevent double-sliding
+                            _startBannerTimer();
                           },
                           itemBuilder: (context, index) {
                             final ann = _announcements[index];
-                            return Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                image: DecorationImage(
-                                  image: NetworkImage(ann['image_url']),
-                                  fit: BoxFit.cover,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AnnouncementDetailsScreen(announcement: ann),
                                   ),
-                                ],
-                              ),
+                                );
+                              },
                               child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 16),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
-                                  gradient: LinearGradient(
-                                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
+                                  image: DecorationImage(
+                                    image: NetworkImage(ann['image_url']),
+                                    fit: BoxFit.cover,
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                padding: const EdgeInsets.all(16),
-                                alignment: Alignment.bottomLeft,
-                                child: Text(
-                                  ann['title'] ?? '',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    gradient: LinearGradient(
+                                      colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                    ),
                                   ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                  padding: const EdgeInsets.all(16),
+                                  alignment: Alignment.bottomLeft,
+                                  child: Text(
+                                    ann['title'] ?? '',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      shadows: [Shadow(color: Colors.black45, blurRadius: 4)],
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                             );

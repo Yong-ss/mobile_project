@@ -16,7 +16,7 @@ class AnnouncementCreationScreen extends StatefulWidget {
 class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
-  
+
   String _priority = 'Medium';
   DateTime? _scheduleDate;
   DateTime? _expiryDate;
@@ -121,13 +121,33 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
       final supabase = Supabase.instance.client;
       String? imageUrl = _existingImageUrl;
 
-      // Note: If you want to upload the image to Supabase Storage, do it here.
-      // Example:
-      // if (_imageFile != null) {
-      //   final String path = 'announcements/${DateTime.now().millisecondsSinceEpoch}_${_imageFile!.path.split('/').last}';
-      //   await supabase.storage.from('announcement-images').upload(path, _imageFile!);
-      //   imageUrl = supabase.storage.from('announcement-images').getPublicUrl(path);
-      // }
+      // --- Image Upload to Supabase Storage ---
+      if (_imageFile != null) {
+        // If we are replacing an existing image, delete the old one first
+        if (_existingImageUrl != null && _existingImageUrl!.isNotEmpty) {
+          try {
+            final Uri uri = Uri.parse(_existingImageUrl!);
+            final String bucketName = 'announcements';
+            final int bucketIndex = uri.pathSegments.indexOf(bucketName);
+            if (bucketIndex != -1 && bucketIndex < uri.pathSegments.length - 1) {
+              final String oldPath = uri.pathSegments.sublist(bucketIndex + 1).join('/');
+              await supabase.storage.from(bucketName).remove([oldPath]);
+            }
+          } catch (e) {
+            debugPrint('Failed to delete old image: $e');
+          }
+        }
+
+        final String fileName = '${DateTime.now().millisecondsSinceEpoch}_${_imageFile!.path.split(RegExp(r'[\\/]')).last}';
+        final String path = 'images/$fileName';
+
+        // Upload to the 'images' folder within the 'announcements' bucket
+        await supabase.storage.from('announcements').upload(path, _imageFile!);
+
+        // Get the Public URL
+        imageUrl = supabase.storage.from('announcements').getPublicUrl(path);
+      }
+      // ----------------------------------------
 
       final data = {
         'title': _titleController.text.trim(),
@@ -439,14 +459,13 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
             // Target Roles
             _buildSegmentedButton(
               title: 'Target Roles',
-              options: ['All Users', 'Customers', 'Sellers', 'Admins'],
+              options: ['All Users', 'Customers', 'Sellers'],
               currentValue: _targetRole,
               onChanged: (val) => setState(() => _targetRole = val),
               dotColors: {
                 'All Users': Colors.purple,
                 'Customers': Colors.blue,
                 'Sellers': Colors.green,
-                'Admins': Colors.orange,
               },
             ),
 
@@ -529,7 +548,7 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
               height: 50,
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : () => _saveAnnouncement(status: 'published'),
-                icon: _isLoading 
+                icon: _isLoading
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.send, size: 18),
                 label: Text(_isLoading ? 'Publishing...' : 'Publish Announcement', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -549,16 +568,16 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
             SizedBox(
               height: 50,
               child: OutlinedButton(
-                onPressed: _isLoading 
-                    ? null 
+                onPressed: _isLoading
+                    ? null
                     : () {
-                        // Optionally prompt to save as draft if fields are filled
-                        if (_titleController.text.isNotEmpty || _messageController.text.isNotEmpty) {
-                          _saveAnnouncement(status: 'draft');
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
+                  // Optionally prompt to save as draft if fields are filled
+                  if (_titleController.text.isNotEmpty || _messageController.text.isNotEmpty) {
+                    _saveAnnouncement(status: 'draft');
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFE0E0E0)),
                   foregroundColor: const Color(0xFF424242),

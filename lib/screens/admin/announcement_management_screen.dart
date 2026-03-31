@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'announcement_creation_screen.dart';
+import '../core/announcement_details_screen.dart';
 
 class AnnouncementManagementScreen extends StatefulWidget {
   const AnnouncementManagementScreen({super.key});
@@ -72,15 +73,39 @@ class _AnnouncementManagementScreenState extends State<AnnouncementManagementScr
                 _isLoading = true;
               });
               try {
-                await Supabase.instance.client
+                final supabase = Supabase.instance.client;
+
+                // --- Storage Image Deletion ---
+                final String? imageUrl = ann['image_url'];
+                if (imageUrl != null && imageUrl.isNotEmpty) {
+                  try {
+                    // Extract the filename from the public URL
+                    // The URL format is normally: .../announcements/images/filename
+                    final Uri uri = Uri.parse(imageUrl);
+                    final String bucketName = 'announcements';
+                    final int bucketIndex = uri.pathSegments.indexOf(bucketName);
+
+                    if (bucketIndex != -1 && bucketIndex < uri.pathSegments.length - 1) {
+                      // Get everything after the bucket name for the full path
+                      final String storagePath = uri.pathSegments.sublist(bucketIndex + 1).join('/');
+                      await supabase.storage.from(bucketName).remove([storagePath]);
+                    }
+                  } catch (storageError) {
+                    debugPrint('Silent error: Failed to delete image from storage: $storageError');
+                    // We continue deleting the db record even if storage deletion fails
+                  }
+                }
+                // ------------------------------
+
+                await supabase
                     .from('announcements')
                     .delete()
                     .eq('id', ann['id']);
-                
+
                 await _fetchAnnouncements();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Announcement deleted successfully.')),
+                    const SnackBar(content: Text('Announcement and data deleted successfully.')),
                   );
                 }
               } catch (e) {
@@ -154,173 +179,170 @@ class _AnnouncementManagementScreenState extends State<AnnouncementManagementScr
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _announcements.isEmpty
-              ? const Center(child: Text('No announcements found.', style: TextStyle(color: Colors.grey)))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _announcements.length,
-                  itemBuilder: (context, index) {
-                    final ann = _announcements[index];
-                    final String title = ann['title'] ?? 'No Title';
-                    final String content = ann['content'] ?? '';
-                    final String status = ann['status'] ?? 'draft';
-                    final String targetRole = ann['target_role'] ?? 'All Users';
-                    final String priority = ann['priority_level'] ?? 'Normal';
-                    
-                    return Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: () async {
-                          final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AnnouncementCreationScreen(existingAnnouncement: ann),
+          ? const Center(child: Text('No announcements found.', style: TextStyle(color: Colors.grey)))
+          : ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _announcements.length,
+        itemBuilder: (context, index) {
+          final ann = _announcements[index];
+          final String title = ann['title'] ?? 'No Title';
+          final String content = ann['content'] ?? '';
+          final String status = ann['status'] ?? 'draft';
+          final String targetRole = ann['target_role'] ?? 'All Users';
+          final String priority = ann['priority_level'] ?? 'Normal';
+
+          return Card(
+            elevation: 2,
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AnnouncementDetailsScreen(announcement: ann),
+                  ),
+                );
+              },
+              child:Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF212121),
                             ),
-                          );
-                          if (result == true) {
-                            _fetchAnnouncements();
-                          }
-                        },
-                        child:Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Header
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      title,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF212121),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(status).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: _getStatusColor(status)),
-                                    ),
-                                    child: Text(
-                                      status.toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: _getStatusColor(status),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Content Preview
-                              Text(
-                                content,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Color(0xFF757575), fontSize: 13),
-                              ),
-                              const SizedBox(height: 12),
-                              
-                              const Divider(height: 1, color: Color(0xFFEEEEEE)),
-                              const SizedBox(height: 12),
-
-                              // Meta Tags
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  // Priority Badge
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.flag, size: 14, color: _getPriorityColor(priority)),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        priority,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: _getPriorityColor(priority),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  // Role Badge
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.group, size: 14, color: Colors.grey),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        targetRole,
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                  // Date Info
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _formatDate(ann['publish_at'] ?? ann['created_at']),
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              
-                              // Actions
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => AnnouncementCreationScreen(existingAnnouncement: ann),
-                                        ),
-                                      );
-                                      if (result == true) {
-                                        _fetchAnnouncements();
-                                      }
-                                    },
-                                    tooltip: 'Edit Announcement',
-                                  ),
-                                  const SizedBox(width: 16),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () => _deleteAnnouncement(index),
-                                    tooltip: 'Delete Announcement',
-                                  ),
-                                ],
-                              ),
-                            ],
                           ),
                         ),
-                      ),
-                    );
-                  },
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _getStatusColor(status)),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: _getStatusColor(status),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Content Preview
+                    Text(
+                      content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFF757575), fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+
+                    const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                    const SizedBox(height: 12),
+
+                    // Meta Tags
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        // Priority Badge
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.flag, size: 14, color: _getPriorityColor(priority)),
+                            const SizedBox(width: 4),
+                            Text(
+                              priority,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _getPriorityColor(priority),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Role Badge
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.group, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              targetRole,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                        // Date Info
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatDate(ann['publish_at'] ?? ann['created_at']),
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Colors.blue, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AnnouncementCreationScreen(existingAnnouncement: ann),
+                              ),
+                            );
+                            if (result == true) {
+                              _fetchAnnouncements();
+                            }
+                          },
+                          tooltip: 'Edit Announcement',
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _deleteAnnouncement(index),
+                          tooltip: 'Delete Announcement',
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+              ),
+            ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
