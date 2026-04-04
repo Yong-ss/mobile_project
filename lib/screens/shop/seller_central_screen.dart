@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/circular_reveal_route.dart'; // 导入圆形扩散动画路由
 import '../order/seller_orders_screen.dart';
 import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
@@ -21,6 +22,8 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
   late String _currentShopName;
   final TextEditingController _shopNameController = TextEditingController();
   String _shopCreatedAt = '';
+  // 用于获取按钮中心坐标的 Key
+  final GlobalKey _viewShopButtonKey = GlobalKey();
 
   @override
   void initState() {
@@ -40,7 +43,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
 
   void _showEditShopDialog() {
     _shopNameController.text = _currentShopName;
-    _newShopPicUrl = null; 
+    _newShopPicUrl = null;
 
     showDialog(
       context: context,
@@ -244,14 +247,12 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SellerPageScreen(),
-                        ),
-                      );
-                    },
+                    key: _viewShopButtonKey , // 绑定 Key
+                    onPressed: () => CircularRevealPageRoute.push(
+                      context,
+                      _viewShopButtonKey,
+                      const SellerPageScreen(),
+                    ),
                     icon: const Icon(Icons.visibility_outlined, size: 18),
                     label: const Text('View My Shop'),
                     style: OutlinedButton.styleFrom(
