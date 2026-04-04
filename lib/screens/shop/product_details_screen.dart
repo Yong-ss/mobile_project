@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'seller_page_screen.dart';
 import '../cart/cart_screen.dart';
+import '../../utils/globals.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final int? productId; // 接收传进来的商品 ID
-  
+
   const ProductDetailsScreen({super.key, this.productId});
 
   @override
@@ -55,6 +56,60 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           SnackBar(content: Text('Error: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _addToSupabaseCart() async {
+    if (_productData == null) return;
+
+    final user = currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please login to add items to your cart'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final response = await _supabase
+          .from('cart_item')
+          .select('id, quantity')
+          .eq('user_id', user['id'])
+          .eq('product_id', _productData!['id'])
+          .maybeSingle();
+
+      if (response == null) {
+        await _supabase.from('cart_item').insert({
+          'user_id': user['id'],
+          'product_id': _productData!['id'],
+          'quantity': 1,
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added ${_productData!['name']} to cart!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${_productData!['name']} is already in your cart'),
+              backgroundColor: Colors.blueGrey,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error adding to cart: $e');
     }
   }
 
@@ -158,13 +213,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        // 购物车逻辑
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
-                      },
+                      onPressed: _addToSupabaseCart,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.shopping_cart),
                       label: const Text('Add to Cart', style: TextStyle(fontSize: 18)),

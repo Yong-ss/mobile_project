@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../widgets/product_card.dart';
 import 'product_details_screen.dart';
 import '../cart/cart_screen.dart';
+import '../../utils/globals.dart';
 
 // Member 2: ShopScreen — full product browsing with category filter chips
 class ShopScreen extends StatefulWidget {
@@ -40,6 +41,65 @@ class _ShopScreenState extends State<ShopScreen> {
   final List<Map<String, dynamic>> _cartItems = [];
   bool _isDraggingOverCart = false;
   final ValueNotifier<bool> _isDraggingProductNotifier = ValueNotifier<bool>(false);
+
+  Future<void> _addToSupabaseCart(Map<String, dynamic> product) async {
+    final supabase = Supabase.instance.client;
+    final user = currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please login to add items to your cart'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final response = await supabase
+          .from('cart_item')
+          .select('id, quantity')
+          .eq('user_id', user['id'])
+          .eq('product_id', product['id'])
+          .maybeSingle();
+
+      if (response == null) {
+        // Only insert if it doesn't exist
+        await supabase.from('cart_item').insert({
+          'user_id': user['id'],
+          'product_id': product['id'],
+          'quantity': 1,
+        });
+
+        HapticFeedback.lightImpact();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added ${product['name']} to cart!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      } else {
+        // If it exists, we keep it at current qty or ensure it's at least 1
+        // Per user request: "same item remain 1 if exist"
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${product['name']} is already in your cart'),
+              backgroundColor: Colors.blueGrey,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error adding to cart: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -373,18 +433,8 @@ class _ShopScreenState extends State<ShopScreen> {
           },
           onLeave: (data) => setState(() => _isDraggingOverCart = false),
           onAccept: (product) {
-            setState(() {
-              _isDraggingOverCart = false;
-              _cartItems.add(product);
-            });
-            HapticFeedback.lightImpact();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Added ${product['name']} to cart!'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 1),
-              ),
-            );
+            setState(() => _isDraggingOverCart = false);
+            _addToSupabaseCart(product);
           },
           builder: (context, candidateData, rejectedData) {
             return SizedBox(
