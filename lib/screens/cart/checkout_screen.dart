@@ -112,8 +112,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const Text('Order Summary',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-
-            // Custom UI replacing standard ListTiles
             Container(
               decoration: BoxDecoration(
                   color: Colors.white,
@@ -138,72 +136,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     if (i < _cartItems.length - 1)
                       const Divider(height: 1, indent: 16, endIndent: 16),
                   ],
-                  // Total Row
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(16),
-                        bottomRight: Radius.circular(16),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('RM ${_totalAmount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: Colors.lightBlue)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // ── Payment Method ──
-            const Text('Payment Method',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text('Credit/Debit Card'),
-                    secondary: const Icon(Icons.credit_card, color: Colors.blueGrey),
-                    value: 'Credit/Debit Card',
-                    groupValue: _paymentMethod,
-                    onChanged: (val) => setState(() => _paymentMethod = val!),
-                    activeColor: Colors.lightBlue,
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<String>(
-                    title: const Text('Online Banking'),
-                    secondary: const Icon(Icons.account_balance, color: Colors.blueGrey),
-                    value: 'Online Banking',
-                    groupValue: _paymentMethod,
-                    onChanged: (val) => setState(() => _paymentMethod = val!),
-                    activeColor: Colors.lightBlue,
-                  ),
-                  const Divider(height: 1),
-                  RadioListTile<String>(
-                    title: const Text('Cash on Delivery'),
-                    secondary: const Icon(Icons.money, color: Colors.blueGrey),
-                    value: 'Cash on Delivery',
-                    groupValue: _paymentMethod,
-                    onChanged: (val) => setState(() => _paymentMethod = val!),
-                    activeColor: Colors.lightBlue,
-                  ),
                 ],
               ),
             ),
@@ -323,6 +255,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
             ],
+            const SizedBox(height: 24),
+
+            // ── Payment Method ──
+            const Text('Payment Method',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  RadioListTile<String>(
+                    title: const Text('Credit/Debit Card'),
+                    secondary: const Icon(Icons.credit_card, color: Colors.blueGrey),
+                    value: 'Credit/Debit Card',
+                    groupValue: _paymentMethod,
+                    onChanged: (val) => setState(() => _paymentMethod = val!),
+                    activeColor: Colors.lightBlue,
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<String>(
+                    title: const Text('Online Banking'),
+                    secondary: const Icon(Icons.account_balance, color: Colors.blueGrey),
+                    value: 'Online Banking',
+                    groupValue: _paymentMethod,
+                    onChanged: (val) => setState(() => _paymentMethod = val!),
+                    activeColor: Colors.lightBlue,
+                  ),
+                  const Divider(height: 1),
+                  RadioListTile<String>(
+                    title: const Text('Cash on Delivery'),
+                    secondary: const Icon(Icons.money, color: Colors.blueGrey),
+                    value: 'Cash on Delivery',
+                    groupValue: _paymentMethod,
+                    onChanged: (val) => setState(() => _paymentMethod = val!),
+                    activeColor: Colors.lightBlue,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Payment Details ──
+            const Text('Payment Details',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total Payment:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('RM ${_totalAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.lightBlue)),
+                ],
+              ),
+            ),
             const SizedBox(height: 32),
 
             // ── Place Order ──
