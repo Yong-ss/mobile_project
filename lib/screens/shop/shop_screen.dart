@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/services.dart';
 import '../../widgets/product_card.dart';
 import 'product_details_screen.dart';
+import '../cart/cart_screen.dart';
 
 // Member 2: ShopScreen — full product browsing with category filter chips
 class ShopScreen extends StatefulWidget {
@@ -20,7 +22,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
   bool _isSpeechEnabled = false;
   bool _isListening = false;
-  String _wordsSpoken = "";
+  final String _wordsSpoken = "";
   final ValueNotifier<String> _speechTextNotifier = ValueNotifier<String>("");
   final ValueNotifier<bool> _isErrorNotifier = ValueNotifier<bool>(false);
   bool _sttHasError = false;
@@ -33,6 +35,11 @@ class _ShopScreenState extends State<ShopScreen> {
   List<String> _categories = ['All'];
   String _selectedCategory = 'All';
   bool _isLoading = true;
+
+  // Cart State
+  final List<Map<String, dynamic>> _cartItems = [];
+  bool _isDraggingOverCart = false;
+  final ValueNotifier<bool> _isDraggingProductNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -344,6 +351,10 @@ class _ShopScreenState extends State<ShopScreen> {
     _searchFocusNode.dispose();
     _searchController.dispose();
     _speechTextNotifier.dispose();
+    _isErrorNotifier.dispose();
+    _isDraggingProductNotifier.dispose();
+    _cancelAutoDismissTimer();
+    _cancelSilenceTimer();
     super.dispose();
   }
 
@@ -355,140 +366,271 @@ class _ShopScreenState extends State<ShopScreen> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         appBar: AppBar(title: const Text('Shop')),
+        floatingActionButton: DragTarget<Map<String, dynamic>>(
+          onWillAccept: (data) {
+            setState(() => _isDraggingOverCart = true);
+            return true;
+          },
+          onLeave: (data) => setState(() => _isDraggingOverCart = false),
+          onAccept: (product) {
+            setState(() {
+              _isDraggingOverCart = false;
+              _cartItems.add(product);
+            });
+            HapticFeedback.lightImpact();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Added ${product['name']} to cart!'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
+          builder: (context, candidateData, rejectedData) {
+            return SizedBox(
+              width: 130,
+              height: 130,
+              child: Container(
+                alignment: Alignment.bottomRight,
+                child: AnimatedScale(
+                  scale: _isDraggingOverCart ? 1.3 : 1.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: FloatingActionButton(
+                    onPressed: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
+                    },
+                    backgroundColor: Colors.lightBlue,
+                    elevation: _isDraggingOverCart ? 15 : 6,
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: _isDraggingOverCart ? [
+                          BoxShadow(
+                            color: Colors.lightBlue.withOpacity(0.5),
+                            blurRadius: 30,
+                            spreadRadius: 6,
+                          )
+                        ] : [],
+                      ),
+                      child: Center(
+                        child: Badge(
+                          label: Text(_cartItems.length.toString()),
+                          isLabelVisible: _cartItems.isNotEmpty,
+                          child: const Icon(Icons.shopping_cart, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
+            : Stack(
           children: [
-            // Search bar (Ch 3.1: TextField)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      decoration: BoxDecoration(
-                        color: isFocused ? Colors.white : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isFocused ? Colors.lightBlue : Colors.transparent,
-                          width: isFocused ? 2 : 0,
+            Column(
+              children: [
+                // Search bar (Ch 3.1: TextField)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          decoration: BoxDecoration(
+                            color: isFocused ? Colors.white : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isFocused ? Colors.lightBlue : Colors.transparent,
+                              width: isFocused ? 2 : 0,
+                            ),
+                            boxShadow: isFocused
+                                ? [
+                              BoxShadow(
+                                color: Colors.lightBlue.withOpacity(0.1),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 2),
+                              )
+                            ]
+                                : [],
+                          ),
+                          child: TextField(
+                            focusNode: _searchFocusNode,
+                            controller: _searchController,
+                            textInputAction: TextInputAction.done,
+                            decoration: const InputDecoration(
+                              hintText: 'Search products...',
+                              prefixIcon: Icon(Icons.search, color: Colors.grey),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onChanged: (value) {
+                              _filterProducts();
+                            },
+                            onSubmitted: (_) => _searchFocusNode.unfocus(),
+                          ),
                         ),
-                        boxShadow: isFocused
-                            ? [
-                          BoxShadow(
-                            color: Colors.lightBlue.withOpacity(0.1),
-                            blurRadius: 8,
-                            spreadRadius: 2,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                            : [],
                       ),
-                      child: TextField(
-                        focusNode: _searchFocusNode,
-                        controller: _searchController,
-                        textInputAction: TextInputAction.done,
-                        decoration: const InputDecoration(
-                          hintText: 'Search products...',
-                          prefixIcon: Icon(Icons.search, color: Colors.grey),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 14),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _startListening,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: Colors.lightBlue,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.mic_none,
+                            color: Colors.white,
+                          ),
                         ),
-                        onChanged: (value) {
-                          _filterProducts();
-                        },
-                        onSubmitted: (_) => _searchFocusNode.unfocus(),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _startListening,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        color: Colors.lightBlue,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.mic_none,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
-            SizedBox(
-              height: 48,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final isSelected = _selectedCategory == category;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: FilterChip(
-                      label: Text(category),
-                      selected: isSelected,
-                      onSelected: (bool value) {
-                        setState(() {
-                          _selectedCategory = category;
-                          _filterProducts();
-                        });
-                      },
-                      selectedColor: Colors.lightBlue.shade100,
-                      checkmarkColor: Colors.lightBlue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // GridView of products (Ch 3.1: GridView)
-            Expanded(
-              child: _filteredProducts.isEmpty
-                  ? const Center(child: Text('No products found matching your criteria.'))
-                  : GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.75,
                 ),
-                itemCount: _filteredProducts.length,
-                itemBuilder: (context, index) {
-                  final product = _filteredProducts[index];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProductDetailsScreen(
-                            productId: product['id'],
+
+                // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
+                SizedBox(
+                  height: 48,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final category = _categories[index];
+                      final isSelected = _selectedCategory == category;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: FilterChip(
+                          label: Text(category),
+                          selected: isSelected,
+                          onSelected: (bool value) {
+                            setState(() {
+                              _selectedCategory = category;
+                              _filterProducts();
+                            });
+                          },
+                          selectedColor: Colors.lightBlue.shade100,
+                          checkmarkColor: Colors.lightBlue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
                           ),
                         ),
                       );
                     },
-                    child: ProductCard(
-                      name: product['name'] ?? 'Unknown',
-                      price: product['price'].toString(),
-                      imageUrl: product['image_url'],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // GridView of products (Ch 3.1: GridView)
+                Expanded(
+                  child: _filteredProducts.isEmpty
+                      ? const Center(child: Text('No products found matching your criteria.'))
+                      : GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.75,
                     ),
-                  );
-                },
-              ),
+                    itemCount: _filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = _filteredProducts[index];
+                      return LongPressDraggable<Map<String, dynamic>>(
+                        data: product,
+                        feedback: Material(
+                          elevation: 20,
+                          borderRadius: BorderRadius.circular(16),
+                          color: Colors.transparent,
+                          child: Transform.scale(
+                            scale: 1.05,
+                            child: Container(
+                              width: 150,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 10),
+                                  )
+                                ],
+                              ),
+                              child: product['image_url'] != null
+                                  ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(product['image_url'], fit: BoxFit.cover),
+                              )
+                                  : const Icon(Icons.shopping_bag, size: 50),
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.2,
+                          child: ProductCard(
+                            name: product['name'] ?? 'Unknown',
+                            price: product['price'].toString(),
+                            imageUrl: product['image_url'],
+                          ),
+                        ),
+                        onDragStarted: () {
+                          HapticFeedback.heavyImpact();
+                          _isDraggingProductNotifier.value = true;
+                        },
+                        onDragEnd: (details) {
+                          _isDraggingProductNotifier.value = false;
+                        },
+                        onDraggableCanceled: (velocity, offset) {
+                          _isDraggingProductNotifier.value = false;
+                        },
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProductDetailsScreen(
+                                  productId: product['id'],
+                                ),
+                              ),
+                            );
+                          },
+                          child: ProductCard(
+                            name: product['name'] ?? 'Unknown',
+                            price: product['price'].toString(),
+                            imageUrl: product['image_url'],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            // FOCUS OVERLAY
+            ValueListenableBuilder<bool>(
+              valueListenable: _isDraggingProductNotifier,
+              builder: (context, isDragging, child) {
+                return IgnorePointer(
+                  ignoring: !isDragging,
+                  child: AnimatedOpacity(
+                    opacity: isDragging ? 0.6 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(color: Colors.black),
+                  ),
+                );
+              },
             ),
           ],
         ),
