@@ -1,105 +1,497 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/product_card.dart';
 import 'product_details_screen.dart';
 
 // Member 2: ShopScreen — full product browsing with category filter chips
-class ShopScreen extends StatelessWidget {
+class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
 
-  final List<Map<String, String>> _products = const [
-    {'name': 'Bluetooth Speaker', 'price': '60.00', 'cat': 'Electronics'},
-    {'name': 'Denim Jacket', 'price': '85.00', 'cat': 'Fashion'},
-    {'name': 'Notebook Set', 'price': '15.00', 'cat': 'Books'},
-    {'name': 'Desk Lamp', 'price': '40.00', 'cat': 'Electronics'},
-    {'name': 'Yoga Mat', 'price': '55.00', 'cat': 'Sports'},
-    {'name': 'Phone Stand', 'price': '12.00', 'cat': 'Electronics'},
-    {'name': 'Cotton T-Shirt', 'price': '25.00', 'cat': 'Fashion'},
-    {'name': 'USB Hub', 'price': '35.00', 'cat': 'Electronics'},
-  ];
+  @override
+  State<ShopScreen> createState() => _ShopScreenState();
+}
 
-  final List<String> _categories = const [
-    'All',
-    'Electronics',
-    'Fashion',
-    'Books',
-    'Sports',
-    'Food',
-  ];
+class _ShopScreenState extends State<ShopScreen> {
+  final FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
+  final SpeechToText _speechToText = SpeechToText();
+
+  bool _isSpeechEnabled = false;
+  bool _isListening = false;
+  String _wordsSpoken = "";
+  final ValueNotifier<String> _speechTextNotifier = ValueNotifier<String>("");
+  final ValueNotifier<bool> _isErrorNotifier = ValueNotifier<bool>(false);
+  bool _sttHasError = false;
+  Timer? _autoDismissTimer;
+  Timer? _silenceTimer;
+
+  // Dynamic Data
+  List<Map<String, dynamic>> _allProducts = [];
+  List<Map<String, dynamic>> _filteredProducts = [];
+  List<String> _categories = ['All'];
+  String _selectedCategory = 'All';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+    _initSpeech();
+    _searchFocusNode.addListener(() {
+      setState(() {});
+    });
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+      // Fetch products that are for sale
+      final response = await supabase
+          .from('product')
+          .select()
+          .eq('for_sale', true)
+          .order('name', ascending: true);
+
+      final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
+
+      // Extract unique categories
+      final Set<String> uniqueCategories = products
+          .map((p) => p['category'] as String?)
+          .where((c) => c != null && c.isNotEmpty)
+          .map((c) => c!)
+          .toSet();
+
+      setState(() {
+        _allProducts = products;
+        _categories = ['All', ...uniqueCategories.toList()..sort()];
+        _filterProducts();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching products: $e'), backgroundColor: Colors.red),
+        );
+      }
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _filterProducts() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredProducts = _allProducts.where((product) {
+        final matchesCategory = _selectedCategory == 'All' || product['category'] == _selectedCategory;
+        final matchesSearch = product['name'].toString().toLowerCase().contains(query);
+        return matchesCategory && matchesSearch;
+      }).toList();
+    });
+  }
+
+  void _initSpeech() async {
+    _isSpeechEnabled = await _speechToText.initialize(
+      onError: (error) => print('STT Error: $error'),
+      onStatus: (status) {
+        if (status == 'done') {
+          setState(() {
+            _isListening = false;
+          });
+        }
+      },
+    );
+    setState(() {});
+  }
+
+  void _startListening() async {
+    if (!_isSpeechEnabled) return;
+
+    _speechTextNotifier.value = "";
+    _sttHasError = false;
+    _isErrorNotifier.value = false;
+    _cancelAutoDismissTimer();
+    _cancelSilenceTimer();
+
+    _showVoiceSearchBottomSheet();
+
+    _startSilenceTimer(); // Initial 3s silence detection
+
+    await _speechToText.listen(
+      onResult: (result) {
+        _speechTextNotifier.value = result.recognizedWords;
+        _startSilenceTimer(); // Reset silence timer on results
+
+        if (result.finalResult) {
+          _cancelSilenceTimer();
+          _searchController.text = result.recognizedWords;
+          _filterProducts();
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+          });
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      partialResults: true,
+      cancelOnError: true,
+      listenMode: ListenMode.search,
+    );
+
+    setState(() {
+      _isListening = true;
+    });
+  }
+
+  void _startSilenceTimer() {
+    _cancelSilenceTimer();
+    _silenceTimer = Timer(const Duration(seconds: 3), () {
+      if (_isListening) {
+        _stopListening();
+      }
+    });
+  }
+
+  void _cancelSilenceTimer() {
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
+  }
+
+  void _startAutoDismissTimer() {
+    _cancelAutoDismissTimer();
+    _autoDismissTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    });
+  }
+
+  void _cancelAutoDismissTimer() {
+    _autoDismissTimer?.cancel();
+    _autoDismissTimer = null;
+  }
+
+  void _stopListening() async {
+    await _speechToText.stop();
+    _cancelSilenceTimer();
+
+    setState(() {
+      _isListening = false;
+      // If we stopped but have no words, it's a silence error
+      if (_speechTextNotifier.value.isEmpty) {
+        _sttHasError = true;
+        _isErrorNotifier.value = true;
+        _startAutoDismissTimer();
+      }
+    });
+  }
+
+  void _showVoiceSearchBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.45,
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 28),
+                        onPressed: () {
+                          _stopListening();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _isErrorNotifier,
+                    builder: (context, isError, _) {
+                      return ValueListenableBuilder<String>(
+                        valueListenable: _speechTextNotifier,
+                        builder: (context, words, _) {
+                          bool hasWords = words.isNotEmpty;
+                          return Column(
+                            children: [
+                              Text(
+                                !hasWords ? (isError ? "Didn't hear that..." : "Listening...") : words,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                  color: hasWords ? Colors.black87 : Colors.grey.shade400,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              if (isError)
+                                const Text(
+                                  "Sorry! Didn't hear that\nPlease try again",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
+                                ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      _cancelAutoDismissTimer();
+                      _cancelSilenceTimer();
+                      if (_isListening) {
+                        _stopListening();
+                      } else {
+                        // Restart listening correctly within the bottom sheet
+                        _speechTextNotifier.value = "";
+                        _isErrorNotifier.value = false;
+                        setState(() => _sttHasError = false);
+                        _startListeningFromInsideSheet(setSheetState);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                            blurRadius: 15,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.mic, color: Colors.white, size: 40),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Tap the microphone to try again",
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      _stopListening();
+      _cancelAutoDismissTimer();
+      _cancelSilenceTimer();
+    });
+  }
+
+  void _startListeningFromInsideSheet(StateSetter setSheetState) async {
+    if (!_isSpeechEnabled) return;
+
+    _startSilenceTimer();
+
+    await _speechToText.listen(
+      onResult: (result) {
+        _speechTextNotifier.value = result.recognizedWords;
+        _startSilenceTimer();
+
+        if (result.finalResult) {
+          _cancelSilenceTimer();
+          _searchController.text = result.recognizedWords;
+          _filterProducts();
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted && Navigator.canPop(context)) Navigator.pop(context);
+          });
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      partialResults: true,
+      cancelOnError: true,
+      listenMode: ListenMode.search,
+    );
+
+    setState(() {
+      _isListening = true;
+      _sttHasError = false;
+      _isErrorNotifier.value = false;
+    });
+    setSheetState(() {});
+  }
+
+  @override
+  void dispose() {
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    _speechTextNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Shop')),
-      body: Column(
-        children: [
-          // Search bar (Ch 3.1: TextField)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search products...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
+    bool isFocused = _searchFocusNode.hasFocus;
 
-          // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final isFirst = index == 0; // "All" selected by default visually
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(_categories[index]),
-                    selected: isFirst,
-                    onSelected: (value) {}, // filter logic added later
-                    selectedColor: Colors.lightBlue.shade100,
-                    checkmarkColor: Colors.lightBlue,
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 6),
-
-          // GridView of products (Ch 3.1: GridView)
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 0.75,
-              ),
-              itemCount: _products.length,
-              itemBuilder: (context, index) {
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProductDetailsScreen(),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Shop')),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+          children: [
+            // Search bar (Ch 3.1: TextField)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      decoration: BoxDecoration(
+                        color: isFocused ? Colors.white : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isFocused ? Colors.lightBlue : Colors.transparent,
+                          width: isFocused ? 2 : 0,
+                        ),
+                        boxShadow: isFocused
+                            ? [
+                          BoxShadow(
+                            color: Colors.lightBlue.withOpacity(0.1),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                            : [],
                       ),
-                    );
-                  },
-                  child: ProductCard(
-                    name: _products[index]['name']!,
-                    price: _products[index]['price']!,
+                      child: TextField(
+                        focusNode: _searchFocusNode,
+                        controller: _searchController,
+                        textInputAction: TextInputAction.done,
+                        decoration: const InputDecoration(
+                          hintText: 'Search products...',
+                          prefixIcon: Icon(Icons.search, color: Colors.grey),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onChanged: (value) {
+                          _filterProducts();
+                        },
+                        onSubmitted: (_) => _searchFocusNode.unfocus(),
+                      ),
+                    ),
                   ),
-                );
-              },
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _startListening,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Colors.lightBlue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.mic_none,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
+            SizedBox(
+              height: 48,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final category = _categories[index];
+                  final isSelected = _selectedCategory == category;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: FilterChip(
+                      label: Text(category),
+                      selected: isSelected,
+                      onSelected: (bool value) {
+                        setState(() {
+                          _selectedCategory = category;
+                          _filterProducts();
+                        });
+                      },
+                      selectedColor: Colors.lightBlue.shade100,
+                      checkmarkColor: Colors.lightBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // GridView of products (Ch 3.1: GridView)
+            Expanded(
+              child: _filteredProducts.isEmpty
+                  ? const Center(child: Text('No products found matching your criteria.'))
+                  : GridView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.75,
+                ),
+                itemCount: _filteredProducts.length,
+                itemBuilder: (context, index) {
+                  final product = _filteredProducts[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ProductDetailsScreen(
+                            productId: product['id'],
+                          ),
+                        ),
+                      );
+                    },
+                    child: ProductCard(
+                      name: product['name'] ?? 'Unknown',
+                      price: product['price'].toString(),
+                      imageUrl: product['image_url'],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
