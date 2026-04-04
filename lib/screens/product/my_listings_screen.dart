@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'upload_product_screen.dart';
 import '../../utils/snackbar_helper.dart';
-import 'edit_product.dart'; // 导入编辑页面
+import 'edit_product.dart';
+import '../../utils/circular_reveal_route.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -17,6 +18,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _myProducts = [];
   String _selectedCategory = 'All';
+  final GlobalKey _addKey = GlobalKey();
 
   @override
   void initState() {
@@ -78,7 +80,14 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToUpload(context),
+        key: _addKey,
+        onPressed: () {
+          CircularRevealPageRoute.push(
+            context,
+            _addKey,
+            const UploadProductScreen(),
+          ).then((_) => _fetchMyProducts());
+        },
         backgroundColor: Colors.blue,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -174,7 +183,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
               ).then((value) {
                 if (value == true) _fetchMyProducts();
               });
-            }, 
+            },
             borderRadius: BorderRadius.circular(15),
             child: Padding(
               padding: const EdgeInsets.all(10),
@@ -280,13 +289,6 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         ),
       ],
     );
-  }
-
-  void _navigateToUpload(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const UploadProductScreen()),
-    ).then((_) => _fetchMyProducts());
   }
 
   List<Map<String, dynamic>> _filteredProducts() {

@@ -8,6 +8,7 @@ import '../../widgets/product_card.dart';
 import 'product_details_screen.dart';
 import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
+import '../../utils/circular_reveal_route.dart'; // 导入圆形扩散动画路由
 
 // Member 2: ShopScreen — full product browsing with category filter chips
 class ShopScreen extends StatefulWidget {
@@ -40,6 +41,8 @@ class _ShopScreenState extends State<ShopScreen> {
   int _cartCount = 0;
   bool _isDraggingOverCart = false;
   final ValueNotifier<bool> _isDraggingProductNotifier = ValueNotifier<bool>(false);
+  // 获取购物车按钮中心坐标的 Key
+  final GlobalKey _cartButtonKey = GlobalKey();
 
   Future<void> _addToSupabaseCart(Map<String, dynamic> product) async {
     final supabase = Supabase.instance.client;
@@ -470,10 +473,8 @@ class _ShopScreenState extends State<ShopScreen> {
                   scale: _isDraggingOverCart ? 1.3 : 1.0,
                   duration: const Duration(milliseconds: 250),
                   child: FloatingActionButton(
-                    onPressed: () async {
-                      await Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
-                      _fetchCartCount();
-                    },
+                    key: _cartButtonKey,
+                    onPressed: () => CircularRevealPageRoute.push(context, _cartButtonKey, const CartScreen()),
                     backgroundColor: Colors.lightBlue,
                     elevation: _isDraggingOverCart ? 15 : 6,
                     child: Container(
