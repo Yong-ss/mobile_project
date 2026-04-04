@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'upload_product_screen.dart';
 import '../../utils/snackbar_helper.dart';
+import 'edit_product.dart'; // 导入编辑页面
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -157,23 +158,30 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
             borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
           child: InkWell(
-            onTap: () {}, // 详情/编辑
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditProductScreen(product: product),
+                ),
+              ).then((value) {
+                if (value == true) _fetchMyProducts();
+              });
+            }, 
             borderRadius: BorderRadius.circular(15),
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Row(
                 children: [
-                  // 图片部分
                   _buildProductImage(product['image_url']),
                   const SizedBox(width: 12),
-                  // 信息部分
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +272,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         ),
         const SizedBox(width: 4),
         Text(
-          isActive ? "Active" : "Hidden",
+          isActive ? "Active" : "Inactive",
           style: TextStyle(
             fontSize: 12,
             color: isActive ? Colors.green : Colors.grey,
