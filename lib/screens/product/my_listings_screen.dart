@@ -15,6 +15,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _myProducts = [];
+  String _selectedCategory = 'All';
 
   @override
   void initState() {
@@ -25,7 +26,6 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   Future<void> _fetchMyProducts() async {
     try {
       setState(() => _isLoading = true);
-      
       final data = await _supabase
           .from('product')
           .select('*')
@@ -39,7 +39,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        snackbar('Error loading products: $e', Colors.red);
+        snackbar('Error: $e', Colors.red);
       }
     }
   }
@@ -47,27 +47,39 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 背景色调浅一点，看起来更干净
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('My Listings'),
+        title: const Text(
+          'My Listings',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchMyProducts,
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _navigateToUpload(context),
+        ],
+      ),
+      body: Column(
+        children: [
+          _buildCategorySelector(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredProducts().isEmpty
+                ? _buildEmptyState()
+                : _buildProductList(_filteredProducts()),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _myProducts.isEmpty
-              ? _buildEmptyState()
-              : _buildProductList(),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _navigateToUpload(context),
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.blue,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -77,71 +89,188 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 80,
+            color: Colors.grey.shade200,
+          ),
           const SizedBox(height: 16),
-          const Text('No products listed yet', style: TextStyle(color: Colors.grey, fontSize: 16)),
+          Text(
+            _selectedCategory == 'All'
+                ? 'No products yet'
+                : 'Empty in $_selectedCategory',
+            style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildProductList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: _myProducts.length,
-      itemBuilder: (context, index) {
-        final product = _myProducts[index];
-        final bool isForSale = product['for_sale'] ?? false;
-        
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(8),
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 60,
-                height: 60,
-                child: (product['image_url'] != null && product['image_url'].toString().isNotEmpty)
-                    ? Image.network(
-                        product['image_url'],
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => 
-                            Container(color: Colors.grey.shade200, child: const Icon(Icons.image_not_supported)),
-                      )
-                    : Container(color: Colors.grey.shade200, child: const Icon(Icons.inventory_2)),
+  Widget _buildCategorySelector() {
+    return Container(
+      height: 55,
+      color: Colors.white,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        itemCount: shopCategories.length,
+        itemBuilder: (context, index) {
+          final category = shopCategories[index];
+          final isSelected = _selectedCategory == category;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(category),
+              selected: isSelected,
+              onSelected: (val) =>
+                  val ? setState(() => _selectedCategory = category) : null,
+              // 调淡背景色，让 UI 更清新
+              selectedColor: Colors.blue.withOpacity(0.1),
+              backgroundColor: Colors.grey.shade100,
+              side: BorderSide.none, // 去掉边框更现代
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.blue : Colors.black54,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            title: Text(
-              product['name'] ?? 'Unnamed Product',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  'RM ${product['price']}',
-                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w600),
-                ),
-                Text(
-                  'Stock: ${product['quantity']} • ${isForSale ? "Active" : "Hidden"}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isForSale ? Colors.green : Colors.grey,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProductList(List<Map<String, dynamic>> products) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: products.length,
+      itemBuilder: (context, index) {
+        final product = products[index];
+        final bool isForSale = product['for_sale'] ?? false;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: InkWell(
+            onTap: () {}, // 详情/编辑
+            borderRadius: BorderRadius.circular(15),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  // 图片部分
+                  _buildProductImage(product['image_url']),
+                  const SizedBox(width: 12),
+                  // 信息部分
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product['name'] ?? 'Unnamed',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'RM ${product['price']}',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.inventory_2,
+                              size: 12,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Stock: ${product['quantity']}',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildStatusDot(isForSale),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  const Icon(Icons.chevron_right, color: Colors.grey),
+                ],
+              ),
             ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              // 你朋友以后可以在这里写详情或编辑逻辑
-            },
           ),
         );
       },
+    );
+  }
+
+  Widget _buildProductImage(String? url) {
+    return Container(
+      width: 75,
+      height: 75,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: (url != null && url.isNotEmpty)
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) =>
+                    const Icon(Icons.image_not_supported),
+              )
+            : const Icon(Icons.image, color: Colors.grey),
+      ),
+    );
+  }
+
+  Widget _buildStatusDot(bool isActive) {
+    return Row(
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: isActive ? Colors.green : Colors.grey,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          isActive ? "Active" : "Hidden",
+          style: TextStyle(
+            fontSize: 12,
+            color: isActive ? Colors.green : Colors.grey,
+          ),
+        ),
+      ],
     );
   }
 
@@ -149,6 +278,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const UploadProductScreen()),
-    ).then((_) => _fetchMyProducts()); // 传完回来自动刷新
+    ).then((_) => _fetchMyProducts());
+  }
+
+  List<Map<String, dynamic>> _filteredProducts() {
+    if (_selectedCategory == 'All') return _myProducts;
+    return _myProducts
+        .where((p) => p['category'] == _selectedCategory)
+        .toList();
   }
 }
