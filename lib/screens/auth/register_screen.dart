@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // 别忘了导入它
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/snackbar_helper.dart'; // 导入全局 snackbar
 
 class RegisterScreen extends StatefulWidget {
   // 改成 StatefulWidget
@@ -32,12 +33,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String email = _emailController.text.trim();
     String password = _passwordController.text;
     String confirmPassword = _confirmPasswordController.text;
-
-    void snackbar(String s, Color c) {
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(content: Text(s), backgroundColor: c));
-    }
 
     if (username.isEmpty ||
         email.isEmpty ||

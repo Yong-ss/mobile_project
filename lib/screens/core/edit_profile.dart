@@ -22,6 +22,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _newImageUrl; // 存刚才传好的 URL，用来做预览
   bool _isUploading = false; // 上传时的转圈圈标志
 
+  void snackbar(String s, Color color) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(s), backgroundColor: color));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -55,20 +61,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final supabase = Supabase.instance.client;
       final userId = currentUser!['id'];
 
-      // 用 userId 命名，保证每个用户只有一个文件夹
+      // Use userId to name the folder, ensuring each user has only one folder
       final path =
           'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
       final bytes = await image.readAsBytes();
 
-      // 1. 上传图片到 Storage
+      // Upload image to Storage
       await supabase.storage.from('avatars').uploadBinary(path, bytes);
 
-      // 2. 拿到公网 URL
+      //Fetch URL
       final String imageUrl = supabase.storage
           .from('avatars')
           .getPublicUrl(path);
 
-      // 3.关键：只更新本地变量，不更新数据库
+      // only update local variables, not database
       setState(() {
         _newImageUrl = imageUrl;
         _isUploading = false;
@@ -281,7 +287,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           )
                         : null,
                   ),
-
 
                   if (_isUploading)
                     const Positioned.fill(

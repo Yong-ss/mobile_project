@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart'; // 加上这个
 import 'utils/supabase_config.dart'; // 导入配置类
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/globals.dart';
+import 'utils/snackbar_helper.dart'; // 导入全局 snackbar key
 import 'screens/auth/login_screen.dart';
 import 'screens/core/home_screen.dart';
 
@@ -40,6 +41,7 @@ class PrisconApp extends StatelessWidget {
     return MaterialApp(
       title: 'Priscon',
       debugShowCheckedModeBanner: false, // hide debug function
+      scaffoldMessengerKey: snackbarKey, // 注册全局 key
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
         useMaterial3: true, // Use modern M3 UI

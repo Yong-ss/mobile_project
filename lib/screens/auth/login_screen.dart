@@ -5,6 +5,7 @@ import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/globals.dart';
+import '../../utils/snackbar_helper.dart'; // 导入全局 snackbar
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,12 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     String email = _emailController.text.trim();
     String password = _passwordController.text;
-
-    void snackbar(String message, Color color) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
-    }
 
     if (email.isEmpty || password.isEmpty) {
       snackbar('Please fill in all fields', Colors.red);
