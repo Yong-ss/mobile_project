@@ -15,18 +15,3 @@ void snackbar(String message, Color color) {
       ),
     );
 }
-
-/// 如果你喜欢用 context.showSnackbar('...') 这种方式，也可以定义一个扩展
-extension SnackbarExtension on BuildContext {
-  void showSnackbar(String message, Color color) {
-    ScaffoldMessenger.of(this)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: color,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-}
