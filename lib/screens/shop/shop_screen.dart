@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
@@ -23,10 +24,8 @@ class _ShopScreenState extends State<ShopScreen> {
 
   bool _isSpeechEnabled = false;
   bool _isListening = false;
-  final String _wordsSpoken = "";
   final ValueNotifier<String> _speechTextNotifier = ValueNotifier<String>("");
   final ValueNotifier<bool> _isErrorNotifier = ValueNotifier<bool>(false);
-  bool _sttHasError = false;
   Timer? _autoDismissTimer;
   Timer? _silenceTimer;
 
@@ -38,7 +37,7 @@ class _ShopScreenState extends State<ShopScreen> {
   bool _isLoading = true;
 
   // Cart State
-  final List<Map<String, dynamic>> _cartItems = [];
+  int _cartCount = 0;
   bool _isDraggingOverCart = false;
   final ValueNotifier<bool> _isDraggingProductNotifier = ValueNotifier<bool>(false);
 
@@ -74,6 +73,7 @@ class _ShopScreenState extends State<ShopScreen> {
         });
 
         HapticFeedback.lightImpact();
+        _fetchCartCount(); // Refresh count
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -84,20 +84,43 @@ class _ShopScreenState extends State<ShopScreen> {
           );
         }
       } else {
-        // If it exists, we keep it at current qty or ensure it's at least 1
-        // Per user request: "same item remain 1 if exist"
+        // If it exists, increment quantity
+        final newQuantity = (response['quantity'] as int) + 1;
+        await supabase
+            .from('cart_item')
+            .update({'quantity': newQuantity})
+            .eq('id', response['id']);
+
+        HapticFeedback.mediumImpact();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${product['name']} is already in your cart'),
-              backgroundColor: Colors.blueGrey,
+              content: Text('Increased ${product['name']} quantity to $newQuantity'),
+              backgroundColor: Colors.blueAccent,
               duration: const Duration(seconds: 1),
             ),
           );
         }
       }
     } catch (e) {
-      print('Error adding to cart: $e');
+      debugPrint('Error adding to cart: $e');
+    }
+  }
+
+  Future<void> _fetchCartCount() async {
+    if (currentUser == null) return;
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('cart_item')
+          .select('id')
+          .eq('user_id', currentUser!['id']);
+
+      setState(() {
+        _cartCount = response.length;
+      });
+    } catch (e) {
+      debugPrint('Error fetching cart count: $e');
     }
   }
 
@@ -105,6 +128,7 @@ class _ShopScreenState extends State<ShopScreen> {
   void initState() {
     super.initState();
     _fetchProducts();
+    _fetchCartCount();
     _initSpeech();
     _searchFocusNode.addListener(() {
       setState(() {});
@@ -164,7 +188,7 @@ class _ShopScreenState extends State<ShopScreen> {
 
   void _initSpeech() async {
     _isSpeechEnabled = await _speechToText.initialize(
-      onError: (error) => print('STT Error: $error'),
+      onError: (error) => debugPrint('STT Error: $error'),
       onStatus: (status) {
         if (status == 'done') {
           setState(() {
@@ -180,7 +204,6 @@ class _ShopScreenState extends State<ShopScreen> {
     if (!_isSpeechEnabled) return;
 
     _speechTextNotifier.value = "";
-    _sttHasError = false;
     _isErrorNotifier.value = false;
     _cancelAutoDismissTimer();
     _cancelSilenceTimer();
@@ -205,9 +228,11 @@ class _ShopScreenState extends State<ShopScreen> {
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
-      partialResults: true,
-      cancelOnError: true,
-      listenMode: ListenMode.search,
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: ListenMode.search,
+      ),
     );
 
     setState(() {
@@ -251,7 +276,6 @@ class _ShopScreenState extends State<ShopScreen> {
       _isListening = false;
       // If we stopped but have no words, it's a silence error
       if (_speechTextNotifier.value.isEmpty) {
-        _sttHasError = true;
         _isErrorNotifier.value = true;
         _startAutoDismissTimer();
       }
@@ -333,7 +357,6 @@ class _ShopScreenState extends State<ShopScreen> {
                         // Restart listening correctly within the bottom sheet
                         _speechTextNotifier.value = "";
                         _isErrorNotifier.value = false;
-                        setState(() => _sttHasError = false);
                         _startListeningFromInsideSheet(setSheetState);
                       }
                     },
@@ -344,7 +367,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                             blurRadius: 15,
                             spreadRadius: 5,
                           ),
@@ -393,14 +416,15 @@ class _ShopScreenState extends State<ShopScreen> {
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
-      partialResults: true,
-      cancelOnError: true,
-      listenMode: ListenMode.search,
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: ListenMode.search,
+      ),
     );
 
     setState(() {
       _isListening = true;
-      _sttHasError = false;
       _isErrorNotifier.value = false;
     });
     setSheetState(() {});
@@ -427,14 +451,14 @@ class _ShopScreenState extends State<ShopScreen> {
       child: Scaffold(
         appBar: AppBar(title: const Text('Shop')),
         floatingActionButton: DragTarget<Map<String, dynamic>>(
-          onWillAccept: (data) {
+          onWillAcceptWithDetails: (details) {
             setState(() => _isDraggingOverCart = true);
             return true;
           },
           onLeave: (data) => setState(() => _isDraggingOverCart = false),
-          onAccept: (product) {
+          onAcceptWithDetails: (details) {
             setState(() => _isDraggingOverCart = false);
-            _addToSupabaseCart(product);
+            _addToSupabaseCart(details.data);
           },
           builder: (context, candidateData, rejectedData) {
             return SizedBox(
@@ -458,7 +482,7 @@ class _ShopScreenState extends State<ShopScreen> {
                         shape: BoxShape.circle,
                         boxShadow: _isDraggingOverCart ? [
                           BoxShadow(
-                            color: Colors.lightBlue.withOpacity(0.5),
+                            color: Colors.lightBlue.withValues(alpha: 0.5),
                             blurRadius: 30,
                             spreadRadius: 6,
                           )
@@ -466,8 +490,10 @@ class _ShopScreenState extends State<ShopScreen> {
                       ),
                       child: Center(
                         child: Badge(
-                          label: Text(_cartItems.length.toString()),
-                          isLabelVisible: _cartItems.isNotEmpty,
+                          label: Text(_cartCount.toString()),
+                          backgroundColor: Colors.red,
+                          isLabelVisible: _cartCount > 0,
+                          offset: const Offset(6, -6),
                           child: const Icon(Icons.shopping_cart, color: Colors.white),
                         ),
                       ),
@@ -480,209 +506,211 @@ class _ShopScreenState extends State<ShopScreen> {
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Stack(
-          children: [
-            Column(
-              children: [
-                // Search bar (Ch 3.1: TextField)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          decoration: BoxDecoration(
-                            color: isFocused ? Colors.white : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isFocused ? Colors.lightBlue : Colors.transparent,
-                              width: isFocused ? 2 : 0,
+            : SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  // Search bar (Ch 3.1: TextField)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            decoration: BoxDecoration(
+                              color: isFocused ? Colors.white : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isFocused ? Colors.lightBlue : Colors.transparent,
+                                width: isFocused ? 2 : 0,
+                              ),
+                              boxShadow: isFocused
+                                  ? [
+                                BoxShadow(
+                                  color: Colors.lightBlue.withValues(alpha: 0.1),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                                  : [],
                             ),
-                            boxShadow: isFocused
-                                ? [
-                              BoxShadow(
-                                color: Colors.lightBlue.withOpacity(0.1),
-                                blurRadius: 8,
-                                spreadRadius: 2,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                                : [],
-                          ),
-                          child: TextField(
-                            focusNode: _searchFocusNode,
-                            controller: _searchController,
-                            textInputAction: TextInputAction.done,
-                            decoration: const InputDecoration(
-                              hintText: 'Search products...',
-                              prefixIcon: Icon(Icons.search, color: Colors.grey),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 14),
+                            child: TextField(
+                              focusNode: _searchFocusNode,
+                              controller: _searchController,
+                              textInputAction: TextInputAction.done,
+                              decoration: const InputDecoration(
+                                hintText: 'Search products...',
+                                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onChanged: (value) {
+                                _filterProducts();
+                              },
+                              onSubmitted: (_) => _searchFocusNode.unfocus(),
                             ),
-                            onChanged: (value) {
-                              _filterProducts();
-                            },
-                            onSubmitted: (_) => _searchFocusNode.unfocus(),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _startListening,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            color: Colors.lightBlue,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.mic_none,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
-                SizedBox(
-                  height: 48,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final category = _categories[index];
-                      final isSelected = _selectedCategory == category;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: FilterChip(
-                          label: Text(category),
-                          selected: isSelected,
-                          onSelected: (bool value) {
-                            setState(() {
-                              _selectedCategory = category;
-                              _filterProducts();
-                            });
-                          },
-                          selectedColor: Colors.lightBlue.shade100,
-                          checkmarkColor: Colors.lightBlue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _startListening,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
+                              color: Colors.lightBlue,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.mic_none,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // GridView of products (Ch 3.1: GridView)
-                Expanded(
-                  child: _filteredProducts.isEmpty
-                      ? const Center(child: Text('No products found matching your criteria.'))
-                      : GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 0.75,
+                      ],
                     ),
-                    itemCount: _filteredProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = _filteredProducts[index];
-                      return LongPressDraggable<Map<String, dynamic>>(
-                        data: product,
-                        feedback: Material(
-                          elevation: 20,
-                          borderRadius: BorderRadius.circular(16),
-                          color: Colors.transparent,
-                          child: Transform.scale(
-                            scale: 1.05,
-                            child: Container(
-                              width: 150,
-                              height: 200,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 10),
-                                  )
-                                ],
-                              ),
-                              child: product['image_url'] != null
-                                  ? ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(product['image_url'], fit: BoxFit.cover),
-                              )
-                                  : const Icon(Icons.shopping_bag, size: 50),
+                  ),
+
+                  // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
+                  SizedBox(
+                    height: 48,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final category = _categories[index];
+                        final isSelected = _selectedCategory == category;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: FilterChip(
+                            label: Text(category),
+                            selected: isSelected,
+                            onSelected: (bool value) {
+                              setState(() {
+                                _selectedCategory = category;
+                                _filterProducts();
+                              });
+                            },
+                            selectedColor: Colors.lightBlue.shade100,
+                            checkmarkColor: Colors.lightBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.2,
-                          child: ProductCard(
-                            name: product['name'] ?? 'Unknown',
-                            price: product['price'].toString(),
-                            imageUrl: product['image_url'],
-                          ),
-                        ),
-                        onDragStarted: () {
-                          HapticFeedback.heavyImpact();
-                          _isDraggingProductNotifier.value = true;
-                        },
-                        onDragEnd: (details) {
-                          _isDraggingProductNotifier.value = false;
-                        },
-                        onDraggableCanceled: (velocity, offset) {
-                          _isDraggingProductNotifier.value = false;
-                        },
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ProductDetailsScreen(
-                                  productId: product['id'],
-                                ),
-                              ),
-                            );
-                          },
-                          child: ProductCard(
-                            name: product['name'] ?? 'Unknown',
-                            price: product['price'].toString(),
-                            imageUrl: product['image_url'],
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(height: 8),
 
-            // FOCUS OVERLAY
-            ValueListenableBuilder<bool>(
-              valueListenable: _isDraggingProductNotifier,
-              builder: (context, isDragging, child) {
-                return IgnorePointer(
-                  ignoring: !isDragging,
-                  child: AnimatedOpacity(
-                    opacity: isDragging ? 0.6 : 0.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: Container(color: Colors.black),
+                  // GridView of products (Ch 3.1: GridView)
+                  Expanded(
+                    child: _filteredProducts.isEmpty
+                        ? const Center(child: Text('No products found matching your criteria.'))
+                        : GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.75,
+                      ),
+                      itemCount: _filteredProducts.length,
+                      itemBuilder: (context, index) {
+                        final product = _filteredProducts[index];
+                        return LongPressDraggable<Map<String, dynamic>>(
+                          data: product,
+                          feedback: Material(
+                            elevation: 20,
+                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.transparent,
+                            child: Transform.scale(
+                              scale: 1.05,
+                              child: Container(
+                                width: 150,
+                                height: 200,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 30,
+                                      offset: const Offset(0, 10),
+                                    )
+                                  ],
+                                ),
+                                child: product['image_url'] != null
+                                    ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Image.network(product['image_url'], fit: BoxFit.cover),
+                                )
+                                    : const Icon(Icons.shopping_bag, size: 50),
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.2,
+                            child: ProductCard(
+                              name: product['name'] ?? 'Unknown',
+                              price: product['price'].toString(),
+                              imageUrl: product['image_url'],
+                            ),
+                          ),
+                          onDragStarted: () {
+                            HapticFeedback.heavyImpact();
+                            _isDraggingProductNotifier.value = true;
+                          },
+                          onDragEnd: (details) {
+                            _isDraggingProductNotifier.value = false;
+                          },
+                          onDraggableCanceled: (velocity, offset) {
+                            _isDraggingProductNotifier.value = false;
+                          },
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProductDetailsScreen(
+                                    productId: product['id'],
+                                  ),
+                                ),
+                              );
+                            },
+                            child: ProductCard(
+                              name: product['name'] ?? 'Unknown',
+                              price: product['price'].toString(),
+                              imageUrl: product['image_url'],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
-            ),
-          ],
+                ],
+              ),
+
+              // FOCUS OVERLAY
+              ValueListenableBuilder<bool>(
+                valueListenable: _isDraggingProductNotifier,
+                builder: (context, isDragging, child) {
+                  return IgnorePointer(
+                    ignoring: !isDragging,
+                    child: AnimatedOpacity(
+                      opacity: isDragging ? 0.6 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(color: Colors.black),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -45,10 +45,89 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  Future<bool?> _showFancyDeleteDialog(String productName) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 16, right: 16),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context, false),
+                  child: const Icon(Icons.close, color: Colors.grey, size: 20),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Text(
+                'Are you sure you want to delete "$productName"?',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.shade100,
+                        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20)),
+                      ),
+                      child: const Text(
+                        'YES',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context, false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.blueGrey.shade200,
+                        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(20)),
+                      ),
+                      child: const Text(
+                        'NO',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _updateQuantity(int index, int delta) async {
     final item = _cartItems[index];
-    final newQty = (item['quantity'] as int) + delta;
-    if (newQty < 1) return;
+    final currentQty = item['quantity'] as int;
+    final newQty = currentQty + delta;
+
+    if (newQty < 1) {
+      final confirm = await _showFancyDeleteDialog(item['product']['name'] ?? 'this item');
+      if (confirm == true) {
+        _removeItem(index);
+      }
+      return;
+    }
 
     final supabase = Supabase.instance.client;
     try {
@@ -133,6 +212,9 @@ class _CartScreenState extends State<CartScreen> {
                     child: const Icon(Icons.delete_outline, color: Colors.white, size: 30),
                   ),
                   onDismissed: (direction) => _removeItem(index),
+                  confirmDismiss: (direction) async {
+                    return await _showFancyDeleteDialog(product['name'] ?? 'this item');
+                  },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     padding: const EdgeInsets.all(12),
@@ -245,51 +327,56 @@ class _CartScreenState extends State<CartScreen> {
           ),
           // Total block
           if (_cartItems.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                      Text(
-                        'RM ${total.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const CheckoutScreen()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: const Text('Proceed to Checkout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        Text(
+                          'RM ${total.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const CheckoutScreen()),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.lightBlue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: const Text('Proceed to Checkout',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],

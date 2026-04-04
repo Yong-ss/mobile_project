@@ -58,7 +58,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Future<void> _addToSupabaseCart() async {
 
     if (_productData == null) return;
-    
+
     String prodName = _productData?['name'] ?? 'unknown product';
 
     final user = currentUser;
@@ -88,8 +88,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           snackbar('Added $prodName to cart!', Colors.green);
         }
       } else {
+        // Increment existing quantity
+        final newQuantity = (response['quantity'] as int) + 1;
+        await _supabase
+            .from('cart_item')
+            .update({'quantity': newQuantity})
+            .eq('id', response['id']);
+
         if (mounted) {
-          snackbar('$prodName is already in your cart', Colors.blueGrey);
+          snackbar('Increased $prodName quantity to $newQuantity', Colors.blueAccent);
         }
       }
     } catch (e) {
