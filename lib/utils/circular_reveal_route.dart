@@ -4,23 +4,23 @@ import 'package:flutter/material.dart';
 
 /// A custom page route that reveals the new page using a circular growth animation
 /// starting from a specific [centerOffset].
-class CircularRevealPageRoute extends PageRouteBuilder {
+class CircularRevealPageRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
   final Offset centerOffset;
 
   /// (static jump method: just pass the Key to automatically calculate the coordinates and jump)
-  static void push(BuildContext context, GlobalKey key, Widget page) {
+  static Future<T?> push<T>(BuildContext context, GlobalKey key, Widget page) {
     final RenderBox? renderBox =
         key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+    if (renderBox == null) return Future.value(null);
 
     final Offset center = renderBox.localToGlobal(
       renderBox.size.center(Offset.zero),
     );
 
-    Navigator.push(
+    return Navigator.push<T>(
       context,
-      CircularRevealPageRoute(page: page, centerOffset: center),
+      CircularRevealPageRoute<T>(page: page, centerOffset: center),
     );
   }
 

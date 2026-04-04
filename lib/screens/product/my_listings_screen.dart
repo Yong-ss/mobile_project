@@ -81,11 +81,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         key: _addKey,
-        onPressed: () => CircularRevealPageRoute.push(
-          context,
-          _addKey,
-          UploadProductScreen(),
-        ),
+        onPressed: () {
+          CircularRevealPageRoute.push(
+            context,
+            _addKey,
+            const UploadProductScreen(),
+          ).then((_) => _fetchMyProducts());
+        },
         backgroundColor: Colors.blue,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -287,13 +289,6 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         ),
       ],
     );
-  }
-
-  void _navigateToUpload(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const UploadProductScreen()),
-    ).then((_) => _fetchMyProducts());
   }
 
   List<Map<String, dynamic>> _filteredProducts() {
