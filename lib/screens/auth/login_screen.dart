@@ -14,7 +14,6 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
@@ -27,28 +26,37 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-
   Future<void> _login() async {
+    String email = _emailController.text.trim();
+    String password = _passwordController.text;
+
+    void snackbar(String message, Color color) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    }
+
+    if (email.isEmpty || password.isEmpty) {
+      snackbar('Please fill in all fields', Colors.red);
+      return;
+    }
     setState(() {
       _isLoading = true;
     });
+
     try {
       final supabase = Supabase.instance.client;
 
-      //find the speciic user with inserted email and password
-      final foundedData = await supabase.from('user').select()
-          .eq('email',_emailController.text.trim(),)
-          .eq('password',_passwordController.text,)
+      final foundedData = await supabase
+          .from('user')
+          .select()
+          .eq('email', email)
+          .eq('password', password)
           .maybeSingle();
 
       if (foundedData == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid email or password!'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          snackbar('Invalid email or password!', Colors.red);
         }
       } else {
         if (mounted) {
@@ -67,9 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        snackbar('Error: $e', Colors.red);
       }
     } finally {
       if (mounted) {
@@ -85,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -94,26 +100,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 'https://xwglzdiyzjmuukgvdbgu.supabase.co/storage/v1/object/public/announcements/images/logostri.png',
                 height: 120,
                 fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.store, size: 80, color: Colors.lightBlue),
+                errorBuilder: (context, error, stackTrace) =>
+                    Icon(Icons.store, size: 80, color: Colors.lightBlue),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'Priscon',
                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
-              const Text('Simple Marketplace for Small Sellers'),
-              const SizedBox(height: 32),
+              Text('Simple Marketplace for Small Sellers'),
+              SizedBox(height: 32),
 
-              // Email field (Ch 3.1: TextField)
+              // Email field
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Email',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.email),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Password field
               TextField(
@@ -121,8 +128,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock),
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _isPasswordVisible
@@ -139,15 +146,15 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Login button (Ch 3.1: ElevatedButton)
+              // Login button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _login,
                   child: Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: EdgeInsets.all(12.0),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
@@ -155,23 +162,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Login', style: TextStyle(fontSize: 16)),
+                        : Text('Login', style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // Register link
               TextButton(
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const RegisterScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => RegisterScreen()),
                   );
                 },
-                child: const Text("Don't have an account? Register"),
+                child: Text("Don't have an account? Register"),
               ),
 
               // Admin Dashboard link
@@ -180,11 +185,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const AdminDashboardScreen(),
+                      builder: (context) => AdminDashboardScreen(),
                     ),
                   );
                 },
-                child: const Text(
+                child: Text(
                   'Admin Dashboard',
                   style: TextStyle(
                     color: Colors.lightBlue,
