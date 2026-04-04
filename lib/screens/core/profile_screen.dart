@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'edit_profile.dart';
 
-
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -30,16 +29,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     if (currentUser != null) {
       setState(() {
-        _showName = currentUser!['username'] ?? 'Default Username';
-        _showEmail = currentUser!['email'] ?? 'Default Email';
+        _showName = currentUser!['username'] ?? 'Load Username fail';
+        _showEmail = currentUser!['email'] ?? 'Load Email fail';
         _isSeller = currentUser!['is_seller'] ?? false;
-        _shopName = currentUser!['shop_name'] ?? '';
+        _shopName = currentUser!['shop_name'] ?? 'Load Shop Name fail';
       });
     }
   }
 
   // Controllers for dialogs
-  final TextEditingController _shopNameController = TextEditingController();
+  final _shopNameController = TextEditingController();
 
   @override
   void dispose() {
@@ -111,7 +110,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(parentContext).showSnackBar(
                       SnackBar(
-                        content: Text('Congratulations! "$shopNameInput" is now registered.'),
+                        content: Text(
+                          'Congratulations! "$shopNameInput" is now registered.',
+                        ),
                         backgroundColor: Colors.green,
                       ),
                     );

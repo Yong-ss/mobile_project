@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // 别忘了导入它
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/snackbar_helper.dart'; // 导入全局 snackbar
 
 class RegisterScreen extends StatefulWidget {
   // 改成 StatefulWidget
@@ -10,7 +11,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // 1. 在这里定义 Controller
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -29,13 +29,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _registerUser() async {
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match!'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    String username = _usernameController.text.trim();
+    String email = _emailController.text.trim();
+    String password = _passwordController.text;
+    String confirmPassword = _confirmPasswordController.text;
+
+    if (username.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
+      snackbar('Please fill in all fields!', Colors.red);
+      return;
+    }
+
+    if (password != confirmPassword) {
+      snackbar('Passwords do not match!', Colors.red);
       return;
     }
 
@@ -47,25 +55,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final supabase = Supabase.instance.client;
 
       await supabase.from('user').insert({
-        'email': _emailController.text.trim(),
-        'password': _passwordController.text,
-        'username': _usernameController.text.trim(),
+        'email': email,
+        'password': password,
+        'username': username,
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration Successful!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        snackbar('Registration Successful!', Colors.green);
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        snackbar('Error: $e', Colors.red);
       }
     } finally {
       if (mounted) {
@@ -79,33 +80,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: Text('Create Account')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Icon(Icons.person_add, size: 60, color: Colors.lightBlue),
-            const SizedBox(height: 24),
+            Icon(Icons.person_add, size: 60, color: Colors.lightBlue),
+            SizedBox(height: 24),
 
             // Username
             TextField(
               controller: _usernameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Username',
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Email
             TextField(
               controller: _emailController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Email',
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Password
             TextField(
@@ -113,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               obscureText: !_isPasswordVisible,
               decoration: InputDecoration(
                 labelText: 'Password',
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _isPasswordVisible
@@ -128,7 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
             // Confirm Password
             TextField(
@@ -136,7 +137,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               obscureText: !_isConfirmPasswordVisible,
               decoration: InputDecoration(
                 labelText: 'Confirm Password',
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _isConfirmPasswordVisible
@@ -151,17 +152,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
 
-            // 点击注册按钮
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _registerUser,
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: EdgeInsets.all(12.0),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
@@ -169,7 +169,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Register', style: TextStyle(fontSize: 16)),
+                      : Text('Register', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ),
