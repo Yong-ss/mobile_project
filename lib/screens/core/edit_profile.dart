@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../utils/snackbar_helper.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -21,12 +22,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _isLoading = false;
   String? _newImageUrl; // 存刚才传好的 URL，用来做预览
   bool _isUploading = false; // 上传时的转圈圈标志
-
-  void snackbar(String s, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(s), backgroundColor: color));
-  }
 
   @override
   void initState() {
@@ -81,12 +76,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       });
     } catch (e) {
       setState(() => _isUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Upload error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      snackbar('Upload error: $e', Colors.red);
     }
   }
 
@@ -95,12 +85,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final newEmail = _emailController.text.trim();
 
     if (newName.isEmpty || newEmail.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      snackbar('Please fill all fields', Colors.red);
       return;
     }
 
@@ -134,18 +119,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        snackbar('Profile updated successfully!', Colors.green);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        snackbar('Error: $e', Colors.red);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -158,12 +136,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final confirmPass = _confirmPasswordController.text;
 
     if (confirmPass != newPass || newPass != confirmPass) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New Password and Confirm Password not match !'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      snackbar('New Password and Confirm Password not match !', Colors.red);
       return;
     }
 
@@ -177,22 +150,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           .single();
 
       if (userData['password'] != oldPass) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Old password is incorrect!'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        snackbar('Old password is incorrect!', Colors.red);
         return;
       }
 
       if (newPass == oldPass) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('New password is same as old password!'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        snackbar('New password is same as old password!', Colors.red);
         return;
       }
 
@@ -203,14 +166,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Password changed!')));
+        snackbar('Password changed!', Colors.green);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        snackbar('Error: $e', Colors.red);
+      }
     }
   }
 

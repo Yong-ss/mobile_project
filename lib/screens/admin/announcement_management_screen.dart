@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'announcement_creation_screen.dart';
 import '../core/announcement_details_screen.dart';
+import '../../utils/snackbar_helper.dart';
 
 class AnnouncementManagementScreen extends StatefulWidget {
   const AnnouncementManagementScreen({super.key});
@@ -55,12 +56,7 @@ class _AnnouncementManagementScreenState extends State<AnnouncementManagementScr
     } catch (e) {
       debugPrint('Error fetching announcements: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load announcements: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        snackbar('Failed to load announcements: $e', Colors.red);
       }
     } finally {
       if (mounted) {
@@ -121,21 +117,14 @@ class _AnnouncementManagementScreenState extends State<AnnouncementManagementScr
 
                 await _fetchAnnouncements();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Announcement and data deleted successfully.')),
-                  );
+                  snackbar('Announcement and data deleted successfully.', Colors.green);
                 }
               } catch (e) {
                 if (mounted) {
                   setState(() {
                     _isLoading = false;
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to delete: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  snackbar('Failed to delete: $e', Colors.red);
                 }
               }
             },

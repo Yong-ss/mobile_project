@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/snackbar_helper.dart';
 
 class AnnouncementCreationScreen extends StatefulWidget {
   final Map<String, dynamic>? existingAnnouncement;
@@ -62,9 +63,7 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      snackbar('Error picking image: $e', Colors.red);
     }
   }
 
@@ -101,15 +100,11 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
 
   Future<void> _saveAnnouncement({required String status}) async {
     if (_titleController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an announcement title.')),
-      );
+      snackbar('Please enter an announcement title.', Colors.red);
       return;
     }
     if (_messageController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an announcement message.')),
-      );
+      snackbar('Please enter an announcement message.', Colors.red);
       return;
     }
 
@@ -174,19 +169,12 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
 
       if (mounted) {
         Navigator.pop(context, true); // true indicates a refresh is needed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Announcement saved as $status successfully!')),
-        );
+        snackbar('Announcement saved as $status successfully!', Colors.green);
       }
     } catch (e) {
       debugPrint('Error saving announcement: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save announcement: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        snackbar('Failed to save announcement: $e', Colors.red);
       }
     } finally {
       if (mounted) {

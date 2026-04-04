@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../utils/snackbar_helper.dart'; // 导入全局 snackbar
+import '../../utils/snackbar_helper.dart';
 
 class RegisterScreen extends StatefulWidget {
-  // 改成 StatefulWidget
   const RegisterScreen({super.key});
 
   @override

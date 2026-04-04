@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'seller_page_screen.dart';
 import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
+import '../../utils/snackbar_helper.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final int? productId; // 接收传进来的商品 ID
@@ -29,14 +30,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     try {
       setState(() => _isLoading = true);
 
-      // 1. 获取商品详情
       final productData = await _supabase
           .from('product')
           .select('*')
-          .eq('id', widget.productId ?? 0) // 如果没传 ID，就查不到
+          .eq('id', widget.productId ?? 0)
           .single();
 
-      // 2. 根据获取到的 seller_id，获取该卖家的店铺资料 (比如店名)
       final sellerData = await _supabase
           .from('user')
           .select('shop_name, shop_pic, id')
@@ -51,26 +50,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        // 如果查不到，显示一个报错 SnackBar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        snackbar('Error: $e', Colors.red);
       }
     }
   }
 
   Future<void> _addToSupabaseCart() async {
+
     if (_productData == null) return;
+    
+    String prodName = _productData?['name'] ?? 'unknown product';
 
     final user = currentUser;
     if (user == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please login to add items to your cart'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        snackbar('Please login to add items to your cart', Colors.orange);
       }
       return;
     }
@@ -91,21 +85,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         });
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Added ${_productData!['name']} to cart!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          snackbar('Added $prodName to cart!', Colors.green);
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${_productData!['name']} is already in your cart'),
-              backgroundColor: Colors.blueGrey,
-            ),
-          );
+          snackbar('$prodName is already in your cart', Colors.blueGrey);
         }
       }
     } catch (e) {
@@ -147,15 +131,25 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 children: [
                   Text(
                     _productData!['name'],
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'RM ${_productData!['price']}',
-                    style: const TextStyle(fontSize: 22, color: Colors.blue, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text(
+                    'Description',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     _productData!['description'] ?? 'No description provided.',
@@ -176,7 +170,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           backgroundImage: (_sellerData?['shop_pic'] != null)
                               ? NetworkImage(_sellerData!['shop_pic'])
                               : null,
-                          child: (_sellerData?['shop_pic'] == null) ? const Icon(Icons.store) : null,
+                          child: (_sellerData?['shop_pic'] == null)
+                              ? const Icon(Icons.store)
+                              : null,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -185,9 +181,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             children: [
                               Text(
                                 _sellerData?['shop_name'] ?? 'Mystery Shop',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              const Text('Official Seller', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                              const Text(
+                                'Official Seller',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -216,12 +220,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       onPressed: _addToSupabaseCart,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         backgroundColor: Colors.lightBlue,
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.shopping_cart),
-                      label: const Text('Add to Cart', style: TextStyle(fontSize: 18)),
+                      label: const Text(
+                        'Add to Cart',
+                        style: TextStyle(fontSize: 18),
+                      ),
                     ),
                   ),
                 ],

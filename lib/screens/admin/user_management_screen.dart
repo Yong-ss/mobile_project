@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/snackbar_helper.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -57,13 +58,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           _users = [];
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load from Supabase.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        snackbar('Failed to load from Supabase.', Colors.red);
       }
     }
   }
@@ -96,9 +91,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 _users.removeAt(index);
               });
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User deleted successfully')),
-              );
+              snackbar('User deleted successfully', Colors.green);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -198,15 +191,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
                         if (context.mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('User updated successfully')),
-                          );
+                          snackbar('User updated successfully', Colors.green);
                         }
                       } catch(e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error updating user: $e'), backgroundColor: Colors.red),
-                          );
+                          snackbar('Error updating user: $e', Colors.red);
                         }
                       }
                     },
@@ -227,9 +216,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
-    );
+    snackbar('Copied to clipboard', Colors.green);
   }
 
   Widget _buildDetailRow(String label, Widget content) {

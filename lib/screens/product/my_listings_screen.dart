@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'upload_product_screen.dart';
+import '../../utils/snackbar_helper.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -38,9 +39,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading products: $e'), backgroundColor: Colors.red),
-        );
+        snackbar('Error loading products: $e', Colors.red);
       }
     }
   }

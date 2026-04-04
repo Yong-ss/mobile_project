@@ -5,7 +5,7 @@ import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/globals.dart';
-import '../../utils/snackbar_helper.dart'; // 导入全局 snackbar
+import '../../utils/snackbar_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

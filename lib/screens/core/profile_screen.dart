@@ -6,6 +6,7 @@ import '../auth/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'edit_profile.dart';
+import '../../utils/snackbar_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -108,22 +109,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   if (mounted) {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(parentContext).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Congratulations! "$shopNameInput" is now registered.',
-                        ),
-                        backgroundColor: Colors.green,
-                      ),
+                    snackbar(
+                      'Congratulations! "$shopNameInput" is now registered.',
+                      Colors.green,
                     );
                   }
                 } catch (e) {
-                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  snackbar('Error: $e', Colors.red);
                 }
               }
             },

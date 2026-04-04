@@ -3,6 +3,7 @@ import '../../widgets/product_card.dart';
 import 'product_details_screen.dart';
 import '../../utils/globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../utils/snackbar_helper.dart';
 
 class SellerPageScreen extends StatefulWidget {
   final String? sellerId; // 可选参数：要查看的商家 ID
@@ -54,9 +55,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading shop: $e')));
+        snackbar('Error loading shop: $e', Colors.red);
       }
     }
   }

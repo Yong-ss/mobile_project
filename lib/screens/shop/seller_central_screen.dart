@@ -6,6 +6,7 @@ import '../../utils/globals.dart';
 import '../shop/seller_page_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../utils/snackbar_helper.dart';
 
 class SellerCentralScreen extends StatefulWidget {
   final String shopName;
@@ -126,9 +127,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                               });
                             } catch (e) {
                               setDialogState(() => _isUploadingLogo = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Upload failed: $e')),
-                              );
+                              snackbar('Upload failed: $e', Colors.red);
                             }
                           },
                         ),
@@ -183,9 +182,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
 
                           if (mounted) Navigator.pop(context);
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Save failed: $e')),
-                          );
+                          snackbar('Save failed: $e', Colors.red);
                         }
                       },
                 child: const Text('Save'),
