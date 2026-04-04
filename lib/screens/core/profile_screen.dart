@@ -60,7 +60,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showBecomeSellerDialog() {
     _shopNameController.clear();
-    final parentContext = this.context;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
