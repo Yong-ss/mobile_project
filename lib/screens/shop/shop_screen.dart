@@ -470,8 +470,9 @@ class _ShopScreenState extends State<ShopScreen> {
                   scale: _isDraggingOverCart ? 1.3 : 1.0,
                   duration: const Duration(milliseconds: 250),
                   child: FloatingActionButton(
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
+                    onPressed: () async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
+                      _fetchCartCount();
                     },
                     backgroundColor: Colors.lightBlue,
                     elevation: _isDraggingOverCart ? 15 : 6,

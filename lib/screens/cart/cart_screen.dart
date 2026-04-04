@@ -31,7 +31,7 @@ class _CartScreenState extends State<CartScreen> {
     try {
       final response = await supabase
           .from('cart_item')
-          .select('*, product:product_id(*, seller:seller_id(username))')
+          .select('*, product:product_id(*, seller:seller_id(username, shop_name))')
           .eq('user_id', user['id'])
           .order('created_at', ascending: false);
 
@@ -40,7 +40,7 @@ class _CartScreenState extends State<CartScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching cart: $e');
+      debugPrint('Error fetching cart: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -140,7 +140,7 @@ class _CartScreenState extends State<CartScreen> {
         _cartItems[index]['quantity'] = newQty;
       });
     } catch (e) {
-      print('Error updating quantity: $e');
+      debugPrint('Error updating quantity: $e');
     }
   }
 
@@ -153,7 +153,7 @@ class _CartScreenState extends State<CartScreen> {
         _cartItems.removeAt(index);
       });
     } catch (e) {
-      print('Error removing item: $e');
+      debugPrint('Error removing item: $e');
     }
   }
 
@@ -199,17 +199,21 @@ class _CartScreenState extends State<CartScreen> {
               itemBuilder: (context, index) {
                 final item = _cartItems[index];
                 final product = item['product'] as Map<String, dynamic>;
-                final sellerName = product['seller']?['username'] ?? 'Unknown';
+                final sellerName = product['seller']?['shop_name'] ?? product['seller']?['username'] ?? 'Unknown';
                 final price = double.tryParse(product['price'].toString()) ?? 0.0;
 
                 return Dismissible(
                   key: Key(item['id'].toString()),
                   direction: DismissDirection.endToStart,
                   background: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.shade200,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 20),
-                    color: Colors.redAccent,
-                    child: const Icon(Icons.delete_outline, color: Colors.white, size: 30),
+                    child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
                   ),
                   onDismissed: (direction) => _removeItem(index),
                   confirmDismiss: (direction) async {
@@ -223,7 +227,7 @@ class _CartScreenState extends State<CartScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
