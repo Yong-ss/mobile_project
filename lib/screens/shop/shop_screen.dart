@@ -9,6 +9,7 @@ import 'product_details_screen.dart';
 import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/circular_reveal_route.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 // Member 2: ShopScreen — full product browsing with category filter chips
 class ShopScreen extends StatefulWidget {
@@ -509,7 +510,7 @@ class _ShopScreenState extends State<ShopScreen> {
           },
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const ShopSkeleton()
             : SafeArea(
           child: Stack(
             children: [

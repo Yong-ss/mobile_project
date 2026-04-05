@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +20,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  bool _isInitialLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Premium reveal: show shimmer for 800ms on first load
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _isInitialLoading = false);
+    });
+  }
 
   @override
   void dispose() {
@@ -83,6 +94,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitialLoading || _isLoading) {
+      return const Scaffold(body: LoginSkeleton());
+    }
+
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -150,13 +165,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: EdgeInsets.all(12.0),
                     child: _isLoading
                         ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                         : Text('Login', style: TextStyle(fontSize: 16)),
                   ),
                 ),

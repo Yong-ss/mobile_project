@@ -7,6 +7,7 @@ import 'package:nfc_manager/nfc_manager.dart';
 import '../../utils/globals.dart';
 import '../map/location_screen.dart';
 import 'payment_details_screen.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 // Member 3: CheckoutScreen
 class CheckoutScreen extends StatefulWidget {
@@ -128,7 +129,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           foregroundColor: Colors.black,
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const CheckoutSkeleton()
             : SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+import '../../widgets/shimmer_skeletons.dart';
 import '../shop/shop_screen.dart';
 import '../shop/product_details_screen.dart';
 import '../cart/cart_screen.dart';
@@ -178,7 +180,9 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         onRefresh: _handleRefresh,
         child: SafeArea(
-          child: SingleChildScrollView(
+          child: (_isLoadingAnnouncements && _announcements.isEmpty) || (_isLoadingProducts && _featuredProducts.isEmpty)
+              ? const HomeSkeleton()
+              : SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -206,9 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
 
                 // ── Banner / Announcement Slider ──
-                if (_isLoadingAnnouncements)
-                  const SizedBox(height: 180, child: Center(child: CircularProgressIndicator()))
-                else if (_announcements.isNotEmpty)
+                if (_announcements.isNotEmpty)
                   SizedBox(
                     height: 180,
                     width: double.infinity,
@@ -353,9 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 // ── Featured GridView ──
-                _isLoadingProducts
-                    ? const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()))
-                    : _featuredProducts.isEmpty
+                _featuredProducts.isEmpty
                     ? const Center(child: Padding(padding: EdgeInsets.all(40), child: Text('No products found')))
                     : GridView.builder(
                   shrinkWrap: true,

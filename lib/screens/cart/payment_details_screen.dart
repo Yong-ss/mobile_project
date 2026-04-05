@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../order/order_history_screen.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
-class PaymentDetailsScreen extends StatelessWidget {
+class PaymentDetailsScreen extends StatefulWidget {
   final double amount;
   final String transactionId;
   final String userName;
@@ -21,7 +23,32 @@ class PaymentDetailsScreen extends StatelessWidget {
   });
 
   @override
+  State<PaymentDetailsScreen> createState() => _PaymentDetailsScreenState();
+}
+
+class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Artificial delay to show the beautiful shimmer and "process" the success
+    Timer(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(child: PaymentDetailsSkeleton()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -53,7 +80,7 @@ class PaymentDetailsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Title Strings
               const Text(
                 'Payment Successful!',
@@ -76,20 +103,20 @@ class PaymentDetailsScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildDetailRow('Amount', 'RM ${amount.toStringAsFixed(2)}', isHighlight: true),
+                    _buildDetailRow('Amount', 'RM ${widget.amount.toStringAsFixed(2)}', isHighlight: true),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Divider(height: 1),
                     ),
-                    _buildDetailRow('Transaction ID', (transactionId.length > 8 ? '${transactionId.substring(0, 8)}...' : transactionId).toUpperCase(), isPill: true),
+                    _buildDetailRow('Transaction ID', (widget.transactionId.length > 8 ? '${widget.transactionId.substring(0, 8)}...' : widget.transactionId).toUpperCase(), isPill: true),
                     const SizedBox(height: 16),
-                    _buildDetailRow('User Name', userName),
+                    _buildDetailRow('User Name', widget.userName),
                     const SizedBox(height: 16),
-                    _buildDetailRow('Payment Method', paymentMethod),
+                    _buildDetailRow('Payment Method', widget.paymentMethod),
                     const SizedBox(height: 16),
-                    _buildDetailRow('Date', DateFormat('MMM dd, yyyy - hh:mm a').format(date)),
+                    _buildDetailRow('Date', DateFormat('MMM dd, yyyy - hh:mm a').format(widget.date)),
                     const SizedBox(height: 16),
-                    _buildDetailRow('Merchant', merchantName),
+                    _buildDetailRow('Merchant', widget.merchantName),
                   ],
                 ),
               ),
@@ -101,26 +128,24 @@ class PaymentDetailsScreen extends StatelessWidget {
                 height: 55,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // Download Receipt (Mock)
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading receipt... (Mock)')));
                   },
                   icon: const Icon(Icons.download),
                   label: const Text('Download Receipt', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF03A9F4), // Light blue to match Add To Cart
+                    backgroundColor: const Color(0xFF03A9F4),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               SizedBox(
                 width: double.infinity,
                 height: 55,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    // My Order Page
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (context) => const OrderHistoryScreen()),
@@ -142,7 +167,6 @@ class PaymentDetailsScreen extends StatelessWidget {
                 height: 55,
                 child: TextButton.icon(
                   onPressed: () {
-                    // Back to Home
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   },
                   icon: const Icon(Icons.arrow_back),
@@ -154,7 +178,7 @@ class PaymentDetailsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               const Text(
                 'Need help? Contact our support team at support@priscon.com',
                 textAlign: TextAlign.center,

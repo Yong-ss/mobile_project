@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'checkout_screen.dart';
 import '../shop/product_details_screen.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -178,7 +179,7 @@ class _CartScreenState extends State<CartScreen> {
         foregroundColor: Colors.black,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const CartSkeleton()
           : (currentUser == null)
           ? const Center(
         child: Column(

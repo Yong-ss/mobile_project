@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,6 +18,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+  bool _isInitialLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Premium reveal: show shimmer for 800ms on first load
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _isInitialLoading = false);
+    });
+  }
 
   @override
   void dispose() {
@@ -78,6 +89,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitialLoading || _isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Create Account')),
+        body: const RegisterSkeleton(),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text('Create Account')),
       body: SingleChildScrollView(
@@ -161,13 +179,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   padding: EdgeInsets.all(12.0),
                   child: _isLoading
                       ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                       : Text('Register', style: TextStyle(fontSize: 16)),
                 ),
               ),

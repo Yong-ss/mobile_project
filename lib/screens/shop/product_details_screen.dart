@@ -4,6 +4,7 @@ import 'seller_page_screen.dart';
 import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final int? productId; // 接收传进来的商品 ID
@@ -115,7 +116,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: ProductDetailsSkeleton());
     }
 
     if (_productData == null) {

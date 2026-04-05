@@ -15,7 +15,7 @@ import GoogleMaps
   }
 
   private func getEnvVar(_ key: String) -> String? {
-    guard let path = Bundle.main.path(forResource: ".env", ofType: nil) else {
+    guard let path = Bundle.main.path(forResource: "flutter_assets/.env", ofType: nil) else {
       return nil
     }
     do {

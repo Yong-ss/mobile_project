@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'edit_profile.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _showEmail = 'Loading...';
   bool _isSeller = false;
   String _shopName = '';
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -34,7 +36,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _showEmail = currentUser!['email'] ?? 'Load Email fail';
         _isSeller = currentUser!['is_seller'] ?? false;
         _shopName = currentUser!['shop_name'] ?? 'Load Shop Name fail';
+        _isLoading = false;
       });
+    } else {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -93,10 +98,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   await supabase
                       .from('user')
                       .update({
-                        'is_seller': true,
-                        'shop_name': shopNameInput,
-                        'shop_created_at': DateTime.now().toIso8601String(),
-                      })
+                    'is_seller': true,
+                    'shop_name': shopNameInput,
+                    'shop_created_at': DateTime.now().toIso8601String(),
+                  })
                       .eq('id', currentUser!['id']);
 
                   setState(() {
@@ -127,6 +132,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: ProfileSkeleton());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
@@ -154,10 +163,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : null,
                     child: currentUser!['user_pic'] == null
                         ? const Icon(
-                            Icons.person,
-                            size: 48,
-                            color: Colors.lightBlue,
-                          )
+                      Icons.person,
+                      size: 48,
+                      color: Colors.lightBlue,
+                    )
                         : null,
                   ),
                   const SizedBox(height: 12),
@@ -245,7 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     MaterialPageRoute(
                       builder: (context) => const LoginScreen(),
                     ),
-                    (route) => false,
+                        (route) => false,
                   );
                 }
               },

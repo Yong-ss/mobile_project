@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -27,7 +29,7 @@ android {
         versionName = flutter.versionName
 
         // Load API Key from .env
-        val dotenv = java.util.Properties()
+        val dotenv = Properties()
         val dotenvFile = file("../../.env")
         if (dotenvFile.exists()) {
             dotenvFile.inputStream().use { dotenv.load(it) }
