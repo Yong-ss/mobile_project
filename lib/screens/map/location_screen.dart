@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 // Member 2: Location Screen — shows pickup location on map
 // Integrated Google Maps and Geolocator to pick and save Location.
@@ -34,6 +35,7 @@ class _LocationScreenState extends State<LocationScreen> {
   String _storeName = 'Select a location';
   String _storeAddress = 'Tap a red marker on the map';
   String _storeHours = '-';
+  bool _isInitialLoading = true;
 
   late List<Map<String, dynamic>> _stores;
 
@@ -62,6 +64,10 @@ class _LocationScreenState extends State<LocationScreen> {
   @override
   void initState() {
     super.initState();
+    // Premium reveal: show shimmer for at least 800ms
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _isInitialLoading = false);
+    });
     _stores = widget.stores ?? [
       {
         'id': 'pv13',
@@ -218,9 +224,10 @@ class _LocationScreenState extends State<LocationScreen> {
                           child: Text('Select a Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),
                         Expanded(
-                          child: ListView.builder(
+                          child: ListView.separated(
                             controller: scrollController,
                             itemCount: _stores.length,
+                            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
                             itemBuilder: (context, index) {
                               final store = _stores[index];
                               return RadioListTile<String>(
@@ -228,6 +235,7 @@ class _LocationScreenState extends State<LocationScreen> {
                                 groupValue: _storeName,
                                 title: Text(store['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
                                 subtitle: Text(store['street']),
+                                activeColor: Colors.lightBlue,
                                 onChanged: (String? value) {
                                   Navigator.pop(ctx);
                                   setState(() {
@@ -267,8 +275,8 @@ class _LocationScreenState extends State<LocationScreen> {
         title: Text(widget.isReadOnly ? 'Location Map' : 'Select Location'),
       ),
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+        child: (_isLoading || _isInitialLoading)
+            ? const LocationSkeleton()
             : Column(
           children: [
             Expanded(

@@ -631,3 +631,136 @@ class RegisterSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// A unified, full-screen Location/Map screen skeleton.
+class LocationSkeleton extends StatelessWidget {
+  const LocationSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Map Area Placeholder
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: const BaseSkeleton(width: double.infinity, height: double.infinity, borderRadius: 16),
+          ),
+        ),
+        // Info Panel Placeholder
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // The "Card"
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.lightBlue.withValues(alpha: 0.3), width: 2),
+                ),
+                child: const Column(
+                  children: [
+                    Row(
+                      children: [
+                        BaseSkeleton(width: 40, height: 40, borderRadius: 20),
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              BaseSkeleton(width: 150, height: 20),
+                              SizedBox(height: 8),
+                              BaseSkeleton(width: double.infinity, height: 16),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Buttons
+              const BaseSkeleton(width: double.infinity, height: 50, borderRadius: 12),
+              const SizedBox(height: 12),
+              const Center(child: BaseSkeleton(width: 100, height: 16)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A unified, full-screen Order History screen skeleton.
+class OrderHistorySkeleton extends StatelessWidget {
+  const OrderHistorySkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Filter Chips Row
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              BaseSkeleton(width: 60, height: 32, borderRadius: 16),
+              SizedBox(width: 12),
+              BaseSkeleton(width: 80, height: 32, borderRadius: 16),
+              SizedBox(width: 12),
+              BaseSkeleton(width: 80, height: 32, borderRadius: 16),
+            ],
+          ),
+        ),
+        // Order Cards List
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: 4,
+            itemBuilder: (context, index) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade100),
+                ),
+                child: const Row(
+                  children: [
+                    // Thumbnail
+                    BaseSkeleton(width: 60, height: 60, borderRadius: 8),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BaseSkeleton(width: 100, height: 18),
+                          SizedBox(height: 8),
+                          BaseSkeleton(width: double.infinity, height: 14),
+                          SizedBox(height: 8),
+                          BaseSkeleton(width: 120, height: 14),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    BaseSkeleton(width: 80, height: 28, borderRadius: 14),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}

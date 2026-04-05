@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import '../shop/shop_screen.dart';
 import '../shop/product_details_screen.dart';
@@ -29,18 +28,22 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
 
-  // Products state
+  // Products & Categories state
   List<Map<String, dynamic>> _featuredProducts = [];
+  List<Map<String, dynamic>> _categories = [];
   bool _isLoadingProducts = true;
 
-  final List<Map<String, dynamic>> _categories = const [
-    {'label': 'Furniture', 'icon': Icons.chair},
-    {'label': 'Electronics', 'icon': Icons.devices},
-    {'label': 'Fashion', 'icon': Icons.checkroom},
-    {'label': 'Beauty', 'icon': Icons.face},
-    {'label': 'Groceries', 'icon': Icons.shopping_basket},
-    {'label': 'Others', 'icon': Icons.grid_view},
-  ];
+  IconData _getCategoryIcon(String label) {
+    switch (label) {
+      case 'Furniture': return Icons.chair;
+      case 'Electronics': return Icons.devices;
+      case 'Fashion': case 'Clothing': return Icons.checkroom;
+      case 'Beauty': return Icons.face;
+      case 'Groceries': return Icons.shopping_basket;
+      case 'Food': return Icons.restaurant;
+      default: return Icons.grid_view;
+    }
+  }
 
   @override
   void initState() {
@@ -138,8 +141,18 @@ class _HomeScreenState extends State<HomeScreen> {
           .limit(10);
 
       if (mounted) {
+        final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(data);
+
+        // Extract unique categories from products
+        final Set<String> uniqueLabels = products
+            .map((p) => p['category'] as String?)
+            .where((c) => c != null && c.isNotEmpty)
+            .map((c) => c!)
+            .toSet();
+
         setState(() {
-          _featuredProducts = List<Map<String, dynamic>>.from(data);
+          _featuredProducts = products;
+          _categories = (uniqueLabels.toList()..sort()).map((label) => {'label': label}).toList();
           _isLoadingProducts = false;
         });
       }
@@ -318,7 +331,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       return GestureDetector(
                         onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => const ShopScreen()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ShopScreen(initialCategory: _categories[index]['label'] as String),
+                            ),
+                          );
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -327,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               CircleAvatar(
                                 radius: 28,
                                 backgroundColor: Colors.lightBlue.shade50,
-                                child: Icon(_categories[index]['icon'] as IconData, color: Colors.lightBlue),
+                                child: Icon(_getCategoryIcon(_categories[index]['label'] as String), color: Colors.lightBlue),
                               ),
                               const SizedBox(height: 6),
                               Text(_categories[index]['label'] as String, style: const TextStyle(fontSize: 12)),

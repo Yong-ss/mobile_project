@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +12,8 @@ import '../../widgets/shimmer_skeletons.dart';
 
 // Member 2: ShopScreen — full product browsing with category filter chips
 class ShopScreen extends StatefulWidget {
-  const ShopScreen({super.key});
+  final String? initialCategory;
+  const ShopScreen({super.key, this.initialCategory});
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -130,6 +130,9 @@ class _ShopScreenState extends State<ShopScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCategory != null) {
+      _selectedCategory = widget.initialCategory!;
+    }
     _fetchProducts();
     _fetchCartCount();
     _initSpeech();
