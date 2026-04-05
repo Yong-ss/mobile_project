@@ -15,9 +15,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
@@ -28,6 +25,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Load API Key from .env
+        val dotenv = java.util.Properties()
+        val dotenvFile = file("../../.env")
+        if (dotenvFile.exists()) {
+            dotenvFile.inputStream().use { dotenv.load(it) }
+        }
+        manifestPlaceholders["googleMapsApiKey"] = dotenv.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
@@ -41,4 +46,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+kotlin {
+    jvmToolchain(17)
 }

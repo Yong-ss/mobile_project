@@ -49,5 +49,9 @@
 	<string>Permission to use speech recognition for voice search.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Permission to use the microphone for voice search.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to show it on the map and save it for future checkout.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to location when in the background.</string>
 </dict>
 </plist>
