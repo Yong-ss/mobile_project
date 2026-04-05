@@ -86,6 +86,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
         if (mounted) {
           snackbar('Added $prodName to cart!', Colors.green);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CartScreen()),
+          );
         }
       } else {
         // Increment existing quantity
@@ -97,6 +101,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
         if (mounted) {
           snackbar('Increased $prodName quantity to $newQuantity', Colors.blueAccent);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CartScreen()),
+          );
         }
       }
     } catch (e) {

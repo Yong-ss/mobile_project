@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 加上这个
 import 'package:supabase_flutter/supabase_flutter.dart'; // 加上这个
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'utils/supabase_config.dart'; // 导入配置类
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/globals.dart';
@@ -15,7 +16,12 @@ void main() async {
   // 2. 加载 .env 文件
   await dotenv.load(fileName: ".env");
 
-  // 3. 初始化 Supabase
+  // 3. 初始化 Stripe
+  Stripe.publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
+  Stripe.urlScheme = 'flutterstripe';
+  await Stripe.instance.applySettings();
+
+  // 4. 初始化 Supabase
   await Supabase.initialize(
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
