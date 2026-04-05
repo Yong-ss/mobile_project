@@ -207,7 +207,7 @@ class _CartScreenState extends State<CartScreen> {
                 return Dismissible(
                   key: Key(item['id'].toString()),
                   direction: DismissDirection.endToStart,
-                   background: Container(
+                  background: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.redAccent.shade200,
@@ -232,114 +232,114 @@ class _CartScreenState extends State<CartScreen> {
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                       boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        // Image
-                        Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(16),
-                            image: product['image_url'] != null
-                                ? DecorationImage(
-                              image: NetworkImage(product['image_url']),
-                              fit: BoxFit.cover,
-                            )
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Image
+                          Container(
+                            width: 90,
+                            height: 90,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(16),
+                              image: product['image_url'] != null
+                                  ? DecorationImage(
+                                image: NetworkImage(product['image_url']),
+                                fit: BoxFit.cover,
+                              )
+                                  : null,
+                            ),
+                            child: product['image_url'] == null
+                                ? const Icon(Icons.shopping_bag, color: Colors.grey)
                                 : null,
                           ),
-                          child: product['image_url'] == null
-                              ? const Icon(Icons.shopping_bag, color: Colors.grey)
-                              : null,
-                        ),
-                        const SizedBox(width: 16),
-                        // Details
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(width: 16),
+                          // Details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product['name'] as String,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'by $sellerName',
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                ),
+                                const SizedBox(height: 12),
+                                // Qty controls
+                                Row(
+                                  children: [
+                                    GestureDetector(
+                                      onTap: () => _updateQuantity(index, -1),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.remove, size: 20),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text(
+                                        '${item['quantity']}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => _updateQuantity(index, 1),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.lightBlue.shade50,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.add, size: 20, color: Colors.lightBlue),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Price
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                product['name'] as String,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                'by $sellerName',
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-                              ),
-                              const SizedBox(height: 12),
-                              // Qty controls
-                              Row(
-                                children: [
-                                  GestureDetector(
-                                    onTap: () => _updateQuantity(index, -1),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(Icons.remove, size: 20),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text(
-                                      '${item['quantity']}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () => _updateQuantity(index, 1),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.lightBlue.shade50,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(Icons.add, size: 20, color: Colors.lightBlue),
-                                    ),
-                                  ),
-                                ],
+                                'RM ${(price * (item['quantity'] as int)).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.lightBlue,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        // Price
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'RM ${(price * (item['quantity'] as int)).toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.lightBlue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+            ),
           ),
           // Total block
           if (_cartItems.isNotEmpty)

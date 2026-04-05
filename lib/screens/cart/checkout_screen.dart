@@ -19,7 +19,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isSelfPickup = false;
   String _paymentMethod = 'Credit/Debit Card';
   String _paymentSubMethod = 'Stripe';
-  
+
   bool _isLoading = true;
   String _username = '';
   List<Map<String, dynamic>> _cartItems = [];
@@ -95,438 +95,438 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  // ── Greeting ──
-                  if (_username.isNotEmpty) ...[
-                    Text(
-                      'Order for $_username',
-                      style: TextStyle(
-                        fontSize: 20, 
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Greeting ──
+              if (_username.isNotEmpty) ...[
+                Text(
+                  'Order for $_username',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
 
-                  // ── Order Summary ──
-                  const Text('Order Summary',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    ),
-                    child: Column(
-                      children: [
-                        if (_cartItems.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(24.0),
-                            child: Text('No items in cart.', style: TextStyle(color: Colors.grey)),
-                          ),
-                        for (int i = 0; i < _cartItems.length; i++) ...[
-                          _buildCartItem(_cartItems[i]),
-                          if (i < _cartItems.length - 1)
-                            const Divider(height: 1, indent: 16, endIndent: 16),
-                        ],
-                      ],
+              // ── Order Summary ──
+              const Text('Order Summary',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                ),
+                child: Column(
+                  children: [
+                    if (_cartItems.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text('No items in cart.', style: TextStyle(color: Colors.grey)),
+                      ),
+                    for (int i = 0; i < _cartItems.length; i++) ...[
+                      _buildCartItem(_cartItems[i]),
+                      if (i < _cartItems.length - 1)
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Fulfillment Toggle ──
+              const Text('Fulfillment Method',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => setState(() => _isSelfPickup = false),
+                      icon: const Icon(Icons.local_shipping),
+                      label: const Text('Delivery'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: !_isSelfPickup
+                            ? Colors.lightBlue
+                            : Colors.grey.shade200,
+                        foregroundColor:
+                        !_isSelfPickup ? Colors.white : Colors.black,
+                        elevation: !_isSelfPickup ? 2 : 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // ── Fulfillment Toggle ──
-                  const Text('Fulfillment Method',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => setState(() => _isSelfPickup = false),
-                          icon: const Icon(Icons.local_shipping),
-                          label: const Text('Delivery'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            backgroundColor: !_isSelfPickup
-                                ? Colors.lightBlue
-                                : Colors.grey.shade200,
-                            foregroundColor:
-                                !_isSelfPickup ? Colors.white : Colors.black,
-                            elevation: !_isSelfPickup ? 2 : 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => setState(() => _isSelfPickup = true),
+                      icon: const Icon(Icons.storefront),
+                      label: const Text('Self Pickup'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor:
+                        _isSelfPickup ? Colors.lightBlue : Colors.grey.shade200,
+                        foregroundColor:
+                        _isSelfPickup ? Colors.white : Colors.black,
+                        elevation: _isSelfPickup ? 2 : 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => setState(() => _isSelfPickup = true),
-                          icon: const Icon(Icons.storefront),
-                          label: const Text('Self Pickup'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            backgroundColor:
-                                _isSelfPickup ? Colors.lightBlue : Colors.grey.shade200,
-                            foregroundColor:
-                                _isSelfPickup ? Colors.white : Colors.black,
-                            elevation: _isSelfPickup ? 2 : 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // ── Delivery Section ──
+              if (!_isSelfPickup) ...[
+                const Text('Delivery Address',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                const TextField(
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your delivery address...',
+                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const LocationScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.location_on),
+                  label: const Text('Pick location on map'),
+                ),
+              ],
+
+              // ── Self Pickup Section ──
+              if (_isSelfPickup) ...[
+                const Text('Seller Pickup Point',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  color: Colors.white,
+                  child: Column(
+                    children: [
+                      const ListTile(
+                        leading: Icon(Icons.store, color: Colors.lightBlue),
+                        title: Text('Ahmad Store'),
+                        subtitle: Text('No. 12, Jalan Bukit Bintang, KL'),
+                      ),
+                      const Divider(height: 1),
+                      const ListTile(
+                        leading: Icon(Icons.access_time),
+                        title: Text('Pickup Hours'),
+                        subtitle: Text('Mon–Fri  10:00 AM – 6:00 PM'),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.map_outlined),
+                        title: const Text('View on Map'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const LocationScreen()),
+                          );
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                ),
+              ],
+              const SizedBox(height: 24),
 
-                  // ── Delivery Section ──
-                  if (!_isSelfPickup) ...[
-                    const Text('Delivery Address',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    const TextField(
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        hintText: 'Enter your delivery address...',
-                        border: OutlineInputBorder(),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const LocationScreen()),
-                        );
+              // ── Payment Method ──
+              const Text('Payment Method',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  children: [
+                    // CREDIT / DEBIT CATEGORY
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _paymentMethod = 'Credit/Debit Card';
+                          if (_paymentSubMethod != 'Stripe' && _paymentSubMethod != 'NFC') {
+                            _paymentSubMethod = 'Stripe';
+                          }
+                        });
                       },
-                      icon: const Icon(Icons.location_on),
-                      label: const Text('Pick location on map'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(_paymentMethod == 'Credit/Debit Card' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Credit/Debit Card' ? Colors.lightBlue : Colors.grey),
+                            const SizedBox(width: 16),
+                            const Expanded(child: Text('Credit/Debit Card', style: TextStyle(fontSize: 16))),
+                            const Icon(Icons.credit_card, color: Colors.blueGrey),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: _paymentMethod == 'Credit/Debit Card' ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
+                        child: Column(
+                          children: [
+                            // Stripe
+                            InkWell(
+                              onTap: () => setState(() => _paymentSubMethod = 'Stripe'),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(vertical: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: _paymentSubMethod == 'Stripe' ? Colors.lightBlue : Colors.grey.shade200),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/512px-Stripe_Logo%2C_revised_2016.svg.png', height: 20, errorBuilder: (context, error, stackTrace) => const Text('Stripe', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo))),
+                                          const Spacer(),
+                                          if (_paymentSubMethod == 'Stripe') const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // NFC
+                            InkWell(
+                              onTap: () => setState(() => _paymentSubMethod = 'NFC'),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(vertical: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: _paymentSubMethod == 'NFC' ? Colors.lightBlue : Colors.grey.shade200),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Text('NFC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                          const SizedBox(width: 8),
+                                          const Icon(Icons.contactless, color: Colors.blueAccent),
+                                          const Spacer(),
+                                          if (_paymentSubMethod == 'NFC') const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ) : const SizedBox.shrink(),
+                    ),
+                    const Divider(height: 1),
+
+                    // ONLINE BANKING CATEGORY
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _paymentMethod = 'Online Banking';
+                          _paymentSubMethod = 'FPX';
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(_paymentMethod == 'Online Banking' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Online Banking' ? Colors.lightBlue : Colors.grey),
+                            const SizedBox(width: 16),
+                            const Expanded(child: Text('Online Banking', style: TextStyle(fontSize: 16))),
+                            const Icon(Icons.account_balance, color: Colors.blueGrey),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: _paymentMethod == 'Online Banking' ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.lightBlue),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/FPX_logo.svg/512px-FPX_logo.svg.png', height: 16, errorBuilder: (context, error, stackTrace) => const Text('FPX', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent))),
+                                    const Spacer(),
+                                    const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ) : const SizedBox.shrink(),
+                    ),
+                    const Divider(height: 1),
+
+                    // CASH ON DELIVERY CATEGORY
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _paymentMethod = 'Cash on Delivery';
+                          _paymentSubMethod = 'Cash';
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(_paymentMethod == 'Cash on Delivery' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Cash on Delivery' ? Colors.lightBlue : Colors.grey),
+                            const SizedBox(width: 16),
+                            const Expanded(child: Text('Cash on Delivery', style: TextStyle(fontSize: 16))),
+                            const Icon(Icons.payments, color: Colors.blueGrey),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: _paymentMethod == 'Cash on Delivery' ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.lightBlue),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Text('Cash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey)),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.money, color: Colors.green),
+                                    const Spacer(),
+                                    const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ) : const SizedBox.shrink(),
                     ),
                   ],
-
-                  // ── Self Pickup Section ──
-                  if (_isSelfPickup) ...[
-                    const Text('Seller Pickup Point',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      color: Colors.white,
-                      child: Column(
-                        children: [
-                          const ListTile(
-                            leading: Icon(Icons.store, color: Colors.lightBlue),
-                            title: Text('Ahmad Store'),
-                            subtitle: Text('No. 12, Jalan Bukit Bintang, KL'),
-                          ),
-                          const Divider(height: 1),
-                          const ListTile(
-                            leading: Icon(Icons.access_time),
-                            title: Text('Pickup Hours'),
-                            subtitle: Text('Mon–Fri  10:00 AM – 6:00 PM'),
-                          ),
-                           const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.map_outlined),
-                            title: const Text('View on Map'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const LocationScreen()),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-
-                  // ── Payment Method ──
-                  const Text('Payment Method',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Column(
-                      children: [
-                        // CREDIT / DEBIT CATEGORY
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              _paymentMethod = 'Credit/Debit Card';
-                              if (_paymentSubMethod != 'Stripe' && _paymentSubMethod != 'NFC') {
-                                _paymentSubMethod = 'Stripe';
-                              }
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(_paymentMethod == 'Credit/Debit Card' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Credit/Debit Card' ? Colors.lightBlue : Colors.grey),
-                                const SizedBox(width: 16),
-                                const Expanded(child: Text('Credit/Debit Card', style: TextStyle(fontSize: 16))),
-                                const Icon(Icons.credit_card, color: Colors.blueGrey),
-                              ],
-                            ),
-                          ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          alignment: Alignment.topCenter,
-                          child: _paymentMethod == 'Credit/Debit Card' ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                            decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
-                            child: Column(
-                              children: [
-                                // Stripe
-                                InkWell(
-                                  onTap: () => setState(() => _paymentSubMethod = 'Stripe'),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Container(
-                                          margin: const EdgeInsets.symmetric(vertical: 4),
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: _paymentSubMethod == 'Stripe' ? Colors.lightBlue : Colors.grey.shade200),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/512px-Stripe_Logo%2C_revised_2016.svg.png', height: 20, errorBuilder: (context, error, stackTrace) => const Text('Stripe', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo))),
-                                              const Spacer(),
-                                              if (_paymentSubMethod == 'Stripe') const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                // NFC
-                                InkWell(
-                                  onTap: () => setState(() => _paymentSubMethod = 'NFC'),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Container(
-                                          margin: const EdgeInsets.symmetric(vertical: 4),
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: _paymentSubMethod == 'NFC' ? Colors.lightBlue : Colors.grey.shade200),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              const Text('NFC', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                              const SizedBox(width: 8),
-                                              const Icon(Icons.contactless, color: Colors.blueAccent),
-                                              const Spacer(),
-                                              if (_paymentSubMethod == 'NFC') const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ) : const SizedBox.shrink(),
-                        ),
-                        const Divider(height: 1),
-
-                        // ONLINE BANKING CATEGORY
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              _paymentMethod = 'Online Banking';
-                              _paymentSubMethod = 'FPX';
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(_paymentMethod == 'Online Banking' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Online Banking' ? Colors.lightBlue : Colors.grey),
-                                const SizedBox(width: 16),
-                                const Expanded(child: Text('Online Banking', style: TextStyle(fontSize: 16))),
-                                const Icon(Icons.account_balance, color: Colors.blueGrey),
-                              ],
-                            ),
-                          ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          alignment: Alignment.topCenter,
-                          child: _paymentMethod == 'Online Banking' ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                            decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.lightBlue),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/FPX_logo.svg/512px-FPX_logo.svg.png', height: 16, errorBuilder: (context, error, stackTrace) => const Text('FPX', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent))),
-                                        const Spacer(),
-                                        const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ) : const SizedBox.shrink(),
-                        ),
-                        const Divider(height: 1),
-
-                        // CASH ON DELIVERY CATEGORY
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              _paymentMethod = 'Cash on Delivery';
-                              _paymentSubMethod = 'Cash';
-                            });
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(_paymentMethod == 'Cash on Delivery' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Cash on Delivery' ? Colors.lightBlue : Colors.grey),
-                                const SizedBox(width: 16),
-                                const Expanded(child: Text('Cash on Delivery', style: TextStyle(fontSize: 16))),
-                                const Icon(Icons.payments, color: Colors.blueGrey),
-                              ],
-                            ),
-                          ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          alignment: Alignment.topCenter,
-                          child: _paymentMethod == 'Cash on Delivery' ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                            decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: Colors.lightBlue),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Text('Cash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey)),
-                                        const SizedBox(width: 8),
-                                        const Icon(Icons.money, color: Colors.green),
-                                        const Spacer(),
-                                        const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ) : const SizedBox.shrink(),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ── Payment Details ──
-                  const Text('Payment Details',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total Payment:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('RM ${_totalAmount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: Colors.lightBlue)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // ── Place Order ──
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: _handleCheckout,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: const Text('Place Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
+
+              // ── Payment Details ──
+              const Text('Payment Details',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total Payment:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('RM ${_totalAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.lightBlue)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // ── Place Order ──
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _handleCheckout,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.lightBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text('Place Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -553,15 +553,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               color: Colors.blue.shade100,
               borderRadius: BorderRadius.circular(12),
               image: imageUrl != null
-                ? DecorationImage(
-                    image: NetworkImage(imageUrl),
-                    fit: BoxFit.cover,
-                  )
-                : null,
+                  ? DecorationImage(
+                image: NetworkImage(imageUrl),
+                fit: BoxFit.cover,
+              )
+                  : null,
             ),
             child: imageUrl == null
-              ? Icon(Icons.shopping_bag, color: Colors.blue.shade300)
-              : null,
+                ? Icon(Icons.shopping_bag, color: Colors.blue.shade300)
+                : null,
           ),
           const SizedBox(width: 16),
           // Texts
@@ -644,9 +644,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () async {
-                   NfcManager.instance.stopSession();
-                   if (mounted) Navigator.pop(context);
-                   await _onNFcSuccess();
+                  NfcManager.instance.stopSession();
+                  if (mounted) Navigator.pop(context);
+                  await _onNFcSuccess();
                 },
                 child: const Text('Simulate Success (For Emulator)', style: TextStyle(color: Colors.lightBlue)),
               ),
@@ -656,8 +656,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 height: 55,
                 child: ElevatedButton(
                   onPressed: () {
-                     NfcManager.instance.stopSession();
-                     Navigator.pop(context);
+                    NfcManager.instance.stopSession();
+                    Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey.shade200,
@@ -672,18 +672,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
       ).then((_) {
-         NfcManager.instance.stopSession();
+        NfcManager.instance.stopSession();
       });
 
       NfcManager.instance.startSession(
-        pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693, NfcPollingOption.iso18092},
-        onDiscovered: (NfcTag tag) async {
-        NfcManager.instance.stopSession();
-        if (mounted) {
-           Navigator.pop(context); // Close dialog
-           await _onNFcSuccess();
-        }
-      });
+          pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693, NfcPollingOption.iso18092},
+          onDiscovered: (NfcTag tag) async {
+            NfcManager.instance.stopSession();
+            if (mounted) {
+              Navigator.pop(context); // Close dialog
+              await _onNFcSuccess();
+            }
+          });
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('NFC Error: $e')));
     }
@@ -706,7 +706,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'payment_method': 'NFC Card',
         'status': 'succeeded',
       });
-      
+
       if (mounted) Navigator.pop(context); // close loading dialog
       await _placeOrder(nfcId);
     } catch (e) {
@@ -751,8 +751,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Extract the payment intent ID from the client secret (e.g., pi_12345_secret_67890 -> pi_12345)
       final clientSecret = data['paymentIntent'] as String;
-      final paymentIntentId = clientSecret.contains('_secret_') 
-          ? clientSecret.split('_secret_').first 
+      final paymentIntentId = clientSecret.contains('_secret_')
+          ? clientSecret.split('_secret_').first
           : clientSecret;
 
       // Update payment record in Supabase
@@ -817,7 +817,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'quantity': item['quantity'],
             'unit_price': price,
           });
-          
+
           await supabase.from('cart_item').delete().eq('id', item['id']);
         }
       }
@@ -829,11 +829,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (itemsBySeller.length > 1) {
           merchantName = 'Multiple Merchants';
         } else if (itemsBySeller.isNotEmpty) {
-           final firstItem = itemsBySeller.values.first.first;
-           final sellerNode = firstItem['product']?['seller'];
-           if (sellerNode != null) {
-              merchantName = sellerNode['shop_name'] ?? sellerNode['username'] ?? 'Unknown Merchant';
-           }
+          final firstItem = itemsBySeller.values.first.first;
+          final sellerNode = firstItem['product']?['seller'];
+          if (sellerNode != null) {
+            merchantName = sellerNode['shop_name'] ?? sellerNode['username'] ?? 'Unknown Merchant';
+          }
         }
 
         Navigator.pushReplacement(
