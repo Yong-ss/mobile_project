@@ -227,7 +227,11 @@ class _OrderCardState extends State<_OrderCard> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const OrderDetailsScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => OrderDetailsScreen(
+                      orderId: order['id'].toString(),
+                    ),
+                  ),
                 );
               },
               child: Padding(
