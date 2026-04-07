@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../utils/circular_reveal_route.dart'; // 导入圆形扩散动画路由
+import '../../utils/circular_reveal_route.dart';
 import '../order/seller_orders_screen.dart';
 import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
@@ -8,6 +8,7 @@ import '../shop/seller_page_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart'; // Add this
 
 class SellerCentralScreen extends StatefulWidget {
   final String shopName;
@@ -22,14 +23,19 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
   late String _currentShopName;
   final TextEditingController _shopNameController = TextEditingController();
   String _shopCreatedAt = '';
-  // 用于获取按钮中心坐标的 Key
+  bool _isLoading = true; // Add loading state
   final GlobalKey _viewShopButtonKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    _currentShopName = currentUser!['shop_name'] ?? '';
-    _shopCreatedAt = currentUser!['shop_created_at']?.toString() ?? 'Unknown';
+    _currentShopName = currentUser?['shop_name'] ?? '';
+    _shopCreatedAt = currentUser?['shop_created_at']?.toString() ?? 'Unknown';
+
+    // Premium Reveal Strategy: 1s Shimmer
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _isLoading = false);
+    });
   }
 
   @override
@@ -62,19 +68,19 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                       radius: 40,
                       backgroundColor: Colors.blue.shade50,
                       backgroundImage:
-                          (_newShopPicUrl != null && _newShopPicUrl!.isNotEmpty)
+                      (_newShopPicUrl != null && _newShopPicUrl!.isNotEmpty)
                           ? NetworkImage(_newShopPicUrl!)
-                          : (currentUser!['shop_pic'] != null &&
-                                    currentUser!['shop_pic']
-                                        .toString()
-                                        .isNotEmpty
-                                ? NetworkImage(currentUser!['shop_pic'])
-                                : null),
+                          : (currentUser?['shop_pic'] != null &&
+                          currentUser!['shop_pic']
+                              .toString()
+                              .isNotEmpty
+                          ? NetworkImage(currentUser!['shop_pic'])
+                          : null),
                       child:
-                          ((_newShopPicUrl == null ||
-                                  _newShopPicUrl!.isEmpty) &&
-                              (currentUser!['shop_pic'] == null ||
-                                  currentUser!['shop_pic'].toString().isEmpty))
+                      ((_newShopPicUrl == null ||
+                          _newShopPicUrl!.isEmpty) &&
+                          (currentUser?['shop_pic'] == null ||
+                              currentUser!['shop_pic'].toString().isEmpty))
                           ? const Icon(Icons.store, size: 40)
                           : null,
                     ),
@@ -160,34 +166,34 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                 onPressed: _isUploadingLogo
                     ? null
                     : () async {
-                        final newShopName = _shopNameController.text.trim();
-                        if (newShopName.isEmpty) return;
+                  final newShopName = _shopNameController.text.trim();
+                  if (newShopName.isEmpty) return;
 
-                        try {
-                          final supabase = Supabase.instance.client;
-                          Map<String, dynamic> updateData = {
-                            'shop_name': newShopName,
-                          };
-                          if (_newShopPicUrl != null) {
-                            updateData['shop_pic'] = _newShopPicUrl;
-                          }
+                  try {
+                    final supabase = Supabase.instance.client;
+                    Map<String, dynamic> updateData = {
+                      'shop_name': newShopName,
+                    };
+                    if (_newShopPicUrl != null) {
+                      updateData['shop_pic'] = _newShopPicUrl;
+                    }
 
-                          await supabase
-                              .from('user')
-                              .update(updateData)
-                              .eq('id', currentUser!['id']);
+                    await supabase
+                        .from('user')
+                        .update(updateData)
+                        .eq('id', currentUser!['id']);
 
-                          setState(() {
-                            _currentShopName = newShopName;
-                            currentUser!.addAll(updateData);
-                            _newShopPicUrl = null;
-                          });
+                    setState(() {
+                      _currentShopName = newShopName;
+                      currentUser!.addAll(updateData);
+                      _newShopPicUrl = null;
+                    });
 
-                          if (mounted) Navigator.pop(context);
-                        } catch (e) {
-                          snackbar('Save failed: $e', Colors.red);
-                        }
-                      },
+                    if (context.mounted) Navigator.pop(context);
+                  } catch (e) {
+                    if (context.mounted) snackbar('Save failed: $e', Colors.red);
+                  }
+                },
                 child: const Text('Save'),
               ),
             ],
@@ -209,7 +215,9 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: _isLoading
+          ? const SellerCentralSkeleton() // Use the new skeleton
+          : SingleChildScrollView(
         child: Column(
           children: [
             // Shop Banner
@@ -223,13 +231,13 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                     radius: 40,
                     backgroundColor: Colors.blue.shade50,
                     backgroundImage:
-                        (currentUser!['shop_pic'] != null &&
-                            currentUser!['shop_pic'].toString().isNotEmpty)
+                    (currentUser?['shop_pic'] != null &&
+                        currentUser!['shop_pic'].toString().isNotEmpty)
                         ? NetworkImage(currentUser!['shop_pic'])
                         : null,
                     child:
-                        (currentUser!['shop_pic'] == null ||
-                            currentUser!['shop_pic'].toString().isEmpty)
+                    (currentUser?['shop_pic'] == null ||
+                        currentUser!['shop_pic'].toString().isEmpty)
                         ? const Icon(Icons.store, size: 40)
                         : null,
                   ),

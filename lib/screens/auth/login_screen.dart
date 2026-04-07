@@ -76,6 +76,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
           currentUser = foundedData;
 
+          snackbar('Login successful!', Colors.green);
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomeScreen()),

@@ -6,7 +6,8 @@ import '../shop/product_details_screen.dart';
 import '../../widgets/shimmer_skeletons.dart';
 
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  final VoidCallback? onShopNow;
+  const CartScreen({super.key, this.onShopNow});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
@@ -195,7 +196,32 @@ class _CartScreenState extends State<CartScreen> {
         children: [
           Expanded(
             child: _cartItems.isEmpty
-                ? const Center(child: Text('Your cart is empty'))
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Your cart is empty',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  OutlinedButton(
+                    onPressed: widget.onShopNow ?? () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.lightBlue, width: 1.5),
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.lightBlue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text(
+                      'Shop Here',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            )
                 : ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 12),
               itemCount: _cartItems.length,

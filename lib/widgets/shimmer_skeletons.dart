@@ -764,3 +764,109 @@ class OrderHistorySkeleton extends StatelessWidget {
     );
   }
 }
+
+/// A unified, full-screen Seller Central screen skeleton.
+class SellerCentralSkeleton extends StatelessWidget {
+  const SellerCentralSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Banner area shimmer
+          Shimmer.fromColors(
+            baseColor: Colors.blue.shade100.withValues(alpha: 0.5),
+            highlightColor: Colors.blue.shade50,
+            child: Container(
+              width: double.infinity,
+              height: 220,
+              color: Colors.white,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  BaseSkeleton(width: 80, height: 80, borderRadius: 40),
+                  SizedBox(height: 12),
+                  BaseSkeleton(width: 180, height: 24),
+                  SizedBox(height: 8),
+                  BaseSkeleton(width: 120, height: 16),
+                  SizedBox(height: 16),
+                  BaseSkeleton(width: 140, height: 36, borderRadius: 18),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Menu Item Skeletons
+          ...List.generate(3, (index) => Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const BaseSkeleton(width: 24, height: 24, borderRadius: 4),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BaseSkeleton(width: 140, height: 18),
+                          SizedBox(height: 6),
+                          BaseSkeleton(width: 200, height: 14),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: Colors.grey),
+                  ],
+                ),
+              ),
+              if (index < 2) const Divider(),
+            ],
+          )),
+        ],
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen Seller Page (Store) skeleton.
+class SellerPageSkeleton extends StatelessWidget {
+  const SellerPageSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Shop Banner Shimmer
+        Shimmer.fromColors(
+          baseColor: Colors.lightBlue.shade100.withValues(alpha: 0.5),
+          highlightColor: Colors.lightBlue.shade50,
+          child: Container(
+            width: double.infinity,
+            height: 180,
+            color: Colors.white,
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                BaseSkeleton(width: 72, height: 72, borderRadius: 36),
+                SizedBox(height: 12),
+                BaseSkeleton(width: 150, height: 22),
+                SizedBox(height: 8),
+                BaseSkeleton(width: 100, height: 14),
+              ],
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: BaseSkeleton(width: 100, height: 20),
+          ),
+        ),
+        // Grid Shimmer
+        const Expanded(child: ProductGridSkeleton()),
+      ],
+    );
+  }
+}

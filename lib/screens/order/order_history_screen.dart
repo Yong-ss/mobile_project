@@ -58,12 +58,48 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredOrders {
-    if (_selectedFilter == 'All') return _liveOrders;
-    return _liveOrders.where((o) {
-      final loc = o['location'] as Map<String, dynamic>?;
-      final type = loc?['location_type'] ?? 'Delivery';
-      return type == _selectedFilter;
-    }).toList();
+    List<Map<String, dynamic>> filtered = _liveOrders;
+
+    if (_selectedFilter != 'All') {
+      filtered = _liveOrders.where((o) {
+        final status = (o['status'] ?? 'Pending').toString();
+        final statusLower = status.toLowerCase();
+
+        if (_selectedFilter == 'Active') {
+          return !['completed', 'cancelled'].contains(statusLower);
+        }
+        if (_selectedFilter == 'Completed') {
+          return statusLower == 'completed';
+        }
+        if (_selectedFilter == 'Cancelled') {
+          return statusLower == 'cancelled';
+        }
+        return true;
+      }).toList();
+    }
+
+    // Smart Sorting for "All": Active first, Completed/Cancelled at the absolute bottom
+    if (_selectedFilter == 'All') {
+      final List<Map<String, dynamic>> sorted = List.from(filtered);
+      sorted.sort((a, b) {
+        final statusA = (a['status'] ?? 'Pending').toString().toLowerCase();
+        final statusB = (b['status'] ?? 'Pending').toString().toLowerCase();
+
+        final isFinA = ['completed', 'cancelled'].contains(statusA);
+        final isFinB = ['completed', 'cancelled'].contains(statusB);
+
+        if (isFinA && !isFinB) return 1;
+        if (!isFinA && isFinB) return -1;
+
+        // Otherwise stable sort by created_at (already handled by fetch, but being explicit)
+        final dateA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+      return sorted;
+    }
+
+    return filtered;
   }
 
   @override
@@ -90,7 +126,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  children: ['All', 'Delivery', 'Pick Up'].map((filter) {
+                  children: ['All', 'Active', 'Completed', 'Cancelled'].map((filter) {
                     final isSelected = _selectedFilter == filter;
                     return Padding(
                       padding: const EdgeInsets.only(right: 12),
@@ -116,14 +152,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
             // ── Orders List ──
             Expanded(
-              child: _filteredOrders.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _filteredOrders.length,
-                itemBuilder: (context, index) {
-                  return _OrderCard(order: _filteredOrders[index]);
-                },
+              child: RefreshIndicator(
+                onRefresh: _fetchOrders,
+                child: _filteredOrders.isEmpty
+                    ? ListView(
+                  padding: const EdgeInsets.only(top: 100),
+                  children: [_buildEmptyState()],
+                )
+                    : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: _filteredOrders.length,
+                  itemBuilder: (context, index) {
+                    return _OrderCard(order: _filteredOrders[index]);
+                  },
+                ),
               ),
             ),
           ],
@@ -166,14 +209,17 @@ class _OrderCardState extends State<_OrderCard> {
   bool _isExpanded = false;
 
   Color _statusColor(String status) {
+    status = status.toLowerCase();
     switch (status) {
-      case 'Order Placed': return Colors.blue;
-      case 'Preparing': return Colors.orange;
-      case 'Ready for Pickup':
-      case 'Out for Delivery': return Colors.lightBlue;
-      case 'Delivered':
-      case 'Picked Up': return Colors.green;
-      case 'Cancelled': return Colors.red;
+      case 'order placed':
+      case 'pending': return Colors.blue;
+      case 'preparing': return Colors.orange;
+      case 'ready for pickup':
+      case 'out for delivery': return Colors.lightBlue;
+      case 'delivered':
+      case 'picked up':
+      case 'completed': return Colors.green;
+      case 'cancelled': return Colors.red;
       default: return Colors.grey;
     }
   }

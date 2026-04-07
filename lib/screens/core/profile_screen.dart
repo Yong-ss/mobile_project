@@ -131,9 +131,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  bool _isProfileExpanded = false;
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading || currentUser == null) {
       return const Scaffold(body: ProfileSkeleton());
     }
 
@@ -150,36 +152,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Avatar area (Buyer Info)
-            Container(
-              width: double.infinity,
-              color: Colors.lightBlue.shade50,
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundImage: (currentUser!['user_pic'] != null || currentUser!['google_profile_image'] != null)
-                        ? NetworkImage(currentUser!['user_pic'] ?? currentUser!['google_profile_image'])
-                        : null,
-                    child: (currentUser!['user_pic'] == null && currentUser!['google_profile_image'] == null)
-                        ? const Icon(
-                      Icons.person,
-                      size: 48,
-                      color: Colors.lightBlue,
-                    )
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _showName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+            // ── Full-Banner Morph Header ──
+            GestureDetector(
+              onTap: () => setState(() => _isProfileExpanded = !_isProfileExpanded),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeInOutCubic,
+                width: double.infinity,
+                height: _isProfileExpanded ? 240 : 180, // Morph the banner height
+                color: Colors.lightBlue.shade50,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Morphing Profile Image (Circle ↔ Full Banner)
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.easeInOutCubic,
+                      top: _isProfileExpanded ? 0 : 20, // Bump up when collapsed
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 700),
+                        curve: Curves.easeInOutCubic,
+                        width: _isProfileExpanded
+                            ? MediaQuery.of(context).size.width
+                            : 96,
+                        height: _isProfileExpanded ? 240 : 96,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(_isProfileExpanded ? 0 : 48),
+                          image: DecorationImage(
+                            image: (currentUser!['user_pic'] != null || currentUser!['google_profile_image'] != null)
+                                ? NetworkImage(currentUser!['user_pic'] ?? currentUser!['google_profile_image'])
+                                : const AssetImage('assets/images/placeholder_avatar.png') as ImageProvider,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        child: (currentUser!['user_pic'] == null && currentUser!['google_profile_image'] == null)
+                            ? AnimatedOpacity(
+                          opacity: _isProfileExpanded ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: const Icon(Icons.person, size: 48, color: Colors.lightBlue),
+                        )
+                            : null,
+                      ),
                     ),
-                  ),
-                  Text(_showEmail, style: const TextStyle(color: Colors.grey)),
-                ],
+
+                    // Name & Email with Slide-Fade Animation
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                      bottom: _isProfileExpanded ? 0 : 16, // Extra padding when collapsed
+                      child: ClipRect(
+                        child: AnimatedOpacity(
+                          opacity: _isProfileExpanded ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOut,
+                          child: AnimatedSlide(
+                            offset: _isProfileExpanded ? const Offset(-0.3, 0) : Offset.zero,
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.easeOutQuart,
+                            child: Column(
+                              children: [
+                                Text(
+                                  _showName,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                    _showEmail,
+                                    style: const TextStyle(color: Colors.grey)
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -237,6 +287,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 },
               ),
+            const Divider(),
+
+            // ── Demo Menu: To Pay ──
+            ListTile(
+              leading: const Icon(Icons.payment, color: Colors.orange),
+              title: const Text('To Pay'),
+              subtitle: const Text('View orders awaiting payment'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => snackbar('To Pay feature coming soon!', Colors.blue),
+            ),
+            const Divider(),
+
+            // ── Demo Menu: Settings ──
+            ListTile(
+              leading: const Icon(Icons.settings, color: Colors.grey),
+              title: const Text('Settings'),
+              subtitle: const Text('Account and app preferences'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => snackbar('Settings feature coming soon!', Colors.blue),
+            ),
             const Divider(),
 
             // ── Logout ──

@@ -181,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildHomeBody(),
           ShopScreen(key: _shopScreenKey),
-          const CartScreen(),
+          CartScreen(onShopNow: () => _onNavItemTapped(1)),
           const ProfileScreen(),
         ],
       ),

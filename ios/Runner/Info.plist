@@ -53,5 +53,7 @@
 	<string>We need your location to show it on the map and save it for future checkout.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to location when in the background.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to scan order QR codes for verifying pickups.</string>
 </dict>
 </plist>

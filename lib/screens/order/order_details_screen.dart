@@ -433,46 +433,46 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               _buildStatusStep('Preparing', status != 'Order Placed', 'The seller is preparing your items'),
               _buildStatusStep(
                   isPickup ? 'Ready for Pickup' : 'Out for Delivery',
-                  status == 'Ready for Pickup' || status == 'Out for Delivery' || status == 'Delivered' || status == 'Picked Up',
+                  ['Ready for Pickup', 'Out for Delivery', 'Delivered', 'Picked Up', 'Completed'].contains(status),
                   isPickup ? 'Items are ready at the store' : 'Package is with our courier'),
               _buildStatusStep(
                   isPickup ? 'Picked Up' : 'Delivered',
-                  status == 'Delivered' || status == 'Picked Up',
-                  isPickup ? 'Order completed' : 'Package delivered to your doorstep'),
+                  ['Delivered', 'Picked Up', 'Completed'].contains(status),
+                  isPickup ? 'Order handover complete' : 'Package delivered to your doorstep',
+                  isLast: status != 'Completed'),
+
+              // ── New Final Step: Completed ──
+              if (status == 'Completed')
+                _buildStatusStep('Completed', true, 'Order finalized and closed', isLast: true),
+
               const SizedBox(height: 32),
 
-              // ── Pickup Verification Button (Replacement/Addition) ──
-              if (isPickup)
+              // ── Actions: Order Received (Only after Seller marks as Delivered) ──
+              if (!isPickup && status == 'Delivered')
                 Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
+                  padding: const EdgeInsets.only(top: 0),
                   child: SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        _showPickupBottomSheet(context, displayOrderId);
-                        // On-Demand Trigger: Ensure QR is being generated if missing
-                        if (_verification?['qr_url'] == null) {
-                          _ensureQrGenerated();
-                        }
-                      },
-                      icon: const Icon(Icons.qr_code_2),
-                      label: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        child: Text(
-                          'View Pickup Verification',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
+                    child: ElevatedButton(
+                      onPressed: () => _markOrderCompleted(),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
+                        backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text(
+                        'Order Received',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
+
+              // ── Actions: Pickup Verification ──
+              if (isPickup && status == 'Ready for Pickup')
+                const SizedBox(height: 16),
             ],
           ),
         ),
@@ -669,26 +669,54 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
   }
 
+  Future<void> _markOrderCompleted() async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('orders')
+          .update({'status': 'Completed'})
+          .eq('id', widget.orderId);
+
+      if (mounted) {
+        // Refresh the page
+        _fetchOrderDetails();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order marked as Completed! Thank you!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error marking order as completed: $e');
+    }
+  }
+
   Color _statusColor(String status) {
+    status = status.toLowerCase();
     switch (status) {
-      case 'Order Placed':
+      case 'order placed':
+      case 'pending':
         return Colors.blue;
-      case 'Preparing':
+      case 'preparing':
         return Colors.orange;
-      case 'Ready for Pickup':
-      case 'Out for Delivery':
+      case 'ready for pickup':
+      case 'out for delivery':
         return Colors.lightBlue;
-      case 'Delivered':
-      case 'Picked Up':
+      case 'delivered':
+      case 'picked up':
+      case 'completed':
         return Colors.green;
-      case 'Cancelled':
+      case 'cancelled':
         return Colors.red;
       default:
         return Colors.grey;
     }
   }
 
-  Widget _buildStatusStep(String label, bool done, String description) {
+  Widget _buildStatusStep(String label, bool done, String description, {bool isLast = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Row(
@@ -702,7 +730,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 size: 24,
               ),
               // Line between steps
-              if (label != ( _order!['location']?['location_type'] == 'Pick Up' ? 'Picked Up' : 'Delivered'))
+              if (!isLast)
                 Container(
                   width: 2,
                   height: 30,
