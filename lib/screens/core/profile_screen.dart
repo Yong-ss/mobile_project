@@ -8,6 +8,7 @@ import '../../utils/globals.dart';
 import 'edit_profile.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -158,10 +159,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 48,
-                    backgroundImage: currentUser!['user_pic'] != null
-                        ? NetworkImage(currentUser!['user_pic'])
+                    backgroundImage: (currentUser!['user_pic'] != null || currentUser!['google_profile_image'] != null)
+                        ? NetworkImage(currentUser!['user_pic'] ?? currentUser!['google_profile_image'])
                         : null,
-                    child: currentUser!['user_pic'] == null
+                    child: (currentUser!['user_pic'] == null && currentUser!['google_profile_image'] == null)
                         ? const Icon(
                       Icons.person,
                       size: 48,
@@ -243,22 +244,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Logout', style: TextStyle(color: Colors.red)),
               onTap: () async {
-                // Clear state
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear();
-                currentUser = null;
-
-                if (mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
-                        (route) => false,
-                  );
+                setState(() => _isLoading = true);
+                try {
+                  await AuthService().signOut();
+                  if (mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                          (route) => false,
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) snackbar('Logout failed: $e', Colors.red);
+                } finally {
+                  if (mounted) setState(() => _isLoading = false);
                 }
               },
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),

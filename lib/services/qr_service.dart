@@ -14,6 +14,7 @@ class QrService {
   static Future<String?> generateAndUploadQr(
       String orderId, {
         Function(String)? onProgress,
+        bool forceRecreate = false,
       }) async {
     try {
       onProgress?.call('Step 1: Checking...');
@@ -29,7 +30,7 @@ class QrService {
       String? token;
       if (existing != null) {
         token = existing['verification_token'];
-        if (existing['qr_url'] != null) return existing['qr_url'];
+        if (!forceRecreate && existing['qr_url'] != null) return existing['qr_url'];
       } else {
         // 2. Create new record
         final inserted = await _supabase

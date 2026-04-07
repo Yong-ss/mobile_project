@@ -26,6 +26,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   bool _isGeneratingQr = false;
   String? _qrErrorMessage;
   String _qrProgressMessage = 'Preparing...';
+  int _qrRetryCount = 0; // Prevent infinite loops
   void Function(void Function())? _setModalState; // Track modal's state function
 
   @override
@@ -75,7 +76,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     }
   }
 
-  Future<void> _ensureQrGenerated() async {
+  Future<void> _ensureQrGenerated({bool force = false}) async {
     if (_isGeneratingQr) return;
     setState(() {
       _isGeneratingQr = true;
@@ -85,6 +86,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
     final qrUrl = await QrService.generateAndUploadQr(
       widget.orderId,
+      forceRecreate: force,
       onProgress: (p) {
         if (mounted) {
           setState(() => _qrProgressMessage = p);
@@ -94,6 +96,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
 
     if (mounted) {
+      if (qrUrl != null) {
+        // Success
+        _qrRetryCount = 0;
+      }
       setState(() {
         _isGeneratingQr = false;
         if (qrUrl == null) {
@@ -580,24 +586,31 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                                     child: Center(child: CircularProgressIndicator()),
                                   );
                                 },
-                                errorBuilder: (context, error, stackTrace) => const Column(
-                                  children: [
-                                    Icon(Icons.error_outline, color: Colors.red, size: 40),
-                                    SizedBox(height: 8),
-                                    Text('Failed to load QR image', style: TextStyle(color: Colors.red, fontSize: 12)),
-                                  ],
-                                ),
+                                errorBuilder: (context, error, stackTrace) {
+                                  // Auto-fix: if the image fails to load, force recreate it once
+                                  if (_qrRetryCount < 1 && !_isGeneratingQr) {
+                                    _qrRetryCount++;
+                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                      _ensureQrGenerated(force: true);
+                                    });
+                                    return const SizedBox(
+                                      width: 220,
+                                      height: 220,
+                                      child: Center(child: CircularProgressIndicator()),
+                                    );
+                                  }
+                                  return const Column(
+                                    children: [
+                                      Icon(Icons.error_outline, color: Colors.red, size: 40),
+                                      SizedBox(height: 8),
+                                      Text('Failed to load QR image',
+                                          style: TextStyle(color: Colors.red, fontSize: 12)),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
-                          const SizedBox(height: 20),
-                          const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.lock_outline, size: 14, color: Colors.lightBlue),
-                              SizedBox(width: 8),
-                              Text('Secure Pickup Token', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.lightBlue)),
-                            ],
-                          ),
+                          const SizedBox(height: 12),
                         ],
                       ),
                     ),

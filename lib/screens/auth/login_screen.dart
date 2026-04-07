@@ -5,6 +5,8 @@ import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/globals.dart';
+import 'package:sign_in_button/sign_in_button.dart';
+import '../../services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
 
@@ -18,6 +20,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   bool _isInitialLoading = true;
@@ -92,6 +95,37 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _authService.signInWithGoogle();
+      if (result == null) return;
+
+      if (result.isNewUser) {
+        // Redirection for new users to complete registration
+        if (mounted) {
+          snackbar('Account not found. Let\'s get you registered!', Colors.lightBlue);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const RegisterScreen()),
+          );
+        }
+      } else if (result.userData != null) {
+        if (mounted) {
+          snackbar('Login Successful!', Colors.green);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) snackbar('Google Login Error: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isInitialLoading || _isLoading) {
@@ -119,7 +153,38 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
               Text('Simple Marketplace for Small Sellers'),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
+
+              // Google Sign-In (HCI: Social proof at the top)
+              AbsorbPointer(
+                absorbing: _isLoading,
+                child: Opacity(
+                  opacity: _isLoading ? 0.6 : 1.0,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: SignInButton(
+                      Buttons.google,
+                      text: "Sign in with Google",
+                      onPressed: () => _handleGoogleSignIn(),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Divider
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('OR', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 24),
 
               // Email field
               TextField(

@@ -7,7 +7,7 @@ import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
-  final int? productId; // 接收传进来的商品 ID
+  final int? productId;
 
   const ProductDetailsScreen({super.key, this.productId});
 
@@ -21,10 +21,34 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Map<String, dynamic>? _productData;
   Map<String, dynamic>? _sellerData;
 
+  // Animation & Badge state
+  final GlobalKey _imageKey = GlobalKey();
+  final GlobalKey _cartKey = GlobalKey();
+  int _cartCount = 0;
+
   @override
   void initState() {
     super.initState();
     _fetchProductAndSeller();
+    _fetchCartCount();
+  }
+
+  Future<void> _fetchCartCount() async {
+    final user = currentUser;
+    if (user == null) return;
+
+    try {
+      final response = await _supabase
+          .from('cart_item')
+          .select('id') // Just need to count the rows
+          .eq('user_id', user['id']);
+
+      if (mounted) {
+        setState(() => _cartCount = response.length);
+      }
+    } catch (e) {
+      debugPrint('Error fetching cart count: $e');
+    }
   }
 
   Future<void> _fetchProductAndSeller() async {
@@ -56,17 +80,41 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
-  Future<void> _addToSupabaseCart() async {
+  void _runFlyToCartAnimation({bool isNewItem = false}) {
+    final RenderBox? imageBox = _imageKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? cartBox = _cartKey.currentContext?.findRenderObject() as RenderBox?;
 
+    if (imageBox == null || cartBox == null) return;
+
+    OverlayEntry? overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => _FlyToCartOverlay(
+        startPosition: imageOffset(imageBox),
+        endPosition: cartOffset(cartBox),
+        imageUrl: _productData?['image_url'] ?? '',
+        onComplete: () {
+          overlayEntry?.remove();
+          if (isNewItem) {
+            setState(() => _cartCount++);
+          }
+        },
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+  }
+
+  Offset imageOffset(RenderBox box) => box.localToGlobal(Offset.zero);
+  Offset cartOffset(RenderBox box) => box.localToGlobal(Offset.zero) + Offset(box.size.width / 2, box.size.height / 2);
+
+  Future<void> _addToSupabaseCart() async {
     if (_productData == null) return;
 
     String prodName = _productData?['name'] ?? 'unknown product';
-
     final user = currentUser;
+
     if (user == null) {
-      if (mounted) {
-        snackbar('Please login to add items to your cart', Colors.orange);
-      }
+      if (mounted) snackbar('Please login to add items to your cart', Colors.orange);
       return;
     }
 
@@ -78,38 +126,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           .eq('product_id', _productData!['id'])
           .maybeSingle();
 
-      if (response == null) {
+      bool isNewItem = response == null;
+
+      // Trigger animation
+      _runFlyToCartAnimation(isNewItem: isNewItem);
+
+      if (isNewItem) {
         await _supabase.from('cart_item').insert({
           'user_id': user['id'],
           'product_id': _productData!['id'],
           'quantity': 1,
         });
-
-        if (mounted) {
-          snackbar('Added $prodName to cart!', Colors.green);
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CartScreen()),
-          );
-        }
+        if (mounted) snackbar('Added $prodName to cart!', Colors.green);
       } else {
-        // Increment existing quantity
         final newQuantity = (response['quantity'] as int) + 1;
         await _supabase
             .from('cart_item')
             .update({'quantity': newQuantity})
             .eq('id', response['id']);
-
-        if (mounted) {
-          snackbar('Increased $prodName quantity to $newQuantity', Colors.blueAccent);
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CartScreen()),
-          );
-        }
+        if (mounted) snackbar('Increased $prodName quantity to $newQuantity', Colors.blueAccent);
       }
     } catch (e) {
-      print('Error adding to cart: $e');
+      debugPrint('Error adding to cart: $e');
     }
   }
 
@@ -127,13 +165,73 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(_productData!['name'])),
+      appBar: AppBar(
+        title: Text(_productData!['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                key: _cartKey,
+                icon: const Icon(Icons.shopping_cart_outlined),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CartScreen()),
+                  );
+                },
+              ),
+              if (_cartCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return ScaleTransition(scale: animation, child: child);
+                    },
+                    child: Container(
+                      key: ValueKey<int>(_cartCount),
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$_cartCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 商品主图
             SizedBox(
+              key: _imageKey,
               width: double.infinity,
               height: 300,
               child: (_productData!['image_url'] != null)
@@ -256,5 +354,94 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         ),
       ),
     );
+  }
+}
+
+class _FlyToCartOverlay extends StatefulWidget {
+  final Offset startPosition;
+  final Offset endPosition;
+  final String imageUrl;
+  final VoidCallback onComplete;
+
+  const _FlyToCartOverlay({
+    required this.startPosition,
+    required this.endPosition,
+    required this.imageUrl,
+    required this.onComplete,
+  });
+
+  @override
+  State<_FlyToCartOverlay> createState() => _FlyToCartOverlayState();
+}
+
+class _FlyToCartOverlayState extends State<_FlyToCartOverlay> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOutQuart);
+    _controller.forward().then((_) => widget.onComplete());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        final double t = _animation.value;
+        final double x = widget.startPosition.dx + (widget.endPosition.dx - widget.startPosition.dx) * t;
+        final double y = widget.startPosition.dy + (widget.endPosition.dy - widget.startPosition.dy) * t;
+        final double size = 100 * (1 - t * 0.8);
+        final double opacity = 1 - (t * 0.5);
+
+        return Positioned(
+          left: x - (size / 2),
+          top: y - (size / 2),
+          child: Opacity(
+            opacity: opacity,
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(size / 4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(size / 4),
+                child: Image.network(widget.imageUrl, fit: BoxFit.cover),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ProductDetailsSkeleton extends StatelessWidget {
+  const ProductDetailsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Basic placeholder for skeleton
+    return const Center(child: CircularProgressIndicator());
   }
 }

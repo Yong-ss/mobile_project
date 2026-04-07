@@ -16,10 +16,10 @@ class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key, this.initialCategory});
 
   @override
-  State<ShopScreen> createState() => _ShopScreenState();
+  State<ShopScreen> createState() => ShopScreenState();
 }
 
-class _ShopScreenState extends State<ShopScreen> {
+class ShopScreenState extends State<ShopScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
   final SpeechToText _speechToText = SpeechToText();
@@ -125,6 +125,13 @@ class _ShopScreenState extends State<ShopScreen> {
     } catch (e) {
       debugPrint('Error fetching cart count: $e');
     }
+  }
+
+  void setCategory(String category) {
+    setState(() {
+      _selectedCategory = category;
+      _filterProducts();
+    });
   }
 
   @override
@@ -620,7 +627,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     child: _filteredProducts.isEmpty
                         ? const Center(child: Text('No products found matching your criteria.'))
                         : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         crossAxisSpacing: 12,

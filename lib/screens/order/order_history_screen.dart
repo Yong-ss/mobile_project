@@ -76,56 +76,58 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: (_isLoading || _isInitialLoading)
-          ? const OrderHistorySkeleton()
-          : Column(
-        children: [
-          // ── Category Filter Bar ──
-          Container(
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: ['All', 'Delivery', 'Pick Up'].map((filter) {
-                  final isSelected = _selectedFilter == filter;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: FilterChip(
-                      label: Text(filter),
-                      selected: isSelected,
-                      onSelected: (val) => setState(() => _selectedFilter = filter),
-                      selectedColor: Colors.lightBlue.shade100,
-                      checkmarkColor: Colors.lightBlue,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.lightBlue.shade800 : Colors.black87,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      body: SafeArea(
+        child: (_isLoading || _isInitialLoading)
+            ? const OrderHistorySkeleton()
+            : Column(
+          children: [
+            // ── Category Filter Bar ──
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: ['All', 'Delivery', 'Pick Up'].map((filter) {
+                    final isSelected = _selectedFilter == filter;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: FilterChip(
+                        label: Text(filter),
+                        selected: isSelected,
+                        onSelected: (val) => setState(() => _selectedFilter = filter),
+                        selectedColor: Colors.lightBlue.shade100,
+                        checkmarkColor: Colors.lightBlue,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.lightBlue.shade800 : Colors.black87,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        backgroundColor: Colors.grey.shade100,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        side: BorderSide(color: isSelected ? Colors.lightBlue.withValues(alpha: 0.2) : Colors.transparent),
                       ),
-                      backgroundColor: Colors.grey.shade100,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      side: BorderSide(color: isSelected ? Colors.lightBlue.withValues(alpha: 0.2) : Colors.transparent),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
-          ),
 
-          // ── Orders List ──
-          Expanded(
-            child: _filteredOrders.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _filteredOrders.length,
-              itemBuilder: (context, index) {
-                return _OrderCard(order: _filteredOrders[index]);
-              },
+            // ── Orders List ──
+            Expanded(
+              child: _filteredOrders.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _filteredOrders.length,
+                itemBuilder: (context, index) {
+                  return _OrderCard(order: _filteredOrders[index]);
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
