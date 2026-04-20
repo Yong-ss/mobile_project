@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver_plus/gallery_saver.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 class ReceiptScreen extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -62,7 +63,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Receipt', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('receipt'), style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         actions: [
@@ -124,7 +125,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Order ID', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                          Text(t('order_id'), style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                           const SizedBox(height: 4),
                           Text(displayOrderId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                         ],
@@ -132,7 +133,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('Date', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                          Text(t('date'), style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                           const SizedBox(height: 4),
                           Text(formattedDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                         ],
@@ -142,7 +143,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   const SizedBox(height: 32),
 
                   // --- Items List ---
-                  const Text('ITEMS ORDERED', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
+                  Text(t('items_ordered'), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
                   const SizedBox(height: 16),
                   ...orderItems.map((item) {
                     final product = item['product'] as Map<String, dynamic>?;
@@ -180,7 +181,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Subtotal', style: TextStyle(fontSize: 15)),
+                      Text(t('subtotal'), style: const TextStyle(fontSize: 15)),
                       Text('RM ${totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15)),
                     ],
                   ),
@@ -199,7 +200,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total Paid', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(t('total_paid'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         Text(
                           'RM ${totalAmount.toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.lightBlue),
@@ -235,9 +236,9 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                       children: [
                         const Icon(Icons.verified, color: Colors.green, size: 40),
                         const SizedBox(height: 12),
-                        const Text('Thank you for your purchase!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(t('receipt_footer'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 4),
-                        Text('Please keep this receipt for your records.', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        Text(t('keep_receipt'), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                         const SizedBox(height: 40),
                       ],
                     ),

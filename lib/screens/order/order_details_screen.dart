@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../services/qr_service.dart';
 import 'package:flutter/services.dart';
 import 'receipt_screen.dart';
+import '../../utils/translations.dart';
 
 // Buyer's order detail view — Member 3
 // Shows full order info and status.
@@ -120,15 +121,15 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Order Details')),
+        appBar: AppBar(title: Text(t('order_details'))),
         body: const OrderDetailsSkeletonUI(),
       );
     }
 
     if (_order == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Order Details')),
-        body: const Center(child: Text('Order not found.')),
+        appBar: AppBar(title: Text(t('order_details'))),
+        body: Center(child: Text(t('order_not_found'))),
       );
     }
 
@@ -166,7 +167,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Order Details', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('order_details'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -193,18 +194,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(displayOrderId,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
-                            const SizedBox(height: 4),
-                            Text('Placed on $formattedDate',
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                          ],
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${t('order_id')}: $displayOrderId',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
+                              const SizedBox(height: 4),
+                              Text('${t('placed_on')} $formattedDate',
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: _statusColor(status).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
@@ -226,8 +230,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 24),
 
               // ── Seller Info ──
-              const Text('Seller Information',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(t('seller_information'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () {
@@ -267,7 +271,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(shopName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                            Text('Official Seller', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                            Text(t('official_seller'), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -282,8 +286,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 24),
 
               // ── Items ──
-              const Text('Items Ordered',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(t('items_ordered'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
@@ -323,7 +327,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         ),
                         title: Text(product?['name'] ?? 'Unknown Item',
                             style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                        subtitle: Text('Qty: $quantity', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        subtitle: Text('${t('qty')}: $quantity', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                         trailing: Text('RM ${(price * quantity).toStringAsFixed(2)}',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       );
@@ -334,7 +338,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(t('total_amount'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           Text(
                             'RM ${totalAmount.toStringAsFixed(2)}',
                             style: const TextStyle(
@@ -351,8 +355,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 24),
 
               // ── Fulfillment Info ──
-              const Text('Fulfillment Details',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(t('fulfillment_details'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
@@ -388,7 +392,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Services : $locationType', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                Text('${t('services')} : $locationType', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                                 const SizedBox(height: 4),
                                 Text(
                                   location?['title'] ?? 'Address details not provided',
@@ -544,7 +548,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 ),
                 child: Column(
                   children: [
-                    _buildInfoRow('Order ID', fullOrderId,
+                    _buildInfoRow(t('order_id'), fullOrderId,
                       trailing: GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: fullOrderId));
@@ -571,9 +575,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       ),
                     ),
                     const Divider(height: 1),
-                    _buildInfoRow('Paid by', paymentMethod),
+                    _buildInfoRow(t('paid_by'), paymentMethod),
                     const Divider(height: 1),
-                    _buildInfoRow('Receipt', 'View',
+                    _buildInfoRow(t('receipt'), t('view_receipt'),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -591,10 +595,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             ? Column(
                           children: [
                             const Divider(height: 1),
-                            _buildInfoRow('Order Time', formattedDate),
-                            _buildInfoRow('Payment Time', paymentTime),
-                            _buildInfoRow('Ship Time', shipTime),
-                            _buildInfoRow('Completed Time', completedTime),
+                            _buildInfoRow(t('order_time'), formattedDate),
+                            _buildInfoRow(t('payment_time'), paymentTime),
+                            _buildInfoRow(t('ship_time'), shipTime),
+                            _buildInfoRow(t('completed_time'), completedTime),
                           ],
                         )
                             : const SizedBox.shrink(),
@@ -610,7 +614,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(_isInfoExpanded ? 'View Less' : 'View More',
+                            Text(_isInfoExpanded ? t('view_less') : t('view_more'),
                                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
                             Icon(_isInfoExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                                 size: 18, color: Colors.grey.shade600),
@@ -624,24 +628,20 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 24),
 
               // ── Status Timeline ──
-              const Text('Order Journey',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(t('order_journey'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 16),
-              _buildStatusStep('Order Placed', true, 'Your order has been received'),
-              _buildStatusStep('Preparing', status != 'Order Placed', 'The seller is preparing your items'),
+              _buildStatusStep('Order Placed', true, t('order_received_sub')),
+              _buildStatusStep('Preparing', status != 'Order Placed', t('preparing_sub')),
               _buildStatusStep(
-                  isPickup ? 'Ready for Pickup' : 'Out for Delivery',
+                  isPickup ? 'Ready for Pickup' : 'Out For Delivery',
                   ['Ready for Pickup', 'Out for Delivery', 'Delivered', 'Picked Up', 'Completed'].contains(status),
-                  isPickup ? 'Items are ready at the store' : 'Package is with our courier'),
+                  isPickup ? t('ready_for_pickup_sub') : t('out_for_delivery_sub')),
               _buildStatusStep(
                   isPickup ? 'Picked Up' : 'Delivered',
                   ['Delivered', 'Picked Up', 'Completed'].contains(status),
-                  isPickup ? 'Order handover complete' : 'Package delivered to your doorstep',
-                  isLast: status != 'Completed'),
-
-              // ── New Final Step: Completed ──
-              if (status == 'Completed')
-                _buildStatusStep('Completed', true, 'Order finalized and closed', isLast: true),
+                  isPickup ? t('order_handover_complete') : t('package_delivered'),
+                  isLast: true),
 
               const SizedBox(height: 32),
 
@@ -660,9 +660,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text(
-                        'Order Received',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      child: Text(
+                        t('order_received'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -683,9 +683,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text(
-                        'Pickup Verification',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      child: Text(
+                        t('pickup_verification'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -722,7 +722,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
                     ),
                     const SizedBox(height: 24),
-                    Text('Pickup Verification', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade800)),
+                    Text(t('pickup_verification'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade800)),
                     const SizedBox(height: 8),
                     Text('Order ID: $orderId', style: TextStyle(color: Colors.grey.shade500)),
                     const SizedBox(height: 32),
@@ -1010,6 +1010,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               flex: 2,
@@ -1024,13 +1025,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               flex: 5,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
+                  Expanded(
                     child: Text(
                       value,
                       textAlign: TextAlign.right,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (trailing != null) ...[

@@ -4,6 +4,8 @@ import 'seller_page_screen.dart';
 import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/translations.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final int? productId;
@@ -34,12 +36,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Future<void> _fetchCartCount() async {
     final user = currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) setState(() => _cartCount = 0);
+      return;
+    }
 
     try {
+      // Use a count query to get the accurate number of distinct products in cart
       final response = await _supabase
           .from('cart_item')
-          .select('id') // Just need to count the rows
+          .select('id')
           .eq('user_id', user['id']);
 
       if (mounted) {
@@ -113,7 +119,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final user = currentUser;
 
     if (user == null) {
-      if (mounted) snackbar('Please login to add items to your cart', Colors.orange);
+      if (mounted) snackbar(t('add_to_cart_login'), Colors.orange);
       return;
     }
 
@@ -131,7 +137,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       int currentInCart = response != null ? (response['quantity'] as int) : 0;
 
       if (currentInCart >= availableStock) {
-        if (mounted) snackbar('You already have all available stock in your cart', Colors.orange);
+        if (mounted) snackbar(t('all_stock_in_cart'), Colors.orange);
         return;
       }
 
@@ -146,14 +152,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           'product_id': _productData!['id'],
           'quantity': 1,
         });
-        if (mounted) snackbar('Added $prodName to cart!', Colors.green);
+        if (mounted) snackbar('${t('added_to_cart_msg')} $prodName', Colors.green);
       } else {
         final newQuantity = currentInCart + 1;
         await _supabase
             .from('cart_item')
             .update({'quantity': newQuantity})
             .eq('id', response['id']);
-        if (mounted) snackbar('Increased $prodName quantity to $newQuantity', Colors.blueAccent);
+        if (mounted) snackbar('${t('increased_quantity')} $prodName ($newQuantity)', Colors.blueAccent);
       }
     } catch (e) {
       debugPrint('Error adding to cart: $e');
@@ -168,8 +174,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
     if (_productData == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Not Found')),
-        body: const Center(child: Text('Product not found!')),
+        appBar: AppBar(title: Text(t('error'))),
+        body: Center(child: Text(t('no_products_found'))),
       );
     }
 
@@ -183,11 +189,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               IconButton(
                 key: _cartKey,
                 icon: const Icon(Icons.shopping_cart_outlined),
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const CartScreen()),
                   );
+                  // Refresh count when returning from cart
+                  _fetchCartCount();
                 },
               ),
               if (_cartCount > 0)
@@ -274,7 +282,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Stock: ${_productData!['quantity'] ?? 0}',
+                            '${t('stock')}: ${_productData!['quantity'] ?? 0}',
                             style: TextStyle(
                               fontSize: 14,
                               color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
@@ -304,7 +312,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          (_productData!['quantity'] ?? 0) > 0 ? 'IN STOCK' : 'OUT OF STOCK',
+                          (_productData!['quantity'] ?? 0) > 0 ? t('in_stock') : t('out_of_stock'),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -315,13 +323,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Description',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Text(
+                    t('description'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _productData!['description'] ?? 'No description provided.',
+                    _productData!['description'] ?? t('no_description_provided'),
                     style: const TextStyle(color: Colors.grey, fontSize: 15),
                   ),
                   const SizedBox(height: 24),
@@ -367,7 +375,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _sellerData?['shop_name'] ?? 'Mystery Shop',
+                                _sellerData?['shop_name'] ?? t('mystery_shop'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
@@ -375,7 +383,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                                 ),
                               ),
                               Text(
-                                'Official Seller',
+                                t('official_seller'),
                                 style: TextStyle(
                                   color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey.shade600,
                                   fontSize: 12,
@@ -399,7 +407,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             foregroundColor: Colors.lightBlue,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                           ),
-                          child: const Text('Visit Shop', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text(t('visit_shop'), style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -421,7 +429,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       ),
                       icon: Icon((_productData!['quantity'] ?? 0) > 0 ? Icons.shopping_cart : Icons.not_interested),
                       label: Text(
-                        (_productData!['quantity'] ?? 0) > 0 ? 'Add to Cart' : 'Out of Stock',
+                        (_productData!['quantity'] ?? 0) > 0 ? t('add_to_cart') : t('out_of_stock'),
                         style: const TextStyle(fontSize: 18),
                       ),
                     ),
@@ -512,15 +520,5 @@ class _FlyToCartOverlayState extends State<_FlyToCartOverlay> with SingleTickerP
         );
       },
     );
-  }
-}
-
-class ProductDetailsSkeleton extends StatelessWidget {
-  const ProductDetailsSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // Basic placeholder for skeleton
-    return const Center(child: CircularProgressIndicator());
   }
 }

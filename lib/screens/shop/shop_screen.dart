@@ -9,6 +9,7 @@ import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/circular_reveal_route.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 // Member 2: ShopScreen — full product browsing with category filter chips
 class ShopScreen extends StatefulWidget {
@@ -34,8 +35,8 @@ class ShopScreenState extends State<ShopScreen> {
   // Dynamic Data
   List<Map<String, dynamic>> _allProducts = [];
   List<Map<String, dynamic>> _filteredProducts = [];
-  List<String> _categories = ['All'];
-  String _selectedCategory = 'All';
+  List<String> _categories = [t('all')];
+  String _selectedCategory = t('all');
   bool _isLoading = true;
 
   // Cart State
@@ -50,8 +51,8 @@ class ShopScreenState extends State<ShopScreen> {
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please login to add items to your cart'),
+          SnackBar(
+            content: Text(t('add_to_cart_login')),
             backgroundColor: Colors.orange,
           ),
         );
@@ -80,7 +81,7 @@ class ShopScreenState extends State<ShopScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Added ${product['name']} to cart!'),
+              content: Text('${t('added_to_cart')} (${product['name']})'),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 1),
             ),
@@ -98,7 +99,7 @@ class ShopScreenState extends State<ShopScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Increased ${product['name']} quantity to $newQuantity'),
+              content: Text('${t('increased_quantity')} ${product['name']} $newQuantity'),
               backgroundColor: Colors.blueAccent,
               duration: const Duration(seconds: 1),
             ),
@@ -140,6 +141,8 @@ class ShopScreenState extends State<ShopScreen> {
     super.initState();
     if (widget.initialCategory != null) {
       _selectedCategory = widget.initialCategory!;
+    } else {
+      _selectedCategory = t('all');
     }
     _fetchProducts();
     _fetchCartCount();
@@ -173,7 +176,7 @@ class ShopScreenState extends State<ShopScreen> {
 
       setState(() {
         _allProducts = products;
-        _categories = ['All', ...uniqueCategories.toList()..sort()];
+        _categories = [t('all'), ...uniqueCategories.toList()..sort()];
         _filterProducts();
         _isLoading = false;
       });
@@ -193,7 +196,7 @@ class ShopScreenState extends State<ShopScreen> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredProducts = _allProducts.where((product) {
-        final matchesCategory = _selectedCategory == 'All' || product['category'] == _selectedCategory;
+        final matchesCategory = _selectedCategory == t('all') || product['category'] == _selectedCategory;
         final matchesSearch = product['name'].toString().toLowerCase().contains(query);
         return matchesCategory && matchesSearch;
       }).toList();
@@ -339,7 +342,7 @@ class ShopScreenState extends State<ShopScreen> {
                           return Column(
                             children: [
                               Text(
-                                !hasWords ? (isError ? "Didn't hear that..." : "Listening...") : words,
+                                !hasWords ? (isError ? t('didnt_hear_that') : t('listening')) : words,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 22,
@@ -349,10 +352,10 @@ class ShopScreenState extends State<ShopScreen> {
                               ),
                               const SizedBox(height: 8),
                               if (isError)
-                                const Text(
-                                  "Sorry! Didn't hear that\nPlease try again",
+                                Text(
+                                  t('mic_error_sub'),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
+                                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
                                 ),
                             ],
                           );
@@ -391,9 +394,9 @@ class ShopScreenState extends State<ShopScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    "Tap the microphone to try again",
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  Text(
+                    t('mic_try_again'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -463,7 +466,7 @@ class ShopScreenState extends State<ShopScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Shop')),
+        appBar: AppBar(title: Text(t('shop'))),
         floatingActionButton: DragTarget<Map<String, dynamic>>(
           onWillAcceptWithDetails: (details) {
             setState(() => _isDraggingOverCart = true);
@@ -560,11 +563,11 @@ class ShopScreenState extends State<ShopScreen> {
                               focusNode: _searchFocusNode,
                               controller: _searchController,
                               textInputAction: TextInputAction.done,
-                              decoration: const InputDecoration(
-                                hintText: 'Search products...',
-                                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                              decoration: InputDecoration(
+                                hintText: t('search_products'),
+                                prefixIcon: const Icon(Icons.search, color: Colors.grey),
                                 border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onChanged: (value) {
                                 _filterProducts();
@@ -639,7 +642,7 @@ class ShopScreenState extends State<ShopScreen> {
                   // GridView of products (Ch 3.1: GridView)
                   Expanded(
                     child: _filteredProducts.isEmpty
-                        ? const Center(child: Text('No products found matching your criteria.'))
+                        ? Center(child: Text(t('no_products_found')))
                         : GridView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -701,8 +704,8 @@ class ShopScreenState extends State<ShopScreen> {
                             _isDraggingProductNotifier.value = false;
                           },
                           child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
+                            onTap: () async {
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => ProductDetailsScreen(
@@ -710,6 +713,8 @@ class ShopScreenState extends State<ShopScreen> {
                                   ),
                                 ),
                               );
+                              // Refresh count when returning from details
+                              _fetchCartCount();
                             },
                             child: ProductCard(
                               name: product['name'] ?? 'Unknown',

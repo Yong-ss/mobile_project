@@ -6,6 +6,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
+import 'seller_order_detail_screen.dart';
 
 // Member 2: SellerOrdersScreen (Refined)
 // Features: Shop-style Category Chips, Sequential Status Dropdown, and high-fidelity QR Scanner.
@@ -21,8 +23,8 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _allOrders = [];
 
-  final List<String> _categories = ['All', 'Pending', 'Delivered', 'Picked Up', 'Completed', 'Cancelled'];
-  String _selectedCategory = 'All';
+  final List<String> _categories = [t('all'), t('pending'), t('delivered'), t('picked_up'), t('completed'), t('cancelled')];
+  String _selectedCategory = t('all');
 
   @override
   void initState() {
@@ -107,7 +109,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Seller Orders', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('seller_orders'), style: const TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
         actions: [
           IconButton(
@@ -192,7 +194,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
           Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            'No ${_selectedCategory.toLowerCase()} orders',
+            '${t('no_orders_found')} (${_selectedCategory.toLowerCase()})',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
           ),
         ],
@@ -312,7 +314,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                        isPickup ? 'Pick Up' : 'Delivery',
+                        isPickup ? t('self_pickup') : t('delivery'),
                         style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey
@@ -325,12 +327,22 @@ class _OrderCard extends StatelessWidget {
             trailing: PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.grey),
               onSelected: (val) {
-                if (val == 'cancel') _updateStatus(context, 'Cancelled');
+                if (val == 'details') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SellerOrderDetailScreen(orderId: order['id'].toString()),
+                    ),
+                  ).then((_) => onUpdate());
+                } else if (val == 'cancel') {
+                  _handleCancelOrder(context);
+                }
               },
               enabled: !isFinalized,
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'details', child: Text('View Details')),
-                const PopupMenuItem(value: 'cancel', child: Text('Cancel Order', style: TextStyle(color: Colors.red))),
+                PopupMenuItem(value: 'details', child: Text(t('view_details'))),
+                if (['pending', 'preparing'].contains(statusLower))
+                  PopupMenuItem(value: 'cancel', child: const Text('Cancel Order', style: TextStyle(color: Colors.red))),
               ],
             ),
           ),
@@ -393,7 +405,7 @@ class _OrderCard extends StatelessWidget {
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.qr_code_scanner),
                       onPressed: () => _openScanner(context),
-                      label: const Text('Scan QR Code to Verify', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(t('scan_qr_verify'), style: const TextStyle(fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.lightBlue,
                         foregroundColor: Colors.white,
@@ -462,7 +474,55 @@ class _OrderCard extends StatelessWidget {
 
       await supabase.from('orders').update(updates).eq('id', order['id']);
       onUpdate();
-      if (context.mounted) snackbar('Status updated: $newStatus', Colors.green);
+      if (context.mounted) snackbar('${t('status_updated')}: $newStatus', Colors.green);
+    } catch (e) {
+      if (context.mounted) snackbar('Error: $e', Colors.red);
+    }
+  }
+
+  Future<void> _handleCancelOrder(BuildContext context) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t('cancel_order_confirm')),
+        content: Text(t('cancel_order_msg')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t('no'))),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(t('yes')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // 1. Update Order Status
+      await supabase.from('orders').update({'status': 'Cancelled'}).eq('id', order['id']);
+
+      // 2. Restore Inventory
+      final orderItems = order['order_items'] as List<dynamic>? ?? [];
+      for (var item in orderItems) {
+        final product = item['product'] as Map<String, dynamic>?;
+        if (product == null) continue;
+
+        final int currentQty = product['quantity'] ?? 0;
+        final int orderQty = item['quantity'] ?? 0;
+        final int newQty = currentQty + orderQty;
+
+        await supabase.from('product').update({
+          'quantity': newQty,
+          'stock_status': newQty > 0 ? 'In Stock' : 'Out of Stock',
+        }).eq('id', product['id']);
+      }
+
+      onUpdate();
+      if (context.mounted) snackbar(t('inventory_restored'), Colors.green);
     } catch (e) {
       if (context.mounted) snackbar('Error: $e', Colors.red);
     }
@@ -525,11 +585,11 @@ class _ScannerBottomSheetState extends State<_ScannerBottomSheet> {
         if (mounted) {
           widget.onSuccess();
           Navigator.pop(context);
-          snackbar('Verification Successful!', Colors.green);
+          snackbar(t('verification_successful'), Colors.green);
         }
       } else {
         setState(() => _isProcessing = false);
-        snackbar('Invalid QR for this order.', Colors.red);
+        snackbar(t('invalid_qr_order'), Colors.red);
       }
     } catch (e) {
       setState(() => _isProcessing = false);
@@ -590,9 +650,9 @@ class _ScannerBottomSheetState extends State<_ScannerBottomSheet> {
                   decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
                 ),
                 const SizedBox(height: 20),
-                const Text('Verify Pickup', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(t('verify_pickup'), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text('Scan buyer\'s QR code', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
+                Text(t('scan_buyer_qr'), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
               ],
             ),
           ),

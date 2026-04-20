@@ -6,6 +6,7 @@ import '../../utils/snackbar_helper.dart';
 import 'edit_product.dart';
 import '../../utils/circular_reveal_route.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -43,7 +44,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        snackbar('Error: $e', Colors.red);
+        snackbar('${t('error')}: $e', Colors.red);
       }
     }
   }
@@ -53,9 +54,9 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-          'My Listings',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          t('my_listings'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
         actions: [
@@ -108,8 +109,8 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           const SizedBox(height: 16),
           Text(
             _selectedCategory == 'All'
-                ? 'No products yet'
-                : 'Empty in $_selectedCategory',
+                ? t('no_products_found')
+                : '${t('empty_in')} $_selectedCategory',
             style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 16),
           ),
         ],
@@ -224,7 +225,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Stock: ${product['quantity']}',
+                              '${t('stock')}: ${product['quantity']}',
                               style: TextStyle(
                                 color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.grey.shade500,
                                 fontSize: 12,
@@ -282,7 +283,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         ),
         const SizedBox(width: 4),
         Text(
-          isActive ? "Active" : "Inactive",
+          isActive ? t('active') : t('inactive'),
           style: TextStyle(
             fontSize: 12,
             color: isActive ? Colors.green : Colors.grey,

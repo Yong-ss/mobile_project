@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/translations.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -93,7 +94,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final newEmail = _emailController.text.trim();
 
     if (newName.isEmpty || newEmail.isEmpty) {
-      snackbar('Please fill all fields', Colors.red);
+      snackbar(t('fill_all_fields'), Colors.red);
       return;
     }
 
@@ -127,7 +128,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         Navigator.pop(context, true);
-        snackbar('Profile updated successfully!', Colors.green);
+        snackbar(t('profile_updated'), Colors.green);
       }
     } catch (e) {
       if (mounted) {
@@ -144,7 +145,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final confirmPass = _confirmPasswordController.text;
 
     if (confirmPass != newPass || newPass != confirmPass) {
-      snackbar('New Password and Confirm Password not match !', Colors.red);
+      snackbar(t('passwords_not_match'), Colors.red);
       return;
     }
 
@@ -162,12 +163,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             .single();
 
         if (userData['password'] != oldPass) {
-          snackbar('Old password is incorrect!', Colors.red);
+          snackbar(t('incorrect_old_password'), Colors.red);
           return;
         }
 
         if (newPass == oldPass) {
-          snackbar('New password is same as old password!', Colors.red);
+          snackbar(t('same_as_old_password'), Colors.red);
           return;
         }
       }
@@ -185,7 +186,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        snackbar('Password changed!', Colors.green);
+        snackbar(t('password_changed'), Colors.green);
       }
     } catch (e) {
       if (mounted) {
@@ -201,24 +202,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Change Password'),
+        title: Text(t('change_password')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (currentUser!['password_custom'] ?? false)
               TextField(
                 controller: _oldPasswordController,
-                decoration: const InputDecoration(labelText: 'Old Password'),
+                decoration: InputDecoration(labelText: t('old_password')),
                 obscureText: true,
               ),
             TextField(
               controller: _newPasswordController,
-              decoration: const InputDecoration(labelText: 'New Password'),
+              decoration: InputDecoration(labelText: t('new_password')),
               obscureText: true,
             ),
             TextField(
               controller: _confirmPasswordController,
-              decoration: const InputDecoration(labelText: 'Confirm Password'),
+              decoration: InputDecoration(labelText: t('confirm_password')),
               obscureText: true,
             ),
           ],
@@ -226,11 +227,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(t('cancel')),
           ),
           ElevatedButton(
             onPressed: _handlePasswordChange, // 处理函数
-            child: const Text('Save'),
+            child: Text(t('save')),
           ),
         ],
       ),
@@ -240,7 +241,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Profile')),
+      appBar: AppBar(title: Text(t('edit_profile'))),
       body: _isInitialLoading
           ? const EditProfileSkeleton()
           : SingleChildScrollView(
@@ -306,7 +307,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                labelText: 'Username',
+                labelText: t('username'),
                 labelStyle: TextStyle(
                   color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                 ),
@@ -327,7 +328,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextField(
               controller: _emailController,
               decoration: InputDecoration(
-                labelText: 'Email Address',
+                labelText: t('email_address'),
                 labelStyle: TextStyle(
                   color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                 ),
@@ -357,13 +358,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: ListTile(
                 leading: const Icon(Icons.lock_reset, color: Colors.lightBlue),
                 title: Text(
-                  'Password Settings',
+                  t('password_settings'),
                   style: TextStyle(
                     color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                   ),
                 ),
                 subtitle: Text(
-                  'Tap to change your password',
+                  t('tap_to_change_password'),
                   style: TextStyle(
                     color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey,
                   ),
@@ -388,9 +389,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   elevation: 0,
                 ),
                 onPressed: _isLoading ? null : _handleSave,
-                child: const Text(
-                  'Save Changes',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                child: Text(
+                  t('save_changes'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

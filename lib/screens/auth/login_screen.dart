@@ -40,8 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final AuthChangeEvent event = data.event;
       if (event == AuthChangeEvent.passwordRecovery) {
-        // Only show if the LoginScreen is current (prevents double-dialogs)
-        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        if (mounted) {
+          // Clear stack (closes ForgotPasswordScreen if open) and show dialog on LoginScreen
+          Navigator.popUntil(context, (route) => route.isFirst);
           _showResetPasswordDialog(context);
         }
       }

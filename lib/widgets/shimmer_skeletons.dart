@@ -26,7 +26,7 @@ class BaseSkeleton extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: isDark ? Colors.white10 : Colors.white,
+          color: isDark ? Colors.grey.shade900 : Colors.white,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: child,
@@ -851,63 +851,65 @@ class OrderHistorySkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Filter Chips Row
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              BaseSkeleton(width: 60, height: 32, borderRadius: 16),
-              SizedBox(width: 12),
-              BaseSkeleton(width: 80, height: 32, borderRadius: 16),
-              SizedBox(width: 12),
-              BaseSkeleton(width: 80, height: 32, borderRadius: 16),
-            ],
+    return ExcludeSemantics(
+      child: Column(
+        children: [
+          // Filter Chips Row
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                BaseSkeleton(width: 60, height: 32, borderRadius: 16),
+                SizedBox(width: 12),
+                BaseSkeleton(width: 80, height: 32, borderRadius: 16),
+                SizedBox(width: 12),
+                BaseSkeleton(width: 80, height: 32, borderRadius: 16),
+              ],
+            ),
           ),
-        ),
-        // Order Cards List
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: 4,
-            itemBuilder: (context, index) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    // Thumbnail
-                    BaseSkeleton(width: 60, height: 60, borderRadius: 8),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          BaseSkeleton(width: 100, height: 18),
-                          SizedBox(height: 8),
-                          BaseSkeleton(width: double.infinity, height: 14),
-                          SizedBox(height: 8),
-                          BaseSkeleton(width: 120, height: 14),
-                        ],
-                      ),
+          // Order Cards List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
                     ),
-                    SizedBox(width: 16),
-                    BaseSkeleton(width: 80, height: 28, borderRadius: 14),
-                  ],
-                ),
-              );
-            },
+                  ),
+                  child: const Row(
+                    children: [
+                      // Thumbnail
+                      BaseSkeleton(width: 60, height: 60, borderRadius: 8),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            BaseSkeleton(width: 100, height: 18),
+                            SizedBox(height: 8),
+                            BaseSkeleton(width: double.infinity, height: 14),
+                            SizedBox(height: 8),
+                            BaseSkeleton(width: 120, height: 14),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      BaseSkeleton(width: 80, height: 28, borderRadius: 14),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1243,6 +1245,179 @@ class MapSkeleton extends StatelessWidget {
       height: 200,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: const BaseSkeleton(width: double.infinity, height: 200, borderRadius: 16),
+    );
+  }
+}
+
+/// A unified, full-screen Forgot Password skeleton.
+class ForgotPasswordSkeleton extends StatelessWidget {
+  const ForgotPasswordSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          // Circle Icon
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white10
+                    : Colors.lightBlue.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const BaseSkeleton(width: 60, height: 60, borderRadius: 30),
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Title
+          const Center(child: BaseSkeleton(width: 180, height: 28)),
+          const SizedBox(height: 12),
+          // Subtitles
+          const Center(child: BaseSkeleton(width: double.infinity, height: 14)),
+          const SizedBox(height: 8),
+          const Center(child: BaseSkeleton(width: 200, height: 14)),
+          const SizedBox(height: 40),
+          // Email field
+          const BaseSkeleton(width: double.infinity, height: 56, borderRadius: 4),
+          const SizedBox(height: 32),
+          // Button
+          const BaseSkeleton(width: double.infinity, height: 54, borderRadius: 12),
+          const SizedBox(height: 20),
+          // Links
+          const Center(child: BaseSkeleton(width: 150, height: 16)),
+          const SizedBox(height: 10),
+          const Center(child: BaseSkeleton(width: 120, height: 16)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen To Pay Screen skeleton.
+class ToPaySkeleton extends StatelessWidget {
+  const ToPaySkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 3,
+        itemBuilder: (context, index) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100),
+            ),
+            child: Column(
+              children: [
+                // Header
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      BaseSkeleton(width: 24, height: 24, borderRadius: 12),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            BaseSkeleton(width: 120, height: 18),
+                            SizedBox(height: 8),
+                            BaseSkeleton(width: 80, height: 12),
+                          ],
+                        ),
+                      ),
+                      BaseSkeleton(width: 60, height: 28, borderRadius: 20),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // Body
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          BaseSkeleton(width: 100, height: 16),
+                          BaseSkeleton(width: 80, height: 24),
+                        ],
+                      ),
+                      SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(child: BaseSkeleton(width: double.infinity, height: 45, borderRadius: 12)),
+                          SizedBox(width: 12),
+                          Expanded(flex: 2, child: BaseSkeleton(width: double.infinity, height: 45, borderRadius: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen Order Details screen skeleton.
+class OrderDetailsSkeletonUI extends StatelessWidget {
+  const OrderDetailsSkeletonUI({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Order Summary Card
+          const BaseSkeleton(width: double.infinity, height: 100, borderRadius: 20),
+          const SizedBox(height: 24),
+          // Seller Info Section
+          const BaseSkeleton(width: 150, height: 20),
+          const SizedBox(height: 12),
+          const BaseSkeleton(width: double.infinity, height: 80, borderRadius: 20),
+          const SizedBox(height: 24),
+          // Items Ordered Section
+          const BaseSkeleton(width: 150, height: 20),
+          const SizedBox(height: 12),
+          const BaseSkeleton(width: double.infinity, height: 200, borderRadius: 20),
+          const SizedBox(height: 24),
+          // Fulfillment Details
+          const BaseSkeleton(width: 150, height: 20),
+          const SizedBox(height: 12),
+          const BaseSkeleton(width: double.infinity, height: 120, borderRadius: 20),
+          const SizedBox(height: 24),
+          // Order Info Section
+          const BaseSkeleton(width: double.infinity, height: 150, borderRadius: 20),
+          const SizedBox(height: 24),
+          // Timeline
+          const BaseSkeleton(width: 150, height: 20),
+          const SizedBox(height: 16),
+          const Column(
+            children: [
+              BaseSkeleton(width: double.infinity, height: 40),
+              SizedBox(height: 10),
+              BaseSkeleton(width: double.infinity, height: 40),
+              SizedBox(height: 10),
+              BaseSkeleton(width: double.infinity, height: 40),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

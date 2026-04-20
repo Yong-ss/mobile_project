@@ -8,6 +8,8 @@ import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import '../../services/auth_service.dart';
 import 'settings_screen.dart';
+import '../order/to_pay_screen.dart';
+import '../../utils/translations.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,11 +24,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isSeller = false;
   String _shopName = '';
   bool _isLoading = true;
+  int _pendingCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadPendingCount();
+  }
+
+  Future<void> _loadPendingCount() async {
+    try {
+      final response = await Supabase.instance.client
+          .from('payments')
+          .select('id')
+          .eq('user_id', currentUser!['id'])
+          .eq('status', 'pending');
+
+      if (mounted) {
+        setState(() {
+          _pendingCount = response.length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching pending count: $e');
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -68,17 +90,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Register as Seller'),
+        title: Text(t('register_seller')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter your shop name to start selling.'),
+            Text(t('register_seller_sub')),
             const SizedBox(height: 16),
             TextField(
               controller: _shopNameController,
-              decoration: const InputDecoration(
-                labelText: 'Shop Name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: t('shop_name'),
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -86,7 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(t('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -123,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
               }
             },
-            child: const Text('Complete Registration'),
+            child: Text(t('complete_registration')),
           ),
         ],
       ),
@@ -140,7 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: Text(t('my_profile')),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -239,7 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ── Common Buyer Menu ──
             ListTile(
               leading: const Icon(Icons.receipt_long),
-              title: const Text('My Orders'),
+              title: Text(t('my_orders')),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(
@@ -256,11 +278,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (!_isSeller)
               ListTile(
                 leading: const Icon(Icons.store, color: Colors.lightBlue),
-                title: const Text(
-                  'Become a Seller',
-                  style: TextStyle(color: Colors.lightBlue),
+                title: Text(
+                  t('become_seller'),
+                  style: const TextStyle(color: Colors.lightBlue),
                 ),
-                subtitle: const Text('Start listing products to sell'),
+                subtitle: Text(t('start_listing_sub')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _showBecomeSellerDialog,
               )
@@ -270,14 +292,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Icons.dashboard_customize,
                   color: Colors.green,
                 ),
-                title: const Text(
-                  'Seller Central',
-                  style: TextStyle(
+                title: Text(
+                  t('seller_central'),
+                  style: const TextStyle(
                     color: Colors.green,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                subtitle: Text('Manage "$_shopName"'),
+                subtitle: Text('${t('manage_shop')} "$_shopName"'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
@@ -294,18 +316,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ── Demo Menu: To Pay ──
             ListTile(
               leading: const Icon(Icons.payment, color: Colors.orange),
-              title: const Text('To Pay'),
-              subtitle: const Text('View orders awaiting payment'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => snackbar('To Pay feature coming soon!', Colors.blue),
+              title: Text(t('to_pay')),
+              subtitle: Text(t('awaiting_payment_sub')),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_pendingCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$_pendingCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ToPayScreen(),
+                  ),
+                );
+                _loadPendingCount(); // Refresh count when coming back
+              },
             ),
             const Divider(),
 
             // ── Demo Menu: Settings ──
             ListTile(
               leading: const Icon(Icons.settings, color: Colors.grey),
-              title: const Text('Settings'),
-              subtitle: const Text('Account and app preferences'),
+              title: Text(t('settings')),
+              subtitle: Text(t('account_prefs')),
               trailing: const Icon(Icons.chevron_right),
               onTap: _navigateToSettings,
             ),
@@ -314,7 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ── Logout ──
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              title: Text(t('logout'), style: const TextStyle(color: Colors.red)),
               onTap: () async {
                 setState(() => _isLoading = true);
                 try {

@@ -7,7 +7,9 @@ import 'package:nfc_manager/nfc_manager.dart';
 import '../../utils/globals.dart';
 import '../map/location_screen.dart';
 import 'payment_details_screen.dart';
+import '../order/to_pay_screen.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 // Member 3: CheckoutScreen
 class CheckoutScreen extends StatefulWidget {
@@ -120,13 +122,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
         appBar: AppBar(
-          title: const Text('Checkout', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(t('checkout'), style: const TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
-          backgroundColor: Colors.white,
           elevation: 0,
-          foregroundColor: Colors.black,
         ),
         body: _isLoading
             ? const CheckoutSkeleton()
@@ -140,26 +139,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 if (_username.isNotEmpty) ...[
                   Text(
                     'Order for $_username',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade800,
                     ),
                   ),
                   const SizedBox(height: 24),
                 ],
 
                 // ── Order Summary ──
-                const Text('Order Summary',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(t('order_summary'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
+                          color: Colors.black.withValues(alpha: Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.03),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -192,14 +190,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: ElevatedButton.icon(
                         onPressed: () => setState(() => _isSelfPickup = false),
                         icon: const Icon(Icons.local_shipping),
-                        label: const Text('Delivery'),
+                        label: Text(t('delivery')),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           backgroundColor: !_isSelfPickup
                               ? Colors.lightBlue
-                              : Colors.grey.shade200,
+                              : Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200,
                           foregroundColor:
-                          !_isSelfPickup ? Colors.white : Colors.black,
+                          !_isSelfPickup ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
                           elevation: !_isSelfPickup ? 2 : 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -210,13 +208,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: ElevatedButton.icon(
                         onPressed: () => setState(() => _isSelfPickup = true),
                         icon: const Icon(Icons.storefront),
-                        label: const Text('Self Pickup'),
+                        label: Text(t('self_pickup')),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           backgroundColor:
-                          _isSelfPickup ? Colors.lightBlue : Colors.grey.shade200,
+                          _isSelfPickup ? Colors.lightBlue : Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200,
                           foregroundColor:
-                          _isSelfPickup ? Colors.white : Colors.black,
+                          _isSelfPickup ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
                           elevation: _isSelfPickup ? 2 : 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -228,15 +226,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                 // ── Delivery Section ──
                 if (!_isSelfPickup) ...[
-                  const Text('Delivery Address',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(t('delivery_address'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                     padding: _addressFocusNode.hasFocus ? const EdgeInsets.all(6) : EdgeInsets.zero,
                     decoration: BoxDecoration(
-                      color: _addressFocusNode.hasFocus ? Colors.white : Colors.grey.shade100,
+                      color: _addressFocusNode.hasFocus ? Theme.of(context).cardColor : (Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade900 : Colors.grey.shade100),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: _addressFocusNode.hasFocus ? Colors.lightBlue : Colors.transparent,
@@ -257,10 +255,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       controller: _deliveryAddressController,
                       focusNode: _addressFocusNode,
                       maxLines: _addressFocusNode.hasFocus ? 3 : 2,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your delivery address...',
+                      decoration: InputDecoration(
+                        hintText: t('enter_address'),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.all(12),
+                        contentPadding: const EdgeInsets.all(12),
                       ),
                     ),
                   ),
@@ -282,22 +280,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       }
                     },
                     icon: const Icon(Icons.location_on),
-                    label: const Text('Pick location on map'),
+                    label: Text(t('pick_from_map')),
                   ),
                 ],
 
                 // ── Self Pickup Section ──
                 if (_isSelfPickup) ...[
-                  const Text('Seller Pickup Point',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(t('seller_pickup_point'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: Colors.grey.shade200),
+                      side: BorderSide(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200),
                     ),
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     child: Column(
                       children: [
                         if (_selectedPickupData != null) ...[
@@ -347,14 +345,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 24),
 
                 // ── Payment Method ──
-                const Text('Payment Method',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(t('payment_method'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200),
                   ),
                   child: Column(
                     children: [
@@ -386,7 +384,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         alignment: Alignment.topCenter,
                         child: _paymentMethod == 'Credit/Debit Card' ? Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
+                          decoration: BoxDecoration(color: Colors.lightBlue.withValues(alpha: 0.1)),
                           child: Column(
                             children: [
                               // Stripe
@@ -401,9 +399,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         margin: const EdgeInsets.symmetric(vertical: 4),
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: Theme.of(context).cardColor,
                                           borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: _paymentSubMethod == 'Stripe' ? Colors.lightBlue : Colors.grey.shade200),
+                                          border: Border.all(color: _paymentSubMethod == 'Stripe' ? Colors.lightBlue : (Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200)),
                                         ),
                                         child: Row(
                                           children: [
@@ -429,9 +427,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         margin: const EdgeInsets.symmetric(vertical: 4),
                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: Theme.of(context).cardColor,
                                           borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: _paymentSubMethod == 'NFC' ? Colors.lightBlue : Colors.grey.shade200),
+                                          border: Border.all(color: _paymentSubMethod == 'NFC' ? Colors.lightBlue : (Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200)),
                                         ),
                                         child: Row(
                                           children: [
@@ -453,59 +451,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const Divider(height: 1),
 
-                      // ONLINE BANKING CATEGORY
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _paymentMethod = 'Online Banking';
-                            _paymentSubMethod = 'FPX';
-                          });
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              Icon(_paymentMethod == 'Online Banking' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Online Banking' ? Colors.lightBlue : Colors.grey),
-                              const SizedBox(width: 16),
-                              const Expanded(child: Text('Online Banking', style: TextStyle(fontSize: 16))),
-                              const Icon(Icons.account_balance, color: Colors.blueGrey),
-                            ],
-                          ),
-                        ),
-                      ),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        alignment: Alignment.topCenter,
-                        child: _paymentMethod == 'Online Banking' ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.lightBlue),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/FPX_logo.svg/512px-FPX_logo.svg.png', height: 16, errorBuilder: (context, error, stackTrace) => const Text('FPX', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.redAccent))),
-                                      const Spacer(),
-                                      const Icon(Icons.check_circle, color: Colors.lightBlue, size: 20),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ) : const SizedBox.shrink(),
-                      ),
-                      const Divider(height: 1),
 
                       // CASH ON DELIVERY CATEGORY
                       InkWell(
@@ -521,7 +466,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             children: [
                               Icon(_paymentMethod == 'Cash on Delivery' ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: _paymentMethod == 'Cash on Delivery' ? Colors.lightBlue : Colors.grey),
                               const SizedBox(width: 16),
-                              const Expanded(child: Text('Cash on Delivery', style: TextStyle(fontSize: 16))),
+                              Expanded(child: Text(t('cash_on_delivery'), style: const TextStyle(fontSize: 16))),
                               const Icon(Icons.payments, color: Colors.blueGrey),
                             ],
                           ),
@@ -533,7 +478,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         alignment: Alignment.topCenter,
                         child: _paymentMethod == 'Cash on Delivery' ? Container(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.blue.shade50.withValues(alpha: 0.3)),
+                          decoration: BoxDecoration(color: Colors.lightBlue.withValues(alpha: 0.1)),
                           child: Row(
                             children: [
                               const Icon(Icons.subdirectory_arrow_right, color: Colors.grey, size: 20),
@@ -542,7 +487,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: Theme.of(context).cardColor,
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(color: Colors.lightBlue),
                                   ),
@@ -567,21 +512,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 24),
 
                 // ── Payment Details ──
-                const Text('Payment Details',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(t('payment_details'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Payment:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('${t('total_payment')}:',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text('RM ${_totalAmount.toStringAsFixed(2)}',
                           style: const TextStyle(
                               fontWeight: FontWeight.bold,
@@ -603,7 +548,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text('Place Order', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    child: Text(t('place_order'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -635,7 +580,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: Colors.blue.shade100,
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.lightBlue.withValues(alpha: 0.1) : Colors.blue.shade100,
               borderRadius: BorderRadius.circular(12),
               image: imageUrl != null
                   ? DecorationImage(
@@ -671,7 +616,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           // Price
           Text(
             'RM ${(price * qty).toStringAsFixed(2)}',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.black87),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
           ),
         ],
       ),
@@ -721,17 +666,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         await _processNFCPayment();
       }
     } else {
-      // For COD and Online Banking, simulate success and record in payments table
-      final isBanking = _paymentMethod == 'Online Banking';
-      final transactionId = '${isBanking ? 'FPX' : 'COD'}_${DateTime.now().millisecondsSinceEpoch}';
+      // For COD, simulate success and record in payments table
+      final transactionId = 'COD_${DateTime.now().millisecondsSinceEpoch}';
 
       try {
         await Supabase.instance.client.from('payments').insert({
           'user_id': currentUser!['id'],
           'payment_intent_id': transactionId,
           'amount': _totalAmount,
-          'payment_method': isBanking ? 'Online Banking' : 'Cash on Delivery',
-          'status': 'succeeded',
+          'payment_method': 'Cash on Delivery',
+          'status': 'Success',
         });
 
         await _placeOrder(transactionId);
@@ -742,32 +686,66 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _processNFCPayment() async {
+    final transactionId = 'NFC_${DateTime.now().millisecondsSinceEpoch}';
+    bool paymentFinished = false;
+
+    // 1. Create PENDING record (like Stripe) so user can resume if they cancel
     try {
-      if (!mounted) return;
-      showModalBottomSheet(
+      showDialog(
         context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await Supabase.instance.client.from('payments').insert({
+        'user_id': currentUser!['id'],
+        'payment_intent_id': transactionId,
+        'amount': _totalAmount,
+        'payment_method': 'NFC [ID: $transactionId]',
+        'status': 'pending',
+      });
+
+      // Place order in AWAITING PAYMENT status and clean cart
+      await _placeOrder(transactionId, status: 'Awaiting Payment', showSuccessPage: false);
+
+      if (mounted) Navigator.pop(context); // Close loading
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to initialize NFC payment: $e')));
+      return;
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).canvasColor,
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
           ),
-          padding: const EdgeInsets.only(left: 24, right: 24, top: 32, bottom: 40),
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Ready to Scan', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
-              const SizedBox(height: 40),
-              const AnimatedPulseIcon(),
-              const SizedBox(height: 40),
-              const Text('Hold your phone near the NFC card or Tag.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.black54)),
+              Text('Ready to Scan', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.headlineSmall?.color)),
+              const SizedBox(height: 20),
+              const SizedBox(
+                height: 200,
+                child: Center(child: AnimatedPulseIcon()),
+              ),
+              const SizedBox(height: 20),
+              Text('Hold your phone near the NFC card or Tag.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7))),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () async {
                   NfcManager.instance.stopSession();
+                  paymentFinished = true;
                   if (mounted) Navigator.pop(context);
-                  await _onNFcSuccess();
+                  await _onNFcSuccess(transactionId);
                 },
                 child: const Text('Simulate Success (For Emulator)', style: TextStyle(color: Colors.lightBlue)),
               ),
@@ -781,8 +759,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade200,
-                    foregroundColor: Colors.black87,
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200,
+                    foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
@@ -792,25 +770,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
         ),
-      ).then((_) {
-        NfcManager.instance.stopSession();
-      });
+      ),
+    ).then((_) {
+      NfcManager.instance.stopSession();
+      // If user closed the sheet without success, redirect to To Pay
+      if (!paymentFinished && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ToPayScreen()),
+        );
+      }
+    });
 
-      NfcManager.instance.startSession(
-          pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693, NfcPollingOption.iso18092},
-          onDiscovered: (NfcTag tag) async {
-            NfcManager.instance.stopSession();
-            if (mounted) {
-              Navigator.pop(context); // Close dialog
-              await _onNFcSuccess();
-            }
-          });
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('NFC Error: $e')));
-    }
+    // Start NFC Session
+    NfcManager.instance.startSession(
+      pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693, NfcPollingOption.iso18092},
+      onDiscovered: (NfcTag tag) async {
+        NfcManager.instance.stopSession();
+        if (mounted) {
+          paymentFinished = true;
+          Navigator.pop(context); // Close sheet
+          await _onNFcSuccess(transactionId);
+        }
+      },
+    );
   }
 
-  Future<void> _onNFcSuccess() async {
+  Future<void> _onNFcSuccess(String transactionId) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -818,21 +804,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
 
     try {
-      final nfcId = 'nfc_${DateTime.now().millisecondsSinceEpoch}';
-      // Insert payment record into Supabase
-      await Supabase.instance.client.from('payments').insert({
-        'user_id': currentUser!['id'],
-        'payment_intent_id': nfcId,
-        'amount': _totalAmount,
-        'payment_method': 'NFC Card',
-        'status': 'succeeded',
-      });
+      // 1. Update Payment status to succeeded
+      await Supabase.instance.client.from('payments')
+          .update({'status': 'succeeded'})
+          .eq('payment_intent_id', transactionId);
+
+      // 2. Update Orders status to Pending & set payment_at
+      await Supabase.instance.client.from('orders')
+          .update({
+        'status': 'Pending',
+        'payment_at': DateTime.now().toIso8601String(),
+      })
+          .ilike('payment_method', '%$transactionId%');
 
       if (mounted) Navigator.pop(context); // close loading dialog
-      await _placeOrder(nfcId);
+
+      // Navigate to Success screen
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentDetailsScreen(
+              amount: _totalAmount,
+              transactionId: transactionId,
+              userName: _username,
+              paymentMethod: 'Credit/Debit Card (NFC)',
+              date: DateTime.now(),
+              merchantName: 'NFC Merchant',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save payment: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to finalize payment: $e')));
     }
   }
   Future<void> _processStripePayment() async {
@@ -860,6 +865,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception("Failed to get payment intent from server");
       }
 
+      // Extract the payment intent ID from the client secret (e.g., pi_12345_secret_67890 -> pi_12345)
+      final clientSecret = data['paymentIntent'] as String;
+      final paymentIntentId = clientSecret.contains('_secret_')
+          ? clientSecret.split('_secret_').first
+          : clientSecret;
+
+      // Create PENDING payment record right away in the payments table (which exists)
+      await Supabase.instance.client.from('payments').insert({
+        'user_id': currentUser!['id'],
+        'payment_intent_id': paymentIntentId,
+        'amount': _totalAmount,
+        // Store both ID and SECRET in the method string so we can resume later from To Pay screen
+        'payment_method': 'Stripe [ID: $paymentIntentId] [SECRET: $clientSecret]',
+        'status': 'pending',
+      });
+
+      // Place order in AWAITING PAYMENT status
+      // We store the ID in the payment_method string to link them without needing a new DB column in orders
+      await _placeOrder(paymentIntentId, status: 'Awaiting Payment', showSuccessPage: false);
+
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: data['paymentIntent'],
@@ -870,26 +895,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       await Stripe.instance.presentPaymentSheet();
 
-      // Extract the payment intent ID from the client secret (e.g., pi_12345_secret_67890 -> pi_12345)
-      final clientSecret = data['paymentIntent'] as String;
-      final paymentIntentId = clientSecret.contains('_secret_')
-          ? clientSecret.split('_secret_').first
-          : clientSecret;
-
-      // Update payment record in Supabase
+      // If we reach here, it's successful. Update records.
       await Supabase.instance.client.from('payments').update({
         'status': 'succeeded',
       }).eq('payment_intent_id', paymentIntentId);
 
-      // Payment successful, now process the order to the database
-      await _placeOrder(paymentIntentId);
-    } on StripeException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment Error: ${e.error.localizedMessage}')));
+      await Supabase.instance.client.from('orders').update({
+        'status': 'Pending',
+        'payment_at': DateTime.now().toIso8601String(),
+      }).ilike('payment_method', '%$paymentIntentId%');
+
+      if (mounted) {
+        // Find merchant name for display
+        String merchantName = 'Priscon Merchant';
+        if (_cartItems.isNotEmpty) {
+          final sellerNode = _cartItems.first['product']?['seller'];
+          merchantName = sellerNode?['shop_name'] ?? sellerNode?['username'] ?? 'Priscon Merchant';
+        }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentDetailsScreen(
+              amount: _totalAmount,
+              transactionId: paymentIntentId,
+              userName: _username,
+              paymentMethod: 'Credit/Debit Card (Stripe)',
+              date: DateTime.now(),
+              merchantName: merchantName,
+            ),
+          ),
+        );
+      }
+    } on StripeException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment hidden: You can finish this later in "To Pay"'),
+              backgroundColor: Colors.orange,
+            )
+        );
+        // Automatic navigation requested by user
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ToPayScreen()),
+        );
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
-  Future<void> _placeOrder(String transactionId) async {
+
+  Future<void> _placeOrder(String transactionId, {String status = 'Pending', bool showSuccessPage = true}) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -897,7 +954,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
 
     try {
-      if (mounted) {
+      if (mounted && status == 'Pending') {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Payment Successful!'), backgroundColor: Colors.green, duration: const Duration(seconds: 2))
         );
@@ -959,10 +1016,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'buyer_id': user['id'],
           'seller_id': sellerId.isNotEmpty ? sellerId : null,
           'total_amount': sellerTotal,
-          'status': 'Pending',
+          'status': status,
           'location_id': locationId,
-          'payment_method': '$_paymentMethod${_paymentMethod != 'Cash on Delivery' ? ' ($_paymentSubMethod)' : ''}',
-          'payment_at': DateTime.now().toIso8601String(),
+          'payment_method': '${_paymentMethod}${_paymentMethod != 'Cash on Delivery' ? ' ($_paymentSubMethod)' : ''} [ID: $transactionId]',
+          'payment_at': status == 'Pending' ? DateTime.now().toIso8601String() : null,
         }).select().single();
 
         final orderId = orderResponse['id'];
@@ -998,7 +1055,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (mounted) Navigator.pop(context); // Dismiss loading
 
-      if (mounted) {
+      if (mounted && showSuccessPage) {
         String merchantName = 'Unknown Merchant';
         if (itemsBySeller.length > 1) {
           merchantName = 'Multiple Merchants';

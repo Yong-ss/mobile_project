@@ -9,6 +9,7 @@ import '../../widgets/product_card.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'announcement_details_screen.dart';
+import '../../utils/translations.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -212,11 +213,11 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: Colors.lightBlue,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.storefront), label: 'Shop'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.home), label: t('home')),
+          BottomNavigationBarItem(icon: const Icon(Icons.storefront), label: t('shop')),
+          BottomNavigationBarItem(icon: const Icon(Icons.shopping_cart), label: t('cart')),
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: t('profile')),
         ],
       ),
     );
@@ -245,10 +246,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '🛍️ Welcome to Priscon!',
+                      Text(
+                        '🛍️ ${t('welcome_to')}',
                         textAlign: TextAlign.left,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1565C0)),
@@ -264,10 +265,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Buy & Sell with your community',
+                      Text(
+                        t('buy_sell_community'),
                         textAlign: TextAlign.left,
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: Colors.black87,
                             fontSize: 14,
                             fontWeight: FontWeight.w500),
@@ -373,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
 
               // Categories
-              _buildSectionHeader('Categories'),
+              _buildSectionHeader(t('categories')),
               const SizedBox(height: 12),
               SizedBox(
                 height: 100,
@@ -422,11 +423,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Latest Products', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(t('latest_products'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     TextButton(
                       onPressed: () => _mainPageController.animateToPage(1,
                           duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
-                      child: const Text('View All'),
+                      child: Text(t('view_all')),
                     ),
                   ],
                 ),

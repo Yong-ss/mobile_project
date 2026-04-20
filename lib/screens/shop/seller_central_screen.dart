@@ -8,7 +8,8 @@ import '../shop/seller_page_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../utils/snackbar_helper.dart';
-import '../../widgets/shimmer_skeletons.dart'; // Add this
+import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 class SellerCentralScreen extends StatefulWidget {
   final String shopName;
@@ -57,7 +58,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('Edit Shop Info'),
+            title: Text(t('edit_shop_info')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -136,7 +137,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                               });
                             } catch (e) {
                               setDialogState(() => _isUploadingLogo = false);
-                              snackbar('Upload failed: $e', Colors.red);
+                              snackbar('${t('error')}: $e', Colors.red);
                             }
                           },
                         ),
@@ -147,9 +148,9 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _shopNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Shop Name',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: t('shop_name'),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -160,7 +161,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                   _newShopPicUrl = null;
                   Navigator.pop(context);
                 },
-                child: const Text('Cancel'),
+                child: Text(t('cancel')),
               ),
               ElevatedButton(
                 onPressed: _isUploadingLogo
@@ -194,7 +195,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                     if (context.mounted) snackbar('Save failed: $e', Colors.red);
                   }
                 },
-                child: const Text('Save'),
+                child: Text(t('save')),
               ),
             ],
           );
@@ -207,7 +208,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Seller Central'),
+        title: Text(t('seller_central')),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -253,7 +254,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                     ),
                   ),
                   Text(
-                    'Created at: ${_shopCreatedAt.split('T')[0]}',
+                    '${t('created_at')}: ${_shopCreatedAt.split('T')[0]}',
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey,
                     ),
@@ -267,7 +268,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                       const SellerPageScreen(),
                     ),
                     icon: const Icon(Icons.visibility_outlined, size: 18),
-                    label: const Text('View My Shop'),
+                    label: Text(t('view_my_shop')),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.lightBlueAccent : Colors.blue,
                       side: BorderSide(color: Theme.of(context).brightness == Brightness.dark ? Colors.lightBlueAccent : Colors.blue),
@@ -283,8 +284,8 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
 
             ListTile(
               leading: const Icon(Icons.inventory, color: Colors.blue),
-              title: const Text('My Listings'),
-              subtitle: const Text('View and manage your products'),
+              title: Text(t('my_listings')),
+              subtitle: Text(t('manage_products_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(
@@ -298,8 +299,8 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.inbox, color: Colors.blue),
-              title: const Text('Seller Orders'),
-              subtitle: const Text('Manage incoming customer orders'),
+              title: Text(t('seller_orders')),
+              subtitle: Text(t('manage_incoming_orders_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(
@@ -313,8 +314,8 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.bar_chart, color: Colors.blue),
-              title: const Text('Sales Dashboard'),
-              subtitle: const Text('Track your earnings and performance'),
+              title: Text(t('sales_dashboard')),
+              subtitle: Text(t('track_performance_sub')),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(

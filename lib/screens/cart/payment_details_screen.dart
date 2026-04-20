@@ -40,6 +40,11 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
     });
   }
 
+  String _getCleanMethod(String raw) {
+    if (!raw.contains(' [ID: ')) return raw;
+    return raw.split(' [ID: ').first;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -112,7 +117,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                     const SizedBox(height: 16),
                     _buildDetailRow('User Name', widget.userName),
                     const SizedBox(height: 16),
-                    _buildDetailRow('Payment Method', widget.paymentMethod),
+                    _buildDetailRow('Payment Method', _getCleanMethod(widget.paymentMethod)),
                     const SizedBox(height: 16),
                     _buildDetailRow('Date', DateFormat('MMM dd, yyyy - hh:mm a').format(widget.date)),
                     const SizedBox(height: 16),

@@ -4,6 +4,8 @@ import '../../widgets/shimmer_skeletons.dart';
 import '../../utils/snackbar_helper.dart';
 import 'edit_profile.dart';
 import '../../utils/theme_manager.dart';
+import '../../utils/language_manager.dart';
+import '../../utils/translations.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -29,7 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('settings'), style: const TextStyle(fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context, _profileUpdated),
@@ -41,10 +43,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
               child: Text(
-                'ACCOUNT',
+                t('account'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -56,8 +58,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildSettingTile(
               icon: Icons.person_outline,
               color: Colors.blue,
-              title: 'Edit Profile',
-              subtitle: 'Change name, email, and photo',
+              title: t('edit_profile'),
+              subtitle: t('edit_profile_sub'),
               onTap: () async {
                 final result = await Navigator.push(
                   context,
@@ -69,10 +71,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
 
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 32, 16, 12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 32, 16, 12),
               child: Text(
-                'APPEARANCE',
+                t('appearance'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -103,17 +105,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         _buildAppearanceOption(
                           mode: ThemeMode.light,
-                          label: 'Light',
+                          label: t('light'),
                           icon: Icons.light_mode_outlined,
                         ),
                         _buildAppearanceOption(
                           mode: ThemeMode.system,
-                          label: 'System',
+                          label: t('system'),
                           icon: Icons.brightness_auto_outlined,
                         ),
                         _buildAppearanceOption(
                           mode: ThemeMode.dark,
-                          label: 'Dark',
+                          label: t('dark'),
                           icon: Icons.dark_mode_outlined,
                         ),
                       ],
@@ -122,12 +124,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            _buildSettingTile(
-              icon: Icons.language,
-              color: Colors.orange,
-              title: 'Language',
-              subtitle: 'English (US)',
-              onTap: () => snackbar('Language settings coming soon!', Colors.blue),
+            ListenableBuilder(
+                listenable: languageManager,
+                builder: (context, _) {
+                  final currentLang = LanguageManager.languages.firstWhere(
+                        (l) => l['code'] == languageManager.locale.languageCode,
+                    orElse: () => LanguageManager.languages.first,
+                  );
+                  return _buildSettingTile(
+                    icon: Icons.language,
+                    color: Colors.orange,
+                    title: t('language'),
+                    subtitle: currentLang['label'],
+                    onTap: _showLanguageSelector,
+                  );
+                }
             ),
 
             const SizedBox(height: 40),
@@ -210,6 +221,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
         subtitle: subtitle != null ? Text(subtitle, style: const TextStyle(fontSize: 12)) : null,
         trailing: const Icon(Icons.chevron_right, size: 20),
         onTap: onTap,
+      ),
+    );
+  }
+
+  void _showLanguageSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).canvasColor,
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t('choose_language'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              ...List.generate(LanguageManager.languages.length, (index) {
+                final lang = LanguageManager.languages[index];
+                final isSelected = languageManager.locale.languageCode == lang['code'];
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.lightBlue.withValues(alpha: 0.1) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? Colors.lightBlue : Colors.grey.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: ListTile(
+                    leading: Text(lang['label'].split(' ').first, style: const TextStyle(fontSize: 24)),
+                    title: Text(lang['name'], style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                    trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.lightBlue) : null,
+                    onTap: () {
+                      languageManager.setLanguage(index);
+                      Navigator.pop(context);
+                    },
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
       ),
     );
   }

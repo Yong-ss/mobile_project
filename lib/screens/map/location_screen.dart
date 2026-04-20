@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
 
@@ -38,6 +36,99 @@ class _LocationScreenState extends State<LocationScreen> {
   bool _isInitialLoading = true;
 
   late List<Map<String, dynamic>> _stores;
+
+  // Premium Nocturnal Map Style (Updated for better compatibility)
+  static const String _darkMapStyle = '''
+[
+  {
+    "elementType": "geometry",
+    "stylers": [ { "color": "#242f3e" } ]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [ { "color": "#242f3e" } ]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#746855" } ]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#d59563" } ]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#d59563" } ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "geometry",
+    "stylers": [ { "color": "#263c3f" } ]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#6b9a76" } ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [ { "color": "#38414e" } ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.stroke",
+    "stylers": [ { "color": "#212a37" } ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#9ca5b3" } ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [ { "color": "#746855" } ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry.stroke",
+    "stylers": [ { "color": "#1f2835" } ]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#f3d19c" } ]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "geometry",
+    "stylers": [ { "color": "#2f3948" } ]
+  },
+  {
+    "featureType": "transit.station",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#d59563" } ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [ { "color": "#17263c" } ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [ { "color": "#515c6d" } ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.stroke",
+    "stylers": [ { "color": "#17263c" } ]
+  }
+]
+''';
 
   void _setupMarkers() {
     _markers.clear();
@@ -144,7 +235,10 @@ class _LocationScreenState extends State<LocationScreen> {
   Future<void> _getUserLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
       );
 
       setState(() {
@@ -202,9 +296,9 @@ class _LocationScreenState extends State<LocationScreen> {
               return GestureDetector(
                 onTap: () {}, // Prevent taps on the white container from bubbling up
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).canvasColor,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   ),
                   child: SafeArea(
                     child: Column(
@@ -215,7 +309,7 @@ class _LocationScreenState extends State<LocationScreen> {
                           height: 5,
                           margin: const EdgeInsets.only(top: 12, bottom: 8),
                           decoration: BoxDecoration(
-                            color: Colors.grey[300],
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[700] : Colors.grey[300],
                             borderRadius: BorderRadius.circular(2.5),
                           ),
                         ),
@@ -227,7 +321,7 @@ class _LocationScreenState extends State<LocationScreen> {
                           child: ListView.separated(
                             controller: scrollController,
                             itemCount: _stores.length,
-                            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[200], indent: 16, endIndent: 16),
+                            separatorBuilder: (context, index) => Divider(height: 1, color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey[200], indent: 16, endIndent: 16),
                             itemBuilder: (context, index) {
                               final store = _stores[index];
                               return RadioListTile<String>(
@@ -290,6 +384,7 @@ class _LocationScreenState extends State<LocationScreen> {
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
                 },
+                style: Theme.of(context).brightness == Brightness.dark ? _darkMapStyle : null,
                 markers: _markers,
                 myLocationEnabled: true,
                 myLocationButtonEnabled: true,
@@ -310,9 +405,10 @@ class _LocationScreenState extends State<LocationScreen> {
                       _showStoreSelectionBottomSheet();
                     },
                     child: Card(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        side: const BorderSide(color: Colors.lightBlue, width: 2),
+                        side: BorderSide(color: Colors.lightBlue.withValues(alpha: 0.5), width: 2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Padding(

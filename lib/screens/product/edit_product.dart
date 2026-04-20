@@ -4,6 +4,7 @@ import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 class EditProductScreen extends StatefulWidget {
   final Map<String, dynamic> product; // 需要传入要编辑的商品数据
@@ -66,7 +67,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
+                title: Text(t('choose_gallery')),
                 onTap: () {
                   Navigator.pop(context);
                   _pickAndUploadImage(ImageSource.gallery);
@@ -74,7 +75,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.camera_alt),
-                title: const Text('Take a Photo'),
+                title: Text(t('take_photo')),
                 onTap: () {
                   Navigator.pop(context);
                   _pickAndUploadImage(ImageSource.camera);
@@ -109,7 +110,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       });
     } catch (e) {
       setState(() => _isUploading = false);
-      snackbar('Upload error: $e', Colors.red);
+      snackbar('${t('upload_error')}: $e', Colors.red);
     }
   }
 
@@ -120,19 +121,19 @@ class _EditProductScreenState extends State<EditProductScreen> {
     final description = _descriptionController.text.trim();
 
     if (name.isEmpty || priceStr.isEmpty || quantityStr.isEmpty || _selectedCategory == null) {
-      snackbar('Please fill all required fields', Colors.orange);
+      snackbar(t('fill_required_fields'), Colors.orange);
       return;
     }
 
     final price = double.tryParse(priceStr);
     if (price == null) {
-      snackbar('Invalid price format', Colors.red);
+      snackbar(t('invalid_price'), Colors.red);
       return;
     }
 
     final quantity = int.tryParse(quantityStr);
     if (quantity == null) {
-      snackbar('Invalid quantity format', Colors.red);
+      snackbar(t('invalid_quantity'), Colors.red);
       return;
     }
 
@@ -152,13 +153,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
       if (mounted) {
         setState(() => _isLoading = false);
-        snackbar('Product updated successfully!', Colors.green);
+        snackbar(t('product_updated'), Colors.green);
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        snackbar('Error: $e', Colors.red);
+        snackbar('${t('error')}: $e', Colors.red);
       }
     }
   }
@@ -168,7 +169,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Edit Product', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('edit_product_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
       ),
       body: SafeArea(
@@ -183,7 +184,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                    'Product Photo',
+                    t('product_photo'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -225,7 +226,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 const SizedBox(height: 32),
 
                 Text(
-                    'Product Name',
+                    t('product_name'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -235,7 +236,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 TextField(
                   controller: _nameController,
                   decoration: InputDecoration(
-                    hintText: 'e.g. Vintage Camera',
+                    hintText: t('hint_product_name'),
                     hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
@@ -245,7 +246,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                    'Price (RM)',
+                    t('price_rm'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -256,7 +257,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   controller: _priceController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: 'e.g. 150.00',
+                    hintText: t('hint_price'),
                     hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     prefixText: 'RM ',
@@ -268,7 +269,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                    'Category',
+                    t('category'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -278,7 +279,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedCategory,
                   decoration: InputDecoration(
-                    hintText: 'Select a category',
+                    hintText: t('hint_select_category'),
                     hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
@@ -297,7 +298,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 const SizedBox(height: 16),
 
                 Text(
-                    'Quantity',
+                    t('quantity'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -308,7 +309,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   controller: _quantityController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: 'e.g. 10',
+                    hintText: t('hint_quantity'),
                     hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
@@ -321,7 +322,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                        'For Sale / Active',
+                        t('for_sale_active'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -336,7 +337,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                    'Description',
+                    t('description'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
@@ -347,7 +348,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   controller: _descriptionController,
                   maxLines: 4,
                   decoration: InputDecoration(
-                    hintText: 'Describe your product...',
+                    hintText: t('hint_description'),
                     hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
@@ -374,9 +375,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       width: 24,
                       child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                     )
-                        : const Text(
-                      'Save Changes',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                        : Text(
+                      t('save_changes'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                     ),
                   ),
                 ),

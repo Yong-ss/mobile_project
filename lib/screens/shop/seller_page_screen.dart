@@ -5,6 +5,7 @@ import '../../utils/globals.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart'; // Add this
+import '../../utils/translations.dart';
 
 class SellerPageScreen extends StatefulWidget {
   final String? sellerId; // 可选参数：要查看的商家 ID
@@ -67,7 +68,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Seller Shop')),
+        appBar: AppBar(title: Text(t('seller_shop'))),
         body: const SafeArea(child: SellerPageSkeleton()),
       );
     }
@@ -77,10 +78,10 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
     final String shopLogo = _sellerProfile?['shop_pic'] ?? '';
     final String joinDate = _sellerProfile?['shop_created_at'] != null
         ? _sellerProfile!['shop_created_at'].toString().split('T')[0]
-        : 'Unknown';
+        : t('unknown');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Seller Shop')),
+      appBar: AppBar(title: Text(t('seller_shop'))),
       body: SafeArea(
         child: Column(
           children: [
@@ -113,7 +114,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
                     ),
                   ),
                   Text(
-                    'Joined on: $joinDate',
+                    '${t('joined_on')}: $joinDate',
                     style: TextStyle(
                       color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey,
                     ),
@@ -127,7 +128,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Products',
+                  t('products'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -142,7 +143,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
               child: _allSellerProducts.isEmpty
                   ? Center(
                 child: Text(
-                  'No products available',
+                  t('no_products_available'),
                   style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
                 ),
               )

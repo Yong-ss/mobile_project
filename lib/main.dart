@@ -6,7 +6,9 @@ import 'utils/supabase_config.dart'; // 导入配置类
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/globals.dart';
 import 'utils/theme_manager.dart';
+import 'utils/language_manager.dart';
 import 'utils/snackbar_helper.dart'; // 导入全局 snackbar key
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/core/home_screen.dart';
 
@@ -35,9 +37,14 @@ void main() async {
     final supabase = Supabase.instance.client;
     currentUser = await supabase.from('user').select().eq('id', userId).maybeSingle();
 
-    // Sync theme from database immediately if user is restored
-    if (currentUser != null && currentUser!['appearance'] != null) {
-      themeManager.updateThemeFromDatabase(currentUser!['appearance'] as int);
+    // Sync theme and language from database immediately if user is restored
+    if (currentUser != null) {
+      if (currentUser!['appearance'] != null) {
+        themeManager.updateThemeFromDatabase(currentUser!['appearance'] as int);
+      }
+      if (currentUser!['language'] != null) {
+        languageManager.updateLanguageFromDatabase(currentUser!['language'] as int);
+      }
     }
   }
 
@@ -51,12 +58,23 @@ class PrisconApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: themeManager,
+      listenable: Listenable.merge([themeManager, languageManager]),
       builder: (context, _) {
         return MaterialApp(
           title: 'Priscon',
           debugShowCheckedModeBanner: false,
           scaffoldMessengerKey: snackbarKey,
+          locale: languageManager.locale,
+          supportedLocales: const [
+            Locale('en', 'US'),
+            Locale('zh', 'CN'),
+            Locale('ms', 'MY'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           // Isolation Logic: Use user preference only if logged in, otherwise follow System Theme
           themeMode: currentUser != null ? themeManager.themeMode : ThemeMode.system,
           theme: ThemeData(

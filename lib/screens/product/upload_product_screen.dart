@@ -3,6 +3,7 @@ import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../utils/translations.dart';
 
 // Member 4: Upload Product screen — Placeholder for camera feature (Ch 3.1: Placeholder)
 
@@ -47,7 +48,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
+                title: Text(t('choose_gallery')),
                 onTap: () {
                   Navigator.pop(context);
                   _pickAndUploadImage(ImageSource.gallery);
@@ -55,7 +56,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.camera_alt),
-                title: const Text('Take a Photo'),
+                title: Text(t('take_photo')),
                 onTap: () {
                   Navigator.pop(context);
                   _pickAndUploadImage(ImageSource.camera);
@@ -94,7 +95,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
       });
     } catch (e) {
       setState(() => _isUploading = false);
-      snackbar('Upload error: $e', Colors.red);
+      snackbar('${t('upload_error')}: $e', Colors.red);
     }
   }
 
@@ -108,19 +109,19 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
         priceStr.isEmpty ||
         quantityStr.isEmpty ||
         _selectedCategory == null) {
-      snackbar('Please fill all required fields', Colors.orange);
+      snackbar(t('fill_required_fields'), Colors.orange);
       return;
     }
 
     final price = double.tryParse(priceStr);
     if (price == null) {
-      snackbar('Invalid price format', Colors.red);
+      snackbar(t('invalid_price'), Colors.red);
       return;
     }
 
     final quantity = int.tryParse(quantityStr);
     if (quantity == null) {
-      snackbar('Invalid quantity format', Colors.red);
+      snackbar(t('invalid_quantity'), Colors.red);
       return;
     }
 
@@ -140,13 +141,13 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
 
       if (mounted) {
         setState(() => _isLoading = false);
-        snackbar('Product uploaded successfully!', Colors.green);
+        snackbar(t('product_uploaded'), Colors.green);
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        snackbar('Error: $e', Colors.red);
+        snackbar('${t('error')}: $e', Colors.red);
       }
     }
   }
@@ -154,16 +155,16 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Upload Product')),
+      appBar: AppBar(title: Text(t('upload_product'))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Camera placeholder area (will be replaced with real camera in later phase)
-            const Text(
-              'Product Photo',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('product_photo'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Center(
@@ -177,10 +178,10 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
                         : null,
                     child: (_newImageUrl == null)
                         ? const Icon(
-                            Icons.inventory,
-                            size: 60,
-                            color: Colors.lightBlue,
-                          )
+                      Icons.inventory,
+                      size: 60,
+                      color: Colors.lightBlue,
+                    )
                         : null,
                   ),
 
@@ -218,58 +219,58 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
             const SizedBox(height: 20),
 
             // Product Name
-            const Text(
-              'Product Name',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('product_name'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                hintText: 'e.g. Bluetooth Speaker',
-                border: OutlineInputBorder(),
+                hintText: t('hint_product_name'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
 
             // Price
-            const Text(
-              'Price (RM)',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('price_rm'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _priceController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                hintText: 'e.g. 60.00',
-                border: OutlineInputBorder(),
+                hintText: t('hint_price'),
+                border: const OutlineInputBorder(),
                 prefixText: 'RM ',
               ),
             ),
             const SizedBox(height: 16),
 
             // Category
-            const Text(
-              'Category',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('category'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               initialValue: _selectedCategory,
-              decoration: const InputDecoration(
-                hintText: 'Select a category',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: t('hint_select_category'),
+                border: const OutlineInputBorder(),
               ),
               items: shopCategories
                   .where((cat) => cat != 'All') // 上传商品时不能选 "All"
                   .map((String category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  })
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                );
+              })
                   .toList(),
               onChanged: (String? newValue) {
                 setState(() {
@@ -280,25 +281,25 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
             const SizedBox(height: 16),
 
             // Quantity
-            const Text(
-              'Quantity',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('quantity'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _quantityController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                hintText: 'e.g. 10',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: t('hint_quantity'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
 
             // For Sale
-            const Text(
-              'For Sale',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('for_sale_active'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Switch(
@@ -312,17 +313,17 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
             const SizedBox(height: 16),
 
             // Description
-            const Text(
-              'Description',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              t('description'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _descriptionController,
               maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Describe your product...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: t('hint_description'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -345,21 +346,21 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Submit Listing',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1, //enchance letter spacing
-                        ),
-                      ),
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                )
+                    : Text(
+                  t('submit_listing'),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1, //enchance letter spacing
+                  ),
+                ),
               ),
             ),
           ],

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../utils/globals.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import 'order_details_screen.dart';
+import '../../utils/translations.dart';
 
 // Member 3: Order History — buyer's list of past orders.
 // Integrated with live Supabase data, dynamic filtering, and premium shimmers.
@@ -15,7 +16,7 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  String _selectedFilter = 'All';
+  String _selectedFilter = t('all');
   bool _isLoading = true;
   bool _isInitialLoading = true;
   List<Map<String, dynamic>> _liveOrders = [];
@@ -74,6 +75,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         if (_selectedFilter == 'Cancelled') {
           return statusLower == 'cancelled';
         }
+        if (_selectedFilter == 'Failed') {
+          return statusLower == 'failed';
+        }
         return true;
       }).toList();
     }
@@ -106,7 +110,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Orders', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('my_orders'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: (_isLoading || _isInitialLoading)
@@ -124,7 +128,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  children: ['All', 'Pending', 'Completed', 'Cancelled'].map((filter) {
+                  children: [t('all'), t('pending'), t('completed'), t('cancelled'), t('failed')].map((filter) {
                     final isSelected = _selectedFilter == filter;
                     return Padding(
                       padding: const EdgeInsets.only(right: 12),
@@ -185,7 +189,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            'No orders found',
+            t('no_orders_found'),
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 8),
@@ -221,7 +225,8 @@ class _OrderCardState extends State<_OrderCard> {
       case 'delivered':
       case 'picked up':
       case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
+      case 'cancelled':
+      case 'failed': return Colors.red;
       default: return Colors.grey;
     }
   }

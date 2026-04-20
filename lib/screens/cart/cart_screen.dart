@@ -4,6 +4,7 @@ import '../../utils/globals.dart';
 import 'checkout_screen.dart';
 import '../shop/product_details_screen.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/translations.dart';
 
 class CartScreen extends StatefulWidget {
   final VoidCallback? onShopNow;
@@ -70,7 +71,7 @@ class _CartScreenState extends State<CartScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Text(
-                'Are you sure you want to delete "$productName"?',
+                '${t('are_you_sure_delete')} "$productName"?',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
               ),
@@ -87,10 +88,10 @@ class _CartScreenState extends State<CartScreen> {
                         color: Colors.redAccent.shade100,
                         borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20)),
                       ),
-                      child: const Text(
-                        'YES',
+                      child: Text(
+                        t('yes'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -104,10 +105,10 @@ class _CartScreenState extends State<CartScreen> {
                         color: Colors.blueGrey.shade200,
                         borderRadius: const BorderRadius.only(bottomRight: Radius.circular(20)),
                       ),
-                      child: const Text(
-                        'NO',
+                      child: Text(
+                        t('no'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -172,18 +173,18 @@ class _CartScreenState extends State<CartScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Cart', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(t('my_cart'), style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _isLoading
           ? const CartSkeleton()
           : (currentUser == null)
-          ? const Center(
+          ? Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_outline, size: 60, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Please login to view your cart', style: TextStyle(fontSize: 18, color: Colors.grey)),
+            const Icon(Icons.lock_outline, size: 60, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(t('please_login_cart'), style: const TextStyle(fontSize: 18, color: Colors.grey)),
           ],
         ),
       )
@@ -195,9 +196,9 @@ class _CartScreenState extends State<CartScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Your cart is empty',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  Text(
+                    t('cart_empty'),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                   const SizedBox(height: 20),
                   OutlinedButton(
@@ -208,9 +209,9 @@ class _CartScreenState extends State<CartScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     ),
-                    child: const Text(
-                      'Shop Here',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    child: Text(
+                      t('shop_here'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -300,7 +301,7 @@ class _CartScreenState extends State<CartScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
-                                  'by $sellerName',
+                                  '${t('by')} $sellerName',
                                   style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                                 ),
                                 const SizedBox(height: 12),
@@ -390,7 +391,7 @@ class _CartScreenState extends State<CartScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        Text(t('total'), style: const TextStyle(fontSize: 18, color: Colors.grey)),
                         Text(
                           'RM ${total.toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -415,8 +416,8 @@ class _CartScreenState extends State<CartScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           elevation: 0,
                         ),
-                        child: const Text('Proceed to Checkout',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        child: Text(t('proceed_checkout'),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

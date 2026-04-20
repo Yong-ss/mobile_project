@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../utils/globals.dart';
+import '../../utils/translations.dart';
 
 class SalesDashboardScreen extends StatefulWidget {
   const SalesDashboardScreen({super.key});
@@ -137,7 +138,7 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sales Dashboard')),
+      appBar: AppBar(title: Text(t('sales_dashboard'))),
       body: SafeArea(
         child: _isLoading
             ? _buildShimmerLoading()
@@ -149,13 +150,13 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
               Row(
                 children: [
                   _StatCard(
-                    label: 'Total Sales',
+                    label: t('total_sales'),
                     value: 'RM ${_totalSales.toStringAsFixed(2)}',
                     icon: Icons.attach_money,
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
-                    label: 'Orders',
+                    label: t('orders_count'),
                     value: '$_orderCount',
                     icon: Icons.receipt,
                   ),
@@ -165,13 +166,13 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
               Row(
                 children: [
                   _StatCard(
-                    label: 'Products',
-                    value: '$_productCount Listed',
+                    label: t('products'),
+                    value: '$_productCount ${t('listed')}',
                     icon: Icons.inventory_2,
                   ),
                   const SizedBox(width: 8),
                   _StatCard(
-                    label: 'Total Customers',
+                    label: t('total_customers'),
                     value: '$_customerCount',
                     icon: Icons.people,
                   ),
@@ -179,9 +180,9 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
               ),
               const SizedBox(height: 32),
 
-              const Text(
-                'Monthly Sales Chart',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Text(
+                t('monthly_sales_chart'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
 
@@ -301,17 +302,17 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
               ),
               const SizedBox(height: 24),
 
-              const Text(
-                'Top Products',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Text(
+                t('top_products'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
 
               _topProducts.isEmpty
-                  ? const Center(
+                  ? Center(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('No sales records yet'),
+                  padding: const EdgeInsets.all(20),
+                  child: Text(t('no_sales_records')),
                 ),
               )
                   : ListView.builder(
@@ -324,8 +325,8 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
                     leading: CircleAvatar(
                       child: Text('${index + 1}'),
                     ),
-                    title: Text(product['name'] ?? 'Product'),
-                    subtitle: Text('${product['sold_count']} sold'),
+                    title: Text(product['name'] ?? t('product')),
+                    subtitle: Text('${product['sold_count']} ${t('sold')}'),
                     trailing: Text(
                       'RM ${product['revenue']}',
                       style: const TextStyle(
