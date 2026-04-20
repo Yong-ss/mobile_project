@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/translations.dart';
+import '../chat/chat_screen.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import 'receipt_screen.dart';
 
@@ -387,6 +388,22 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
                           Text(buyer?['email'] ?? 'No email available', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        if (buyer?['id'] != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatScreen(
+                                remoteUserId: buyer!['id'],
+                                remoteUserName: buyer['username'] ?? 'Unknown Buyer',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
                     ),
                   ],
                 ),

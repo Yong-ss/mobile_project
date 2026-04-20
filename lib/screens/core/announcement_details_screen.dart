@@ -1,75 +1,141 @@
 import 'package:flutter/material.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
-class AnnouncementDetailsScreen extends StatelessWidget {
+class AnnouncementDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> announcement;
 
   const AnnouncementDetailsScreen({super.key, required this.announcement});
 
   @override
+  State<AnnouncementDetailsScreen> createState() => _AnnouncementDetailsScreenState();
+}
+
+class _AnnouncementDetailsScreenState extends State<AnnouncementDetailsScreen> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Simulate loading for the shimmer effect
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) setState(() => _isLoading = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String title = announcement['title'] ?? 'No Title';
-    final String content = announcement['content'] ?? '';
-    final String? imageUrl = announcement['image_url'];
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Announcement Details', style: TextStyle(fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          elevation: 0,
+        ),
+        body: const AnnouncementDetailsSkeletonUI(),
+      );
+    }
+
+    final String title = widget.announcement['title'] ?? 'No Title';
+    final String content = widget.announcement['content'] ?? '';
+    final String? imageUrl = widget.announcement['image_url'];
+
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Announcement Details'),
+        title: const Text('Announcement Details', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
+      extendBodyBehindAppBar: imageUrl != null && imageUrl.isNotEmpty,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. Show image first
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: 250,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 200,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                ),
-              )
-            else
-              Container(
-                height: 200,
-                color: Colors.grey[100],
-                child: const Icon(Icons.campaign, size: 80, color: Colors.lightBlue),
-              ),
-
-            const SizedBox(height: 24),
-
-            // 2. Show the title in bold text and center it below the image
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF212121),
-                ),
-              ),
+            // 1. Fancy Image Header
+            Stack(
+              children: [
+                if (imageUrl != null && imageUrl.isNotEmpty)
+                  Container(
+                    height: 300,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: NetworkImage(imageUrl),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.6),
+                            Colors.transparent,
+                            Theme.of(context).scaffoldBackgroundColor,
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    height: 250,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.lightBlue.shade300, Colors.blue.shade700],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(Icons.campaign, size: 100, color: Colors.white.withValues(alpha: 0.8)),
+                    ),
+                  ),
+              ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // 3. The content description last
+            // 2. Title and Content Container
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-              child: Text(
-                content,
-                style: const TextStyle(
-                  fontSize: 16,
-                  height: 1.6,
-                  color: Color(0xFF424242),
-                ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: 60,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.lightBlue,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.7,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),

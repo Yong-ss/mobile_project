@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../chat/chat_list_screen.dart';
 import '../order/order_history_screen.dart';
 import '../shop/seller_central_screen.dart';
 import '../auth/login_screen.dart';
@@ -163,6 +164,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(t('my_profile')),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatListScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () {
+              snackbar('Notifications coming soon!', Colors.blue);
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(

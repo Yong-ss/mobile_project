@@ -4,7 +4,6 @@ import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/globals.dart';
 import '../../services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';

@@ -8,6 +8,7 @@ import '../../services/qr_service.dart';
 import 'package:flutter/services.dart';
 import 'receipt_screen.dart';
 import '../../utils/translations.dart';
+import '../chat/chat_screen.dart';
 
 // Buyer's order detail view — Member 3
 // Shows full order info and status.
@@ -276,7 +277,19 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {}, // Future Chat Feature
+                        onPressed: () {
+                          if (seller?['id'] != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  remoteUserId: seller!['id'],
+                                  remoteUserName: shopName,
+                                ),
+                              ),
+                            );
+                          }
+                        },
                         icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
                       ),
                     ],

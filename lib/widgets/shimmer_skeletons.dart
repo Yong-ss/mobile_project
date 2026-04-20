@@ -1421,3 +1421,161 @@ class OrderDetailsSkeletonUI extends StatelessWidget {
     );
   }
 }
+
+/// Skeleton for Announcement Details Screen
+class AnnouncementDetailsSkeletonUI extends StatelessWidget {
+  const AnnouncementDetailsSkeletonUI({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Image Skeleton
+          const BaseSkeleton(
+            width: double.infinity,
+            height: 300,
+            borderRadius: 0,
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title Skeleton
+                const BaseSkeleton(width: 250, height: 30),
+                const SizedBox(height: 20),
+                // Accent Divider Skeleton
+                const BaseSkeleton(width: 60, height: 4, borderRadius: 2),
+                const SizedBox(height: 24),
+                // Content Skeletons
+                const BaseSkeleton(width: double.infinity, height: 16),
+                const SizedBox(height: 8),
+                const BaseSkeleton(width: double.infinity, height: 16),
+                const SizedBox(height: 8),
+                const BaseSkeleton(width: 200, height: 16),
+                const SizedBox(height: 32),
+                const BaseSkeleton(width: double.infinity, height: 16),
+                const SizedBox(height: 8),
+                const BaseSkeleton(width: 150, height: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen Seller Settings screen skeleton.
+class SellerSettingsSkeleton extends StatelessWidget {
+  const SellerSettingsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const BaseSkeleton(width: 100, height: 14, borderRadius: 4),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+            ),
+            child: const Column(
+              children: [
+                BaseSkeleton(width: 100, height: 100, borderRadius: 50),
+                SizedBox(height: 24),
+                BaseSkeleton(width: double.infinity, height: 50, borderRadius: 12),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          const BaseSkeleton(width: double.infinity, height: 50, borderRadius: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// A unified skeleton for the Chat List (Conversations).
+class ChatListSkeleton extends StatelessWidget {
+  const ChatListSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: 10,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const BaseSkeleton(width: 56, height: 56, borderRadius: 28),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  BaseSkeleton(width: 140, height: 18, borderRadius: 4),
+                  SizedBox(height: 8),
+                  BaseSkeleton(width: 220, height: 14, borderRadius: 4),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A unified skeleton for the Chat Details (Conversation view).
+class ChatDetailSkeleton extends StatelessWidget {
+  const ChatDetailSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: 6,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        final isMe = index % 2 == 0;
+        return Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (!isMe) ...[
+                  const BaseSkeleton(width: 32, height: 32, borderRadius: 16),
+                  const SizedBox(width: 8),
+                ],
+                BaseSkeleton(
+                  width: 150 + (index * 20.0 % 100),
+                  height: 60,
+                  borderRadius: 16,
+                ),
+                if (isMe) ...[
+                  const SizedBox(width: 8),
+                  const BaseSkeleton(width: 12, height: 12, borderRadius: 6),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

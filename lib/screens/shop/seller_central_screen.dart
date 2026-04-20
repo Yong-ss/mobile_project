@@ -5,11 +5,12 @@ import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
 import '../../utils/globals.dart';
 import '../shop/seller_page_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../utils/translations.dart';
+import 'seller_settings_screen.dart';
+import '../chat/chat_list_screen.dart';
+
 
 class SellerCentralScreen extends StatefulWidget {
   final String shopName;
@@ -22,9 +23,8 @@ class SellerCentralScreen extends StatefulWidget {
 
 class _SellerCentralScreenState extends State<SellerCentralScreen> {
   late String _currentShopName;
-  final TextEditingController _shopNameController = TextEditingController();
   String _shopCreatedAt = '';
-  bool _isLoading = true; // Add loading state
+  bool _isLoading = true;
   final GlobalKey _viewShopButtonKey = GlobalKey();
 
   @override
@@ -34,174 +34,9 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
     _shopCreatedAt = currentUser?['shop_created_at']?.toString() ?? 'Unknown';
 
     // Premium Reveal Strategy: 1s Shimmer
-    Future.delayed(const Duration(seconds: 1), () {
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _isLoading = false);
     });
-  }
-
-  @override
-  void dispose() {
-    _shopNameController.dispose();
-    super.dispose();
-  }
-
-  String? _newShopPicUrl;
-  bool _isUploadingLogo = false;
-
-  void _showEditShopDialog() {
-    _shopNameController.text = _currentShopName;
-    _newShopPicUrl = null;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Text(t('edit_shop_info')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade50,
-                      backgroundImage:
-                      (_newShopPicUrl != null && _newShopPicUrl!.isNotEmpty)
-                          ? NetworkImage(_newShopPicUrl!)
-                          : (currentUser?['shop_pic'] != null &&
-                          currentUser!['shop_pic']
-                              .toString()
-                              .isNotEmpty
-                          ? NetworkImage(currentUser!['shop_pic'])
-                          : null),
-                      child:
-                      ((_newShopPicUrl == null ||
-                          _newShopPicUrl!.isEmpty) &&
-                          (currentUser?['shop_pic'] == null ||
-                              currentUser!['shop_pic'].toString().isEmpty))
-                          ? Icon(Icons.store, size: 40, color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.blue)
-                          : null,
-                    ),
-                    if (_isUploadingLogo)
-                      const Positioned.fill(
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.blue,
-                        radius: 14,
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.camera_alt,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          padding: EdgeInsets.zero,
-                          onPressed: () async {
-                            final picker = ImagePicker();
-                            final image = await picker.pickImage(
-                              source: ImageSource.gallery,
-                            );
-                            if (image == null) return;
-
-                            setDialogState(() => _isUploadingLogo = true);
-
-                            try {
-                              final supabase = Supabase.instance.client;
-                              final path =
-                                  'avatars/${currentUser!['id']}/shop_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                              final bytes = await image.readAsBytes();
-
-                              await supabase.storage
-                                  .from('avatars')
-                                  .uploadBinary(path, bytes);
-
-                              final imageUrl = supabase.storage
-                                  .from('avatars')
-                                  .getPublicUrl(path);
-
-                              // 同步外部和弹窗内部状态
-                              setState(() => _newShopPicUrl = imageUrl);
-                              setDialogState(() {
-                                _isUploadingLogo = false;
-                              });
-                            } catch (e) {
-                              setDialogState(() => _isUploadingLogo = false);
-                              snackbar('${t('error')}: $e', Colors.red);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _shopNameController,
-                  decoration: InputDecoration(
-                    labelText: t('shop_name'),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  _newShopPicUrl = null;
-                  Navigator.pop(context);
-                },
-                child: Text(t('cancel')),
-              ),
-              ElevatedButton(
-                onPressed: _isUploadingLogo
-                    ? null
-                    : () async {
-                  final newShopName = _shopNameController.text.trim();
-                  if (newShopName.isEmpty) return;
-
-                  try {
-                    final supabase = Supabase.instance.client;
-                    Map<String, dynamic> updateData = {
-                      'shop_name': newShopName,
-                    };
-                    if (_newShopPicUrl != null) {
-                      updateData['shop_pic'] = _newShopPicUrl;
-                    }
-
-                    await supabase
-                        .from('user')
-                        .update(updateData)
-                        .eq('id', currentUser!['id']);
-
-                    setState(() {
-                      _currentShopName = newShopName;
-                      currentUser!.addAll(updateData);
-                      _newShopPicUrl = null;
-                    });
-
-                    if (context.mounted) Navigator.pop(context);
-                  } catch (e) {
-                    if (context.mounted) snackbar('Save failed: $e', Colors.red);
-                  }
-                },
-                child: Text(t('save')),
-              ),
-            ],
-          );
-        },
-      ),
-    );
   }
 
   @override
@@ -209,10 +44,37 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(t('seller_central')),
+        centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _showEditShopDialog,
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatListScreen(isSellerMode: true)),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () {
+              // TODO: Navigate to seller notifications
+              snackbar('Notifications coming soon!', Colors.blue);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SellerSettingsScreen()),
+              );
+              if (result == true) {
+                setState(() {
+                  _currentShopName = currentUser?['shop_name'] ?? '';
+                });
+              }
+            },
           ),
         ],
       ),
