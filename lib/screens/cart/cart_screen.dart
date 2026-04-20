@@ -171,13 +171,8 @@ class _CartScreenState extends State<CartScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('My Cart', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
       ),
       body: _isLoading
           ? const CartSkeleton()
@@ -209,7 +204,6 @@ class _CartScreenState extends State<CartScreen> {
                     onPressed: widget.onShopNow ?? () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Colors.lightBlue, width: 1.5),
-                      backgroundColor: Colors.white,
                       foregroundColor: Colors.lightBlue,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -261,11 +255,11 @@ class _CartScreenState extends State<CartScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -278,7 +272,9 @@ class _CartScreenState extends State<CartScreen> {
                             width: 90,
                             height: 90,
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white10
+                                  : Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(16),
                               image: product['image_url'] != null
                                   ? DecorationImage(
@@ -316,7 +312,9 @@ class _CartScreenState extends State<CartScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.white10
+                                              : Colors.grey.shade100,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: const Icon(Icons.remove, size: 20),
@@ -334,7 +332,9 @@ class _CartScreenState extends State<CartScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
                                         decoration: BoxDecoration(
-                                          color: Colors.lightBlue.shade50,
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.lightBlue.withValues(alpha: 0.2)
+                                              : Colors.lightBlue.shade50,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: const Icon(Icons.add, size: 20, color: Colors.lightBlue),
@@ -374,9 +374,9 @@ class _CartScreenState extends State<CartScreen> {
               top: false,
               child: Container(
                 padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(30),
                     topRight: Radius.circular(30),
                   ),

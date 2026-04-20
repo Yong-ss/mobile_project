@@ -4,7 +4,6 @@ import 'seller_page_screen.dart';
 import '../cart/cart_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
-import '../../widgets/shimmer_skeletons.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final int? productId;
@@ -119,12 +118,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
 
     try {
+      // 1. Check stock first
+      final int availableStock = _productData!['quantity'] ?? 0;
+
       final response = await _supabase
           .from('cart_item')
           .select('id, quantity')
           .eq('user_id', user['id'])
           .eq('product_id', _productData!['id'])
           .maybeSingle();
+
+      int currentInCart = response != null ? (response['quantity'] as int) : 0;
+
+      if (currentInCart >= availableStock) {
+        if (mounted) snackbar('You already have all available stock in your cart', Colors.orange);
+        return;
+      }
 
       bool isNewItem = response == null;
 
@@ -139,7 +148,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         });
         if (mounted) snackbar('Added $prodName to cart!', Colors.green);
       } else {
-        final newQuantity = (response['quantity'] as int) + 1;
+        final newQuantity = currentInCart + 1;
         await _supabase
             .from('cart_item')
             .update({'quantity': newQuantity})
@@ -243,21 +252,67 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _productData!['name'],
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _productData!['name'],
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inventory_2,
+                            size: 14,
+                            color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Stock: ${_productData!['quantity'] ?? 0}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'RM ${_productData!['price']}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'RM ${_productData!['price']}',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          (_productData!['quantity'] ?? 0) > 0 ? 'IN STOCK' : 'OUT OF STOCK',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -271,22 +326,40 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // 重点：卖家资料卡
+                  // 重点：卖家资料卡 (Premium Profile-style Card)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blueGrey.shade100,
-                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF303030) : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade100,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          backgroundImage: (_sellerData?['shop_pic'] != null)
-                              ? NetworkImage(_sellerData!['shop_pic'])
-                              : null,
-                          child: (_sellerData?['shop_pic'] == null)
-                              ? const Icon(Icons.store)
-                              : null,
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.lightBlue.withValues(alpha: 0.3), width: 1.5),
+                          ),
+                          child: CircleAvatar(
+                            backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade100,
+                            backgroundImage: (_sellerData?['shop_pic'] != null)
+                                ? NetworkImage(_sellerData!['shop_pic'])
+                                : null,
+                            child: (_sellerData?['shop_pic'] == null)
+                                ? const Icon(Icons.store, color: Colors.lightBlue)
+                                : null,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -295,14 +368,16 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             children: [
                               Text(
                                 _sellerData?['shop_name'] ?? 'Mystery Shop',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                                 ),
                               ),
-                              const Text(
+                              Text(
                                 'Official Seller',
                                 style: TextStyle(
-                                  color: Colors.grey,
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey.shade600,
                                   fontSize: 12,
                                 ),
                               ),
@@ -320,7 +395,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               ),
                             );
                           },
-                          child: const Text('Visit Shop'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.lightBlue,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('Visit Shop', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -331,19 +410,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _addToSupabaseCart,
+                      onPressed: (_productData!['quantity'] ?? 0) > 0 ? _addToSupabaseCart : null,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        backgroundColor: Colors.lightBlue,
+                        backgroundColor: (_productData!['quantity'] ?? 0) > 0 ? Colors.lightBlue : Colors.grey,
                         foregroundColor: Colors.white,
                       ),
-                      icon: const Icon(Icons.shopping_cart),
-                      label: const Text(
-                        'Add to Cart',
-                        style: TextStyle(fontSize: 18),
+                      icon: Icon((_productData!['quantity'] ?? 0) > 0 ? Icons.shopping_cart : Icons.not_interested),
+                      label: Text(
+                        (_productData!['quantity'] ?? 0) > 0 ? 'Add to Cart' : 'Out of Stock',
+                        style: const TextStyle(fontSize: 18),
                       ),
                     ),
                   ),

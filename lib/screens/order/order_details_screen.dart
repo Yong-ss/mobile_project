@@ -5,6 +5,8 @@ import '../../widgets/shimmer_skeletons.dart';
 import '../shop/seller_page_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../services/qr_service.dart';
+import 'package:flutter/services.dart';
+import 'receipt_screen.dart';
 
 // Buyer's order detail view — Member 3
 // Shows full order info and status.
@@ -28,6 +30,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   String _qrProgressMessage = 'Preparing...';
   int _qrRetryCount = 0; // Prevent infinite loops
   void Function(void Function())? _setModalState; // Track modal's state function
+  bool _isInfoExpanded = false; // For Shopee-style order info toggle
+  bool _isMapLoading = false;
 
   @override
   void initState() {
@@ -145,13 +149,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final createdAt = DateTime.tryParse(_order!['created_at'] ?? '') ?? DateTime.now();
     final formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(createdAt);
 
+    // New Fields for Shopee Section
+    final String fullOrderId = widget.orderId.toUpperCase();
+    final String paymentMethod = _order!['payment_method'] ?? 'N/A';
+
+    String formatTimestamp(dynamic ts) {
+      if (ts == null) return 'N/A';
+      final dt = DateTime.tryParse(ts.toString());
+      if (dt == null) return 'N/A';
+      return DateFormat('dd-MM-yyyy HH:mm').format(dt);
+    }
+
+    final String paymentTime = formatTimestamp(_order!['payment_at']);
+    final String shipTime = formatTimestamp(_order!['shipped_at']);
+    final String completedTime = formatTimestamp(_order!['completed_at']);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Order Details', style: TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -163,11 +178,11 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -228,15 +243,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey.shade100),
+                    border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white10
+                            : Colors.grey.shade100
+                    ),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 25,
-                        backgroundColor: Colors.grey.shade100,
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white10
+                            : Colors.grey.shade100,
                         backgroundImage: shopPic.isNotEmpty ? NetworkImage(shopPic) : null,
                         child: shopPic.isEmpty ? const Icon(Icons.store, color: Colors.grey) : null,
                       ),
@@ -266,9 +287,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade100),
+                  border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white10
+                          : Colors.grey.shade100
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -289,7 +314,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                             errorBuilder: (context, error, stackTrace) => Container(
                               width: 50,
                               height: 50,
-                              color: Colors.grey.shade100,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white10
+                                  : Colors.grey.shade100,
                               child: const Icon(Icons.image_not_supported, color: Colors.grey),
                             ),
                           ),
@@ -329,9 +356,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade100),
+                  border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white10
+                          : Colors.grey.shade100
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -366,13 +397,30 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               ],
                             ),
                           ),
-                          if (location?['latitude'] != null && location?['longitude'] != null)
+                          if (location != null)
                             IconButton(
                               icon: Icon(
                                 _isMapExpanded ? Icons.map : Icons.map_outlined,
                                 color: Colors.lightBlue,
                               ),
-                              onPressed: () => setState(() => _isMapExpanded = !_isMapExpanded),
+                              onPressed: () {
+                                if (!_isMapExpanded) {
+                                  // Only show loading if we actually have coordinates
+                                  final hasCoords = location['latitude'] != null && location['longitude'] != null;
+                                  setState(() {
+                                    _isMapExpanded = true;
+                                    _isMapLoading = hasCoords;
+                                  });
+
+                                  if (hasCoords) {
+                                    Future.delayed(const Duration(milliseconds: 800), () {
+                                      if (mounted) setState(() => _isMapLoading = false);
+                                    });
+                                  }
+                                } else {
+                                  setState(() => _isMapExpanded = false);
+                                }
+                              },
                             ),
                         ],
                       ),
@@ -380,21 +428,30 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                     AnimatedSize(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
-                      child: _isMapExpanded && location?['latitude'] != null && location?['longitude'] != null
-                          ? Container(
-                        height: 200,
+                      child: _isMapExpanded
+                          ? ( (location?['latitude'] != null &&
+                          location?['longitude'] != null &&
+                          (double.tryParse(location?['latitude'].toString() ?? '0') != 0.0))
+                          ? (_isMapLoading
+                          ? const MapSkeleton()
+                          : Container(
+                        height: 240,
                         margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade100),
+                          border: Border.all(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white10
+                                  : Colors.grey.shade100
+                          ),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: GoogleMap(
                             initialCameraPosition: CameraPosition(
                               target: LatLng(
-                                location!['latitude'],
-                                location['longitude'],
+                                double.tryParse(location!['latitude'].toString()) ?? 0.0,
+                                double.tryParse(location['longitude'].toString()) ?? 0.0,
                               ),
                               zoom: 15,
                             ),
@@ -402,8 +459,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                               Marker(
                                 markerId: const MarkerId('fulfillment_loc'),
                                 position: LatLng(
-                                  location['latitude'],
-                                  location['longitude'],
+                                  double.tryParse(location['latitude'].toString()) ?? 0.0,
+                                  double.tryParse(location['longitude'].toString()) ?? 0.0,
                                 ),
                                 infoWindow: InfoWindow(title: location['title']),
                               ),
@@ -418,7 +475,148 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ),
                         ),
                       )
+                      )
+                          : Container(
+                        height: 240,
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : const Color(0xFFE8E8E8),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: const BoxDecoration(color: Color(0xFF8E8E8E), shape: BoxShape.circle),
+                              child: const Icon(Icons.priority_high, color: Colors.white, size: 30),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Oops! No address found!',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : const Color(0xFF555555),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              child: Text(
+                                'This page didn\'t load Google Maps correctly because the address details are missing or invalid.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white54
+                                        : const Color(0xFF777777),
+                                    fontSize: 12,
+                                    height: 1.4
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      )
                           : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Shopee-Style Order Information ──
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white10
+                          : Colors.grey.shade100
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildInfoRow('Order ID', fullOrderId,
+                      trailing: GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: fullOrderId));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Order ID copied to clipboard'),
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white24
+                                    : Colors.grey.shade300
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('Copy', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    _buildInfoRow('Paid by', paymentMethod),
+                    const Divider(height: 1),
+                    _buildInfoRow('Receipt', 'View',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ReceiptScreen(order: _order!)),
+                        );
+                      },
+                      trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                    ),
+
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        child: _isInfoExpanded
+                            ? Column(
+                          children: [
+                            const Divider(height: 1),
+                            _buildInfoRow('Order Time', formattedDate),
+                            _buildInfoRow('Payment Time', paymentTime),
+                            _buildInfoRow('Ship Time', shipTime),
+                            _buildInfoRow('Completed Time', completedTime),
+                          ],
+                        )
+                            : const SizedBox.shrink(),
+                      ),
+                    ),
+
+                    InkWell(
+                      onTap: () => setState(() => _isInfoExpanded = !_isInfoExpanded),
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(_isInfoExpanded ? 'View Less' : 'View More',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                            Icon(_isInfoExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                size: 18, color: Colors.grey.shade600),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -472,7 +670,26 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
               // ── Actions: Pickup Verification ──
               if (isPickup && status == 'Ready for Pickup')
-                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.only(top: 0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _showPickupBottomSheet(context, widget.orderId),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text(
+                        'Pickup Verification',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -490,9 +707,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           _setModalState = setModalState; // Capture the modal's state sync function
           return Container(
             height: MediaQuery.of(context).size.height * 0.9,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             padding: const EdgeInsets.all(24),
             child: SafeArea(
@@ -514,11 +731,19 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                       padding: const EdgeInsets.all(24),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: Colors.grey.shade100),
+                        border: Border.all(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white10
+                                : Colors.grey.shade100
+                        ),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 8)),
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8)
+                          ),
                         ],
                       ),
                       child: _verification?['claim'] == true
@@ -661,7 +886,12 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+              style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white54
+                      : Colors.grey.shade600,
+                  height: 1.4
+              ),
             ),
           ),
         ],
@@ -674,7 +904,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     try {
       await supabase
           .from('orders')
-          .update({'status': 'Completed'})
+          .update({
+        'status': 'Completed',
+        'completed_at': DateTime.now().toIso8601String(),
+      })
           .eq('id', widget.orderId);
 
       if (mounted) {
@@ -746,7 +979,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 Text(
                   label,
                   style: TextStyle(
-                    color: done ? Colors.black : Colors.grey,
+                    color: done
+                        ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)
+                        : Colors.grey,
                     fontWeight: done ? FontWeight.bold : FontWeight.normal,
                     fontSize: 15,
                   ),
@@ -755,7 +990,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                 Text(
                   description,
                   style: TextStyle(
-                    color: done ? Colors.grey.shade600 : Colors.grey.shade400,
+                    color: done
+                        ? (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey.shade600)
+                        : Colors.grey.shade400,
                     fontSize: 12,
                   ),
                 ),
@@ -763,6 +1000,48 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {Widget? trailing, VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(label,
+                  style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white30 : Colors.grey.shade600,
+                      fontSize: 14
+                  )
+              ),
+            ),
+            Expanded(
+              flex: 5,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 8),
+                    trailing,
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -791,9 +1070,13 @@ class OrderDetailsSkeletonUI extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade100),
+                border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white10
+                        : Colors.grey.shade100
+                ),
               ),
               child: Column(
                 children: [

@@ -25,16 +25,19 @@ class ProductCard extends StatelessWidget {
           Expanded(
             child: (imageUrl != null && imageUrl!.isNotEmpty)
                 ? Image.network(
-                    imageUrl!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(color: Colors.grey.shade100, child: const Icon(Icons.image_not_supported)),
-                  )
-                : Container(
-                    color: Colors.grey.shade100,
-                    child: const Center(child: Icon(Icons.inventory_2, color: Colors.grey)),
+              imageUrl!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              errorBuilder: (context, error, stackTrace) =>
+                  Container(
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
+                      child: const Icon(Icons.image_not_supported)
                   ),
+            )
+                : Container(
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
+              child: const Center(child: Icon(Icons.inventory_2, color: Colors.grey)),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(10.0),

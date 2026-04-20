@@ -5,9 +5,9 @@ import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../utils/globals.dart';
-import 'package:sign_in_button/sign_in_button.dart';
 import '../../services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/theme_manager.dart';
 import '../../widgets/shimmer_skeletons.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -22,7 +22,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
+  bool _isLoading = false; // Global loading to disable UI
+  bool _isTraditionalLoading = false; // For login button morphing
+  bool _isGoogleLoading = false; // For Google sign-in specific state
   bool _isInitialLoading = true;
 
   @override
@@ -51,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() {
       _isLoading = true;
+      _isTraditionalLoading = true;
     });
 
     try {
@@ -76,6 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
           currentUser = foundedData;
 
+          // Sync theme preference after login
+          if (currentUser!['appearance'] != null) {
+            themeManager.updateThemeFromDatabase(currentUser!['appearance'] as int);
+          }
+
           snackbar('Login successful!', Colors.green);
 
           Navigator.pushReplacement(
@@ -92,13 +100,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isTraditionalLoading = false;
         });
       }
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isGoogleLoading = true;
+    });
     try {
       final result = await _authService.signInWithGoogle();
       if (result == null) return;
@@ -114,6 +126,13 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else if (result.userData != null) {
         if (mounted) {
+          currentUser = result.userData;
+
+          // Sync theme preference after Google login
+          if (currentUser!['appearance'] != null) {
+            themeManager.updateThemeFromDatabase(currentUser!['appearance'] as int);
+          }
+
           snackbar('Login Successful!', Colors.green);
           Navigator.pushReplacement(
             context,
@@ -124,13 +143,18 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) snackbar('Google Login Error: $e', Colors.red);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isGoogleLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isInitialLoading || _isLoading) {
+    if (_isInitialLoading) {
       return const Scaffold(body: LoginSkeleton());
     }
 
@@ -157,18 +181,65 @@ class _LoginScreenState extends State<LoginScreen> {
               Text('Simple Marketplace for Small Sellers'),
               const SizedBox(height: 32),
 
-              // Google Sign-In (HCI: Social proof at the top)
-              AbsorbPointer(
-                absorbing: _isLoading,
-                child: Opacity(
-                  opacity: _isLoading ? 0.6 : 1.0,
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: SignInButton(
-                      Buttons.google,
-                      text: "Sign in with Google",
-                      onPressed: () => _handleGoogleSignIn(),
+              // Custom Animated Google Sign-In Button
+              Center(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  width: _isGoogleLoading ? 54 : MediaQuery.of(context).size.width - 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(_isGoogleLoading ? 24 : 8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: _isLoading ? null : _handleGoogleSignIn,
+                    borderRadius: BorderRadius.circular(_isGoogleLoading ? 24 : 8),
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _isGoogleLoading
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.lightBlue,
+                          ),
+                        )
+                            : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 16),
+                              Image.network(
+                                'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
+                                height: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                "Sign in with Google",
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -224,22 +295,44 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               // Login button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  child: Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: _isLoading
-                        ? SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+              Center(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  width: _isTraditionalLoading ? 54 : MediaQuery.of(context).size.width - 48,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero, // Important for centered spinner
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(_isTraditionalLoading ? 27 : 12),
                       ),
-                    )
-                        : Text('Login', style: TextStyle(fontSize: 16)),
+                      backgroundColor: Colors.lightBlue,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _isTraditionalLoading
+                          ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                          : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: const Text(
+                          'Login',
+                          key: ValueKey('login_text'),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

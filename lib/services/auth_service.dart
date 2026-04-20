@@ -1,9 +1,11 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/globals.dart';
+import '../utils/theme_manager.dart';
 
 /// Result model for Google Sign-In
 class GoogleSignInResult {
@@ -99,21 +101,35 @@ class AuthService {
     final authUser = _supabase.auth.currentUser;
     if (authUser == null) throw 'Not authenticated with Supabase';
 
+    // Auto-generate password if none provided
+    final String finalPassword = (password == null || password.isEmpty)
+        ? generateSecurePassword()
+        : password;
+
     final userData = await _supabase.from('user').insert({
       'id': authUser.id,
       'username': googleMetadata.displayName ?? googleMetadata.email.split('@')[0],
       'email': googleMetadata.email,
-      'password': password ?? '', // Set blank if not provided
+      'password': finalPassword,
       'google_uuid': googleMetadata.id,
       'google_username': googleMetadata.displayName,
       'google_email': googleMetadata.email,
       'google_profile_image': googleMetadata.photoUrl,
       'is_seller': false,
       'customer_verified': true,
+      'password_custom': (password != null && password.isNotEmpty),
+      'appearance': 0, // 0: system, 1: light, 2: dark
     }).select().single();
 
     await _saveUserDataLocally(userData);
     return userData;
+  }
+
+  /// Generates a random 10-character alphanumeric password
+  static String generateSecurePassword() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    return List.generate(10, (index) => chars[random.nextInt(chars.length)]).join();
   }
 
   Future<void> _saveUserDataLocally(Map<String, dynamic> userData) async {
@@ -134,5 +150,8 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     currentUser = null;
+
+    // Reset theme to system for auth screens
+    await themeManager.resetToSystem();
   }
 }

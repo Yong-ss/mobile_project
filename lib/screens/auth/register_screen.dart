@@ -1,6 +1,7 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:sign_in_button/sign_in_button.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../services/auth_service.dart';
 import '../core/home_screen.dart';
@@ -27,7 +28,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
-  bool _isLoading = false;
+  bool _isLoading = false; // Global loading to disable UI
+  bool _isTraditionalLoading = false; // For register button morphing
+  bool _isGoogleLoading = false; // For Google sign-in specific state
   bool _isInitialLoading = true;
 
   @override
@@ -69,6 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() {
       _isLoading = true;
+      _isTraditionalLoading = true;
     });
 
     try {
@@ -92,6 +96,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'email': email,
           'password': password,
           'username': username,
+          'password_custom': true,
+          'appearance': 0, // 0: system, 1: light, 2: dark
         });
 
         if (mounted) {
@@ -107,13 +113,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isTraditionalLoading = false;
         });
       }
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _isGoogleLoading = true;
+    });
     try {
       final result = await _authService.signInWithGoogle();
       if (result == null) return;
@@ -136,7 +146,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       if (mounted) snackbar('Google Sign-In Error: $e', Colors.red);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isGoogleLoading = false;
+        });
+      }
     }
   }
 
@@ -183,16 +198,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: TextButton(
                         onPressed: () async {
                           Navigator.pop(dialogContext); // Use dialogContext for the pop
-                          // Finalize immediately WITHOUT a password
                           setState(() => _isLoading = true);
                           try {
-                            await _authService.finalizeGoogleRegistration(googleMetadata: metadata);
+                            // Generate temporary password
+                            final tempPassword = AuthService.generateSecurePassword();
+
+                            await _authService.finalizeGoogleRegistration(
+                              googleMetadata: metadata,
+                              password: tempPassword,
+                            );
+
                             if (mounted) {
-                              snackbar('Registration Successful!', Colors.green);
-                              Navigator.pushReplacement(
-                                context, // Use RegisterScreen's context for the main navigation
-                                MaterialPageRoute(builder: (context) => const HomeScreen()),
-                              );
+                              _showPasswordRevealDialog(tempPassword);
                             }
                           } catch (e) {
                             if (mounted) snackbar('Error: $e', Colors.red);
@@ -240,9 +257,123 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  void _showPasswordRevealDialog(String generatedPassword) {
+    bool isVisible = false;
+    final String obfuscatedDots = '●' * (Random().nextInt(5) + 4); // Random dots between 4-8
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => BackdropFilter(
+          filter: ColorFilter.mode(Colors.black.withValues(alpha: 0.1), BlendMode.darken),
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_circle_outline, size: 40, color: Colors.green),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Account Secured!',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'We\'ve generated a temporary password for your security. You can change this later in settings.',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isVisible ? generatedPassword : obfuscatedDots,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: isVisible ? 1.5 : 3,
+                              fontFamily: isVisible ? 'Courier' : null,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: Icon(isVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey, size: 20),
+                              onPressed: () => setDialogState(() => isVisible = !isVisible),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.content_copy, color: Colors.grey, size: 20),
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: generatedPassword));
+                                snackbar('Password copied to clipboard!', Colors.blue);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext); // Close dialog
+                        snackbar('Registration Successful!', Colors.green);
+                        Navigator.pushReplacement(
+                          context, // Use RegisterScreen's context for Home
+                          MaterialPageRoute(builder: (context) => const HomeScreen()),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: const Text('Start Exploring', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isInitialLoading || _isLoading) {
+    if (_isInitialLoading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Create Account')),
         body: const RegisterSkeleton(),
@@ -281,18 +412,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 32),
 
             if (!_isCompletingGoogleAuth) ...[
-              // Google Sign-In (HCI: Social proof at the top)
-              AbsorbPointer(
-                absorbing: _isLoading,
-                child: Opacity(
-                  opacity: _isLoading ? 0.6 : 1.0,
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: SignInButton(
-                      Buttons.google,
-                      text: "Continue with Google",
-                      onPressed: () => _handleGoogleSignIn(),
+              // Custom Animated Google Sign-In Button
+              Center(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  width: _isGoogleLoading ? 54 : MediaQuery.of(context).size.width - 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(_isGoogleLoading ? 24 : 8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: InkWell(
+                    onTap: _isLoading ? null : _handleGoogleSignIn,
+                    borderRadius: BorderRadius.circular(_isGoogleLoading ? 24 : 8),
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _isGoogleLoading
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.lightBlue,
+                          ),
+                        )
+                            : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 16),
+                              Image.network(
+                                'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
+                                height: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                "Continue with Google",
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -379,24 +557,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 24),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _registerUser,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: _isLoading
-                      ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+            // Register button
+            Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                width: _isTraditionalLoading ? 54 : MediaQuery.of(context).size.width - 48,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _registerUser,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_isTraditionalLoading ? 27 : 12),
                     ),
-                  )
-                      : Text(
-                      _isCompletingGoogleAuth ? 'Complete Registration' : 'Register',
-                      style: const TextStyle(fontSize: 16)
+                    backgroundColor: Colors.lightBlue,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _isTraditionalLoading
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Text(
+                        _isCompletingGoogleAuth ? 'Complete Registration' : 'Register',
+                        key: ValueKey(_isCompletingGoogleAuth ? 'complete' : 'register'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ),
               ),

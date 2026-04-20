@@ -5,6 +5,7 @@ import 'upload_product_screen.dart';
 import '../../utils/snackbar_helper.dart';
 import 'edit_product.dart';
 import '../../utils/circular_reveal_route.dart';
+import '../../widgets/shimmer_skeletons.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -50,16 +51,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 背景色调浅一点，看起来更干净
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'My Listings',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -67,17 +65,19 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildCategorySelector(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredProducts().isEmpty
-                ? _buildEmptyState()
-                : _buildProductList(_filteredProducts()),
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildCategorySelector(),
+            Expanded(
+              child: _isLoading
+                  ? const MyListingsSkeleton()
+                  : _filteredProducts().isEmpty
+                  ? _buildEmptyState()
+                  : _buildProductList(_filteredProducts()),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         key: _addKey,
@@ -95,6 +95,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -102,14 +103,14 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
           Icon(
             Icons.inventory_2_outlined,
             size: 80,
-            color: Colors.grey.shade200,
+            color: isDark ? Colors.white10 : Colors.grey.shade200,
           ),
           const SizedBox(height: 16),
           Text(
             _selectedCategory == 'All'
                 ? 'No products yet'
                 : 'Empty in $_selectedCategory',
-            style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.grey.shade400, fontSize: 16),
           ),
         ],
       ),
@@ -117,9 +118,10 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
   }
 
   Widget _buildCategorySelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 55,
-      color: Colors.white,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -133,16 +135,17 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
               label: Text(category),
               selected: isSelected,
               onSelected: (val) =>
-                  val ? setState(() => _selectedCategory = category) : null,
-              // 调淡背景色，让 UI 更清新
-              selectedColor: Colors.blue.withOpacity(0.1),
-              backgroundColor: Colors.grey.shade100,
-              side: BorderSide.none, // 去掉边框更现代
+              val ? setState(() => _selectedCategory = category) : null,
+              selectedColor: Colors.blue.withValues(alpha: 0.15),
+              backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
+              side: BorderSide.none,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               labelStyle: TextStyle(
-                color: isSelected ? Colors.blue : Colors.black54,
+                color: isSelected
+                    ? (isDark ? Colors.lightBlueAccent : Colors.blue)
+                    : (isDark ? Colors.white70 : Colors.black54),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -163,15 +166,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white10
+                    : Colors.black.withValues(alpha: 0.05)
+            ),
           ),
           child: InkWell(
             onTap: () {
@@ -219,13 +220,13 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                             Icon(
                               Icons.inventory_2,
                               size: 12,
-                              color: Colors.grey.shade400,
+                              color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey.shade400,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               'Stock: ${product['quantity']}',
                               style: TextStyle(
-                                color: Colors.grey.shade500,
+                                color: Theme.of(context).brightness == Brightness.dark ? Colors.white54 : Colors.grey.shade500,
                                 fontSize: 12,
                               ),
                             ),
@@ -251,18 +252,18 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
       width: 75,
       height: 75,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: (url != null && url.isNotEmpty)
             ? Image.network(
-                url,
-                fit: BoxFit.cover,
-                errorBuilder: (c, e, s) =>
-                    const Icon(Icons.image_not_supported),
-              )
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (c, e, s) =>
+          const Icon(Icons.image_not_supported),
+        )
             : const Icon(Icons.image, color: Colors.grey),
       ),
     );

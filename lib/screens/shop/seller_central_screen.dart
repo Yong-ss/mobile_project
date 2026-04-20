@@ -66,7 +66,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                   children: [
                     CircleAvatar(
                       radius: 40,
-                      backgroundColor: Colors.blue.shade50,
+                      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade50,
                       backgroundImage:
                       (_newShopPicUrl != null && _newShopPicUrl!.isNotEmpty)
                           ? NetworkImage(_newShopPicUrl!)
@@ -81,7 +81,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                           _newShopPicUrl!.isEmpty) &&
                           (currentUser?['shop_pic'] == null ||
                               currentUser!['shop_pic'].toString().isEmpty))
-                          ? const Icon(Icons.store, size: 40)
+                          ? Icon(Icons.store, size: 40, color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.blue)
                           : null,
                     ),
                     if (_isUploadingLogo)
@@ -223,13 +223,15 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
             // Shop Banner
             Container(
               width: double.infinity,
-              color: Colors.blue.shade50,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF303030)
+                  : Colors.blue.shade50,
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundColor: Colors.blue.shade50,
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade50,
                     backgroundImage:
                     (currentUser?['shop_pic'] != null &&
                         currentUser!['shop_pic'].toString().isNotEmpty)
@@ -238,24 +240,27 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                     child:
                     (currentUser?['shop_pic'] == null ||
                         currentUser!['shop_pic'].toString().isEmpty)
-                        ? const Icon(Icons.store, size: 40)
+                        ? Icon(Icons.store, size: 40, color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.blue)
                         : null,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     _currentShopName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                     ),
                   ),
                   Text(
                     'Created at: ${_shopCreatedAt.split('T')[0]}',
-                    style: const TextStyle(color: Colors.grey),
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
-                    key: _viewShopButtonKey , // 绑定 Key
+                    key: _viewShopButtonKey ,
                     onPressed: () => CircularRevealPageRoute.push(
                       context,
                       _viewShopButtonKey,
@@ -264,8 +269,8 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
                     icon: const Icon(Icons.visibility_outlined, size: 18),
                     label: const Text('View My Shop'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue),
+                      foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.lightBlueAccent : Colors.blue,
+                      side: BorderSide(color: Theme.of(context).brightness == Brightness.dark ? Colors.lightBlueAccent : Colors.blue),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),

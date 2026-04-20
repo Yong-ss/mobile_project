@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../order/order_history_screen.dart';
 import '../shop/seller_central_screen.dart';
 import '../auth/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
-import 'edit_profile.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import '../../services/auth_service.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -53,10 +52,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _navigateToEditProfile() async {
+  void _navigateToSettings() async {
     final bool? result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
     );
 
     if (result == true) {
@@ -142,12 +141,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _navigateToEditProfile,
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -160,7 +153,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 curve: Curves.easeInOutCubic,
                 width: double.infinity,
                 height: _isProfileExpanded ? 240 : 180, // Morph the banner height
-                color: Colors.lightBlue.shade50,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF303030)
+                    : Colors.lightBlue.shade50,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -213,14 +208,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 Text(
                                   _showName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black87,
                                   ),
                                 ),
                                 Text(
-                                    _showEmail,
-                                    style: const TextStyle(color: Colors.grey)
+                                  _showEmail,
+                                  style: TextStyle(
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white70
+                                        : Colors.grey.shade600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -305,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: const Text('Settings'),
               subtitle: const Text('Account and app preferences'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => snackbar('Settings feature coming soon!', Colors.blue),
+              onTap: _navigateToSettings,
             ),
             const Divider(),
 

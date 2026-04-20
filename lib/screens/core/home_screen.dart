@@ -30,6 +30,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentBannerIndex = 0;
   Timer? _bannerTimer;
 
+  // Welcome Banner state
+  bool _showWelcomeBanner = true;
+  Timer? _welcomeTimer;
+
   // Products & Categories state
   List<Map<String, dynamic>> _featuredProducts = [];
   List<Map<String, dynamic>> _categories = [];
@@ -55,11 +59,22 @@ class _HomeScreenState extends State<HomeScreen> {
     _mainPageController = PageController(initialPage: _selectedIndex);
     _fetchAnnouncements();
     _fetchProducts();
+    _startWelcomeTimer();
+  }
+
+  void _startWelcomeTimer() {
+    _welcomeTimer?.cancel();
+    _welcomeTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted && _showWelcomeBanner) {
+        setState(() => _showWelcomeBanner = false);
+      }
+    });
   }
 
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _welcomeTimer?.cancel();
     _bannerController.dispose();
     _mainPageController.dispose();
     super.dispose();
@@ -176,7 +191,13 @@ class _HomeScreenState extends State<HomeScreen> {
       body: PageView(
         controller: _mainPageController,
         onPageChanged: (index) {
-          setState(() => _selectedIndex = index);
+          setState(() {
+            _selectedIndex = index;
+            if (index != 0) {
+              _showWelcomeBanner = false;
+              _welcomeTimer?.cancel();
+            }
+          });
         },
         children: [
           _buildHomeBody(),
@@ -208,30 +229,55 @@ class _HomeScreenState extends State<HomeScreen> {
         child: (_isLoadingAnnouncements && _announcements.isEmpty) || (_isLoadingProducts && _featuredProducts.isEmpty)
             ? const HomeSkeleton()
             : SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 16), // Added top gap
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Welcome Banner
-              Container(
-                width: double.infinity,
-                color: Colors.lightBlue.shade100,
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '🛍️ Welcome to Priscon!',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Buy & Sell with your community',
-                      style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
+              // Welcome Banner with AnimatedSize for smooth disappearing
+              AnimatedSize(
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
+                child: _showWelcomeBanner
+                    ? Container(
+                  width: double.infinity,
+                  color: Colors.lightBlue.shade100,
+                  padding: const EdgeInsets.fromLTRB(16, 32, 16, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '🛍️ Welcome to Priscon!',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1565C0)),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '${currentUser?['username'] ?? 'Friend'}',
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Buy & Sell with your community',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                )
+                    : const SizedBox.shrink(),
               ),
-              const SizedBox(height: 16),
+              if (_showWelcomeBanner) const SizedBox(height: 16),
 
               // Banner Slider
               if (_announcements.isNotEmpty)
@@ -338,13 +384,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, index) {
                     final category = _categories[index]['label'] as String;
                     return GestureDetector(
-                      onTap: () {
+                      onTap: () async {
                         _mainPageController.animateToPage(
                           1,
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                         );
-                        _shopScreenKey.currentState?.setCategory(category);
+                        // Add a tiny delay to ensure the ShopScreen state is available
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (_shopScreenKey.currentState != null) {
+                            _shopScreenKey.currentState!.setCategory(category);
+                          }
+                        });
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),

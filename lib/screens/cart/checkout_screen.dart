@@ -961,6 +961,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'total_amount': sellerTotal,
           'status': 'Pending',
           'location_id': locationId,
+          'payment_method': '$_paymentMethod${_paymentMethod != 'Cash on Delivery' ? ' ($_paymentSubMethod)' : ''}',
+          'payment_at': DateTime.now().toIso8601String(),
         }).select().single();
 
         final orderId = orderResponse['id'];
@@ -975,6 +977,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'quantity': item['quantity'],
             'unit_price': price,
           });
+
+          // ── Update Inventory Stock ──
+          try {
+            final int currentStock = pOption['quantity'] ?? 0;
+            final int purchasedQty = item['quantity'] ?? 0;
+            final int remainingStock = (currentStock - purchasedQty).clamp(0, 999999);
+
+            await supabase.from('product').update({
+              'quantity': remainingStock,
+              'stock_status': remainingStock > 0 ? 'In Stock' : 'Out of Stock',
+            }).eq('id', pOption['id']);
+          } catch (e) {
+            debugPrint('Inventory update failed (ignoring if column missing): $e');
+          }
 
           await supabase.from('cart_item').delete().eq('id', item['id']);
         }

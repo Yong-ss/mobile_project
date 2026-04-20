@@ -130,6 +130,7 @@ class ShopScreenState extends State<ShopScreen> {
   void setCategory(String category) {
     setState(() {
       _selectedCategory = category;
+      _searchController.clear(); // Clear search when switching categories
       _filterProducts();
     });
   }
@@ -536,7 +537,9 @@ class ShopScreenState extends State<ShopScreen> {
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut,
                             decoration: BoxDecoration(
-                              color: isFocused ? Colors.white : Colors.grey.shade100,
+                              color: isFocused
+                                  ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.white)
+                                  : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C).withValues(alpha: 0.5) : Colors.grey.shade100),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isFocused ? Colors.lightBlue : Colors.transparent,
@@ -545,7 +548,7 @@ class ShopScreenState extends State<ShopScreen> {
                               boxShadow: isFocused
                                   ? [
                                 BoxShadow(
-                                  color: Colors.lightBlue.withValues(alpha: 0.1),
+                                  color: Colors.lightBlue.withValues(alpha: isFocused ? 0.1 : 0.0),
                                   blurRadius: 8,
                                   spreadRadius: 2,
                                   offset: const Offset(0, 2),
@@ -602,7 +605,15 @@ class ShopScreenState extends State<ShopScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 12),
                           child: FilterChip(
-                            label: Text(category),
+                            label: Text(
+                              category,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.lightBlue.shade800
+                                    : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
                             selected: isSelected,
                             onSelected: (bool value) {
                               setState(() {
@@ -612,6 +623,9 @@ class ShopScreenState extends State<ShopScreen> {
                             },
                             selectedColor: Colors.lightBlue.shade100,
                             checkmarkColor: Colors.lightBlue,
+                            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white10
+                                : Colors.grey.shade100,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),

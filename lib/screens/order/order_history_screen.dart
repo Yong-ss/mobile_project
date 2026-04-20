@@ -65,11 +65,11 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         final status = (o['status'] ?? 'Pending').toString();
         final statusLower = status.toLowerCase();
 
-        if (_selectedFilter == 'Active') {
-          return !['completed', 'cancelled'].contains(statusLower);
+        if (_selectedFilter == 'Pending') {
+          return statusLower == 'pending';
         }
         if (_selectedFilter == 'Completed') {
-          return statusLower == 'completed';
+          return ['completed', 'delivered', 'picked up'].contains(statusLower);
         }
         if (_selectedFilter == 'Cancelled') {
           return statusLower == 'cancelled';
@@ -85,8 +85,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         final statusA = (a['status'] ?? 'Pending').toString().toLowerCase();
         final statusB = (b['status'] ?? 'Pending').toString().toLowerCase();
 
-        final isFinA = ['completed', 'cancelled'].contains(statusA);
-        final isFinB = ['completed', 'cancelled'].contains(statusB);
+        final isFinA = ['completed', 'cancelled', 'delivered', 'picked up'].contains(statusA);
+        final isFinB = ['completed', 'cancelled', 'delivered', 'picked up'].contains(statusB);
 
         if (isFinA && !isFinB) return 1;
         if (!isFinA && isFinB) return -1;
@@ -105,12 +105,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('My Orders', style: TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
       ),
       body: SafeArea(
         child: (_isLoading || _isInitialLoading)
@@ -120,13 +116,15 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             // ── Category Filter Bar ──
             Container(
               width: double.infinity,
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF2C2C2C)
+                  : Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  children: ['All', 'Active', 'Completed', 'Cancelled'].map((filter) {
+                  children: ['All', 'Pending', 'Completed', 'Cancelled'].map((filter) {
                     final isSelected = _selectedFilter == filter;
                     return Padding(
                       padding: const EdgeInsets.only(right: 12),
@@ -137,10 +135,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         selectedColor: Colors.lightBlue.shade100,
                         checkmarkColor: Colors.lightBlue,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.lightBlue.shade800 : Colors.black87,
+                          color: isSelected
+                              ? Colors.lightBlue.shade800
+                              : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
-                        backgroundColor: Colors.grey.shade100,
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white10
+                            : Colors.grey.shade100,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         side: BorderSide(color: isSelected ? Colors.lightBlue.withValues(alpha: 0.2) : Colors.transparent),
                       ),
@@ -256,12 +258,16 @@ class _OrderCardState extends State<_OrderCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white10
+                : Colors.grey.shade100
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -299,14 +305,18 @@ class _OrderCardState extends State<_OrderCard> {
                         errorBuilder: (context, error, stackTrace) => Container(
                           width: 70,
                           height: 70,
-                          color: Colors.grey.shade100,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white10
+                              : Colors.grey.shade100,
                           child: const Icon(Icons.shopping_bag, color: Colors.grey),
                         ),
                       )
                           : Container(
                         width: 70,
                         height: 70,
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white10
+                            : Colors.grey.shade100,
                         child: const Icon(Icons.shopping_bag, color: Colors.grey),
                       ),
                     ),
@@ -323,19 +333,35 @@ class _OrderCardState extends State<_OrderCard> {
                           const SizedBox(height: 4),
                           Text(
                             itemName,
-                            style: TextStyle(color: Colors.grey.shade800, fontSize: 14),
+                            style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.grey.shade800,
+                                fontSize: 14
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
                             'by $shopName',
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.normal),
+                            style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white54
+                                    : Colors.grey.shade500,
+                                fontSize: 12,
+                                fontWeight: FontWeight.normal
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             formattedDate,
-                            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                            style: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white54
+                                    : Colors.grey.shade500,
+                                fontSize: 12
+                            ),
                           ),
                         ],
                       ),
@@ -399,8 +425,16 @@ class _OrderCardState extends State<_OrderCard> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  border: Border(top: BorderSide(color: Colors.grey.shade100)),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey.shade50,
+                  border: Border(
+                      top: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white10
+                              : Colors.grey.shade100
+                      )
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

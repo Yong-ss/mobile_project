@@ -18,14 +18,15 @@ class BaseSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+      highlightColor: isDark ? Colors.grey.shade700 : Colors.grey.shade100,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? Colors.white10 : Colors.white,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
         child: child,
@@ -124,18 +125,19 @@ class HomeSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Greeting Area Shimmer
           Shimmer.fromColors(
-            baseColor: Colors.lightBlue.shade100.withValues(alpha: 0.5),
-            highlightColor: Colors.lightBlue.shade50,
+            baseColor: isDark ? Colors.grey.shade800 : Colors.lightBlue.shade100.withValues(alpha: 0.5),
+            highlightColor: isDark ? Colors.grey.shade700 : Colors.lightBlue.shade50,
             child: Container(
               width: double.infinity,
               height: 100,
-              color: Colors.white,
+              color: isDark ? const Color(0xFF212121) : Colors.white,
             ),
           ),
           const SizedBox(height: 16),
@@ -263,7 +265,7 @@ class ProductDetailsSkeleton extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF303030) : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Row(
@@ -302,17 +304,18 @@ class ProfileSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       child: Column(
         children: [
           // Header Area Shimmer
           Shimmer.fromColors(
-            baseColor: Colors.lightBlue.shade100.withValues(alpha: 0.5),
-            highlightColor: Colors.lightBlue.shade50,
+            baseColor: isDark ? const Color(0xFF303030).withValues(alpha: 0.8) : Colors.lightBlue.shade100.withValues(alpha: 0.5),
+            highlightColor: isDark ? const Color(0xFF404040) : Colors.lightBlue.shade50,
             child: Container(
               width: double.infinity,
               height: 200,
-              color: Colors.white,
+              color: isDark ? const Color(0xFF303030) : Colors.white,
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -340,15 +343,145 @@ class ProfileSkeleton extends StatelessWidget {
 
   Widget _buildMenuItemSkeleton() {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          BaseSkeleton(width: 24, height: 24, borderRadius: 4),
-          SizedBox(width: 16),
-          BaseSkeleton(width: 120, height: 16),
-          Spacer(),
-          BaseSkeleton(width: 16, height: 16, borderRadius: 8),
+          Row(
+            children: [
+              BaseSkeleton(width: 40, height: 40, borderRadius: 12),
+              SizedBox(width: 16),
+              BaseSkeleton(width: 120, height: 18),
+            ],
+          ),
+          BaseSkeleton(width: 20, height: 20, borderRadius: 10),
         ],
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen Receipt Screen skeleton.
+class ReceiptSkeleton extends StatelessWidget {
+  const ReceiptSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            const Center(
+              child: Column(
+                children: [
+                  BaseSkeleton(width: 70, height: 70, borderRadius: 35),
+                  SizedBox(height: 16),
+                  BaseSkeleton(width: 150, height: 24),
+                  SizedBox(height: 8),
+                  BaseSkeleton(width: 120, height: 14),
+                  SizedBox(height: 20),
+                  BaseSkeleton(width: double.infinity, height: 1),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Order Info
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    BaseSkeleton(width: 60, height: 12),
+                    SizedBox(height: 8),
+                    BaseSkeleton(width: 100, height: 16),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    BaseSkeleton(width: 60, height: 12),
+                    SizedBox(height: 8),
+                    BaseSkeleton(width: 120, height: 16),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Items Title
+            const BaseSkeleton(width: 120, height: 14),
+            const SizedBox(height: 16),
+
+            // Item Rows
+            ...List.generate(3, (index) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      BaseSkeleton(width: 180, height: 14),
+                      SizedBox(height: 6),
+                      BaseSkeleton(width: 100, height: 12),
+                    ],
+                  ),
+                  const BaseSkeleton(width: 60, height: 16),
+                ],
+              ),
+            )),
+
+            const SizedBox(height: 16),
+            const BaseSkeleton(width: double.infinity, height: 1.5),
+            const SizedBox(height: 16),
+
+            // Breakdown
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                BaseSkeleton(width: 80, height: 16),
+                BaseSkeleton(width: 100, height: 16),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+
+            // Total Bar
+            const BaseSkeleton(width: double.infinity, height: 60, borderRadius: 12),
+            const SizedBox(height: 40),
+
+            // Title
+            const BaseSkeleton(width: 130, height: 14),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                BaseSkeleton(width: 24, height: 24, borderRadius: 4),
+                SizedBox(width: 12),
+                BaseSkeleton(width: 100, height: 16),
+              ],
+            ),
+            const SizedBox(height: 60),
+
+            // Footer
+            const Center(
+              child: Column(
+                children: [
+                  BaseSkeleton(width: 40, height: 40, borderRadius: 20),
+                  SizedBox(height: 16),
+                  BaseSkeleton(width: 200, height: 18),
+                  SizedBox(height: 8),
+                  BaseSkeleton(width: 250, height: 14),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -395,11 +528,14 @@ class CartSkeleton extends StatelessWidget {
         // Total Bar Skeleton
         Container(
           padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(30),
               topRight: Radius.circular(30),
+            ),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200,
             ),
           ),
           child: const Column(
@@ -442,8 +578,11 @@ class CheckoutSkeleton extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
+              ),
             ),
             child: const Column(
               children: [
@@ -518,8 +657,11 @@ class PaymentDetailsSkeleton extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF303030) : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.transparent,
+              ),
             ),
             child: const Column(
               children: [
@@ -645,9 +787,9 @@ class LocationSkeleton extends StatelessWidget {
           child: Container(
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200),
             ),
             child: const BaseSkeleton(width: double.infinity, height: double.infinity, borderRadius: 16),
           ),
@@ -662,9 +804,12 @@ class LocationSkeleton extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.lightBlue.withValues(alpha: 0.3), width: 2),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.lightBlue.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
                 ),
                 child: const Column(
                   children: [
@@ -731,9 +876,11 @@ class OrderHistorySkeleton extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
+                  ),
                 ),
                 child: const Row(
                   children: [
@@ -768,20 +915,20 @@ class OrderHistorySkeleton extends StatelessWidget {
 /// A unified, full-screen Seller Central screen skeleton.
 class SellerCentralSkeleton extends StatelessWidget {
   const SellerCentralSkeleton({super.key});
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       child: Column(
         children: [
           // Banner area shimmer
           Shimmer.fromColors(
-            baseColor: Colors.blue.shade100.withValues(alpha: 0.5),
-            highlightColor: Colors.blue.shade50,
+            baseColor: isDark ? const Color(0xFF303030).withValues(alpha: 0.8) : Colors.blue.shade100.withValues(alpha: 0.5),
+            highlightColor: isDark ? const Color(0xFF404040) : Colors.blue.shade50,
             child: Container(
               width: double.infinity,
               height: 220,
-              color: Colors.white,
+              color: isDark ? const Color(0xFF303030) : Colors.white,
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -835,16 +982,17 @@ class SellerPageSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         // Shop Banner Shimmer
         Shimmer.fromColors(
-          baseColor: Colors.lightBlue.shade100.withValues(alpha: 0.5),
-          highlightColor: Colors.lightBlue.shade50,
+          baseColor: isDark ? const Color(0xFF303030).withValues(alpha: 0.8) : Colors.lightBlue.shade100.withValues(alpha: 0.5),
+          highlightColor: isDark ? const Color(0xFF404040) : Colors.lightBlue.shade50,
           child: Container(
             width: double.infinity,
             height: 180,
-            color: Colors.white,
+            color: isDark ? const Color(0xFF303030) : Colors.white,
             child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -867,6 +1015,234 @@ class SellerPageSkeleton extends StatelessWidget {
         // Grid Shimmer
         const Expanded(child: ProductGridSkeleton()),
       ],
+    );
+  }
+}
+
+/// A unified, full-screen My Listings (Seller's product list) skeleton.
+class MyListingsSkeleton extends StatelessWidget {
+  const MyListingsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        const ChipRowSkeleton(),
+        const SizedBox(height: 12),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: 5,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Row(
+                  children: [
+                    const BaseSkeleton(width: 75, height: 75, borderRadius: 12),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          BaseSkeleton(width: 180, height: 18),
+                          SizedBox(height: 8),
+                          BaseSkeleton(width: 100, height: 16),
+                          SizedBox(height: 8),
+                          BaseSkeleton(width: 140, height: 12),
+                        ],
+                      ),
+                    ),
+                    const BaseSkeleton(width: 24, height: 24),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A unified, full-screen Edit Product form skeleton.
+class EditProductSkeleton extends StatelessWidget {
+  const EditProductSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
+          // Circular Image Placeholder
+          const Center(
+            child: BaseSkeleton(width: 130, height: 130, borderRadius: 65),
+          ),
+          const SizedBox(height: 32),
+          // Form Field Skeletons
+          ...List.generate(4, (index) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const BaseSkeleton(width: 100, height: 16),
+              const SizedBox(height: 8),
+              const BaseSkeleton(width: double.infinity, height: 55),
+              const SizedBox(height: 20),
+            ],
+          )),
+          // Switch Row
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              BaseSkeleton(width: 120, height: 16),
+              BaseSkeleton(width: 50, height: 30, borderRadius: 15),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // Description Box
+          const BaseSkeleton(width: 100, height: 16),
+          const SizedBox(height: 8),
+          const BaseSkeleton(width: double.infinity, height: 120, borderRadius: 12),
+          const SizedBox(height: 32),
+          // Button
+          const BaseSkeleton(width: double.infinity, height: 55, borderRadius: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen Settings screen skeleton.
+class SettingsSkeleton extends StatelessWidget {
+  const SettingsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: BaseSkeleton(width: 80, height: 12),
+          ),
+          ...List.generate(1, (index) => _buildSettingsTileSkeleton(context)),
+
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 32, 16, 8),
+            child: BaseSkeleton(width: 100, height: 12),
+          ),
+          ...List.generate(2, (index) => _buildSettingsTileSkeleton(context)),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTileSkeleton(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
+        ),
+      ),
+      child: const Row(
+        children: [
+          BaseSkeleton(width: 36, height: 36, borderRadius: 8),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BaseSkeleton(width: 120, height: 16),
+                SizedBox(height: 6),
+                BaseSkeleton(width: 180, height: 12),
+              ],
+            ),
+          ),
+          SizedBox(width: 8),
+          BaseSkeleton(width: 16, height: 16, borderRadius: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// A unified, full-screen Edit Profile screen skeleton.
+class EditProfileSkeleton extends StatelessWidget {
+  const EditProfileSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          // Avatar Skeleton
+          const Center(
+            child: BaseSkeleton(width: 120, height: 120, borderRadius: 60),
+          ),
+          const SizedBox(height: 40),
+          // Form Field Skeletons
+          ...List.generate(2, (index) => Column(
+            children: [
+              const BaseSkeleton(width: double.infinity, height: 56, borderRadius: 12),
+              const SizedBox(height: 20),
+            ],
+          )),
+          // Password Tile Skeleton
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
+              ),
+            ),
+            child: const Row(
+              children: [
+                BaseSkeleton(width: 24, height: 24, borderRadius: 4),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      BaseSkeleton(width: 140, height: 16),
+                      SizedBox(height: 6),
+                      BaseSkeleton(width: 180, height: 12),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Button Skeleton
+          const BaseSkeleton(width: double.infinity, height: 54, borderRadius: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// A standalone Map skeleton.
+class MapSkeleton extends StatelessWidget {
+  const MapSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 200,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: const BaseSkeleton(width: double.infinity, height: 200, borderRadius: 16),
     );
   }
 }

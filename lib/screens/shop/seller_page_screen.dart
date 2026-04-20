@@ -87,43 +87,52 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
             // Seller banner
             Container(
               width: double.infinity,
-              color: Colors.lightBlue.shade50,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF303030)
+                  : Colors.lightBlue.shade50,
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 36,
-                    backgroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
                     backgroundImage: (shopLogo.isNotEmpty)
                         ? NetworkImage(shopLogo)
                         : null,
                     child: (shopLogo.isEmpty)
-                        ? const Icon(Icons.store, size: 36)
+                        ? Icon(Icons.store, size: 36, color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.blue)
                         : null,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     shopName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                     ),
                   ),
                   Text(
                     'Joined on: $joinDate',
-                    style: const TextStyle(color: Colors.grey),
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey,
+                    ),
                   ),
                 ],
               ),
             ),
 
-            const Padding(
-              padding: EdgeInsets.all(16.0),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Products',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                  ),
                 ),
               ),
             ),
@@ -131,7 +140,12 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
             // Seller's product grid
             Expanded(
               child: _allSellerProducts.isEmpty
-                  ? const Center(child: Text('No products available'))
+                  ? Center(
+                child: Text(
+                  'No products available',
+                  style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
+                ),
+              )
                   : GridView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 gridDelegate:

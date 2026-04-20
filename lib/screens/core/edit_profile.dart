@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../widgets/shimmer_skeletons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,6 +22,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isInitialLoading = true; // For shimmer reveal
   String? _newImageUrl; // 存刚才传好的 URL，用来做预览
   bool _isUploading = false; // 上传时的转圈圈标志
 
@@ -31,6 +34,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _nameController.text = currentUser!['username'] ?? '';
       _emailController.text = currentUser!['email'] ?? '';
     }
+
+    // Premium reveal strategy
+    Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) setState(() => _isInitialLoading = false);
+    });
   }
 
   @override
@@ -143,26 +151,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final supabase = Supabase.instance.client;
 
-      final userData = await supabase
-          .from('user')
-          .select('password')
-          .eq('id', currentUser!['id'])
-          .single();
+      // Check if user set their own password yet
+      final bool isPasswordCustom = currentUser!['password_custom'] ?? false;
 
-      if (userData['password'] != oldPass) {
-        snackbar('Old password is incorrect!', Colors.red);
-        return;
-      }
+      if (isPasswordCustom) {
+        final userData = await supabase
+            .from('user')
+            .select('password')
+            .eq('id', currentUser!['id'])
+            .single();
 
-      if (newPass == oldPass) {
-        snackbar('New password is same as old password!', Colors.red);
-        return;
+        if (userData['password'] != oldPass) {
+          snackbar('Old password is incorrect!', Colors.red);
+          return;
+        }
+
+        if (newPass == oldPass) {
+          snackbar('New password is same as old password!', Colors.red);
+          return;
+        }
       }
 
       await supabase
           .from('user')
-          .update({'password': newPass})
+          .update({
+        'password': newPass,
+        'password_custom': true,
+      })
           .eq('id', currentUser!['id']);
+
+      // Update local state
+      currentUser!['password_custom'] = true;
 
       if (mounted) {
         Navigator.pop(context);
@@ -186,11 +205,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _oldPasswordController,
-              decoration: const InputDecoration(labelText: 'Old Password'),
-              obscureText: true,
-            ),
+            if (currentUser!['password_custom'] ?? false)
+              TextField(
+                controller: _oldPasswordController,
+                decoration: const InputDecoration(labelText: 'Old Password'),
+                obscureText: true,
+              ),
             TextField(
               controller: _newPasswordController,
               decoration: const InputDecoration(labelText: 'New Password'),
@@ -221,7 +241,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Profile')),
-      body: SingleChildScrollView(
+      body: _isInitialLoading
+          ? const EditProfileSkeleton()
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
@@ -231,21 +253,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 60,
-                    backgroundColor: Colors.blue.shade50,
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade50,
                     backgroundImage: _newImageUrl != null
                         ? NetworkImage(_newImageUrl!)
                         : (currentUser!['user_pic'] != null &&
-                                  currentUser!['user_pic'].toString().isNotEmpty
-                              ? NetworkImage(currentUser!['user_pic'])
-                              : null),
+                        currentUser!['user_pic'].toString().isNotEmpty
+                        ? NetworkImage(currentUser!['user_pic'])
+                        : null),
                     child:
-                        (_newImageUrl == null &&
-                            currentUser!['user_pic'] == null)
+                    (_newImageUrl == null &&
+                        currentUser!['user_pic'] == null)
                         ? const Icon(
-                            Icons.person,
-                            size: 60,
-                            color: Colors.lightBlue,
-                          )
+                      Icons.person,
+                      size: 60,
+                      color: Colors.lightBlue,
+                    )
                         : null,
                   ),
 
@@ -285,12 +307,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               controller: _nameController,
               decoration: InputDecoration(
                 labelText: 'Username',
+                labelStyle: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
+                ),
                 prefixIcon: const Icon(Icons.person_outline),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
+                  ),
                 ),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade50,
               ),
             ),
 
@@ -300,12 +328,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               controller: _emailController,
               decoration: InputDecoration(
                 labelText: 'Email Address',
+                labelStyle: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
+                ),
                 prefixIcon: const Icon(Icons.email_outlined),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
+                  ),
                 ),
                 filled: true,
-                fillColor: Colors.grey.shade50,
+                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade50,
               ),
               keyboardType: TextInputType.emailAddress,
             ),
@@ -314,14 +348,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             Container(
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
+                ),
               ),
               child: ListTile(
                 leading: const Icon(Icons.lock_reset, color: Colors.lightBlue),
-                title: const Text('Password Settings'),
-                subtitle: const Text('Tap to change your password'),
+                title: Text(
+                  'Password Settings',
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                subtitle: Text(
+                  'Tap to change your password',
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey,
+                  ),
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _showChangePasswordDialog,
               ),

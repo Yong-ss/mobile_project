@@ -21,7 +21,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _allOrders = [];
 
-  final List<String> _categories = ['All', 'Pending', 'Delivered', 'Completed', 'Cancelled'];
+  final List<String> _categories = ['All', 'Pending', 'Delivered', 'Picked Up', 'Completed', 'Cancelled'];
   String _selectedCategory = 'All';
 
   @override
@@ -63,7 +63,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
           return !['delivered', 'picked up', 'completed', 'cancelled'].contains(status);
         }
         if (_selectedCategory == 'Delivered') {
-          return status == 'delivered' || status == 'picked up';
+          return status == 'delivered';
+        }
+        if (_selectedCategory == 'Picked Up') {
+          return status == 'picked up';
         }
         if (_selectedCategory == 'Completed') {
           return status == 'completed';
@@ -102,12 +105,10 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Seller Orders', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         actions: [
           IconButton(
             onPressed: _fetchSellerOrders,
@@ -123,7 +124,7 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
             // ── Horizontal Category Chips (Shop Screen UI) ──
             Container(
               height: 60,
-              color: Colors.white,
+              color: Theme.of(context).scaffoldBackgroundColor,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -131,20 +132,28 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
                 itemBuilder: (context, index) {
                   final cat = _categories[index];
                   final isSelected = _selectedCategory == cat;
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
                   return Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: FilterChip(
                       label: Text(cat),
                       selected: isSelected,
                       onSelected: (val) => setState(() => _selectedCategory = cat),
-                      selectedColor: Colors.lightBlue.shade100,
+                      selectedColor: Colors.lightBlue.withValues(alpha: 0.2),
                       checkmarkColor: Colors.lightBlue,
+                      backgroundColor: isDark ? Colors.white10 : Colors.grey.shade100,
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.lightBlue : Colors.grey.shade700,
+                        color: isSelected
+                            ? (isDark ? Colors.lightBlueAccent : Colors.lightBlue)
+                            : (isDark ? Colors.white70 : Colors.grey.shade700),
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      side: BorderSide(color: isSelected ? Colors.lightBlue : Colors.grey.shade200),
+                      side: BorderSide(
+                          color: isSelected
+                              ? Colors.lightBlue
+                              : (isDark ? Colors.white10 : Colors.grey.shade200)
+                      ),
                     ),
                   );
                 },
@@ -241,15 +250,13 @@ class _OrderCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white10
+                : Colors.black.withValues(alpha: 0.05)
+        ),
       ),
       child: Column(
         children: [
@@ -284,7 +291,7 @@ class _OrderCard extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
                 image: productImg != null ? DecorationImage(image: NetworkImage(productImg), fit: BoxFit.cover) : null,
               ),
@@ -298,9 +305,19 @@ class _OrderCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(isPickup ? Icons.storefront : Icons.local_shipping, size: 14, color: Colors.grey),
+                    Icon(
+                        isPickup ? Icons.storefront : Icons.local_shipping,
+                        size: 14,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey
+                    ),
                     const SizedBox(width: 4),
-                    Text(isPickup ? 'Pick Up' : 'Delivery', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                        isPickup ? 'Pick Up' : 'Delivery',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey
+                        )
+                    ),
                   ],
                 ),
               ],
@@ -327,9 +344,11 @@ class _OrderCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: isFinalized ? Colors.grey.shade100 : Colors.grey.shade50,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : (isFinalized ? Colors.grey.shade100 : Colors.grey.shade50),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade200
+                    ),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
@@ -351,7 +370,9 @@ class _OrderCard extends StatelessWidget {
                             style: TextStyle(
                               color: isFinalized
                                   ? Colors.grey.shade400
-                                  : (isEnabled ? Colors.black87 : Colors.grey.shade400),
+                                  : (isEnabled
+                                  ? (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87)
+                                  : Colors.grey.shade400),
                               fontWeight: s == status ? FontWeight.bold : FontWeight.normal,
                               fontSize: 14,
                             ),
@@ -430,7 +451,16 @@ class _OrderCard extends StatelessWidget {
         await supabase.from('order_verifications').update({'claim': false}).eq('order_id', order['id']);
       }
 
-      await supabase.from('orders').update({'status': newStatus}).eq('id', order['id']);
+      final Map<String, dynamic> updates = {'status': newStatus};
+      final now = DateTime.now().toIso8601String();
+
+      if (['Out for Delivery', 'Ready for Pickup'].contains(newStatus)) {
+        updates['shipped_at'] = now;
+      } else if (['Delivered', 'Picked Up'].contains(newStatus)) {
+        updates['completed_at'] = now;
+      }
+
+      await supabase.from('orders').update(updates).eq('id', order['id']);
       onUpdate();
       if (context.mounted) snackbar('Status updated: $newStatus', Colors.green);
     } catch (e) {
@@ -486,7 +516,10 @@ class _ScannerBottomSheetState extends State<_ScannerBottomSheet> {
 
         await supabase
             .from('orders')
-            .update({'status': 'Picked Up'})
+            .update({
+          'status': 'Picked Up',
+          'completed_at': DateTime.now().toIso8601String(),
+        })
             .eq('id', widget.orderId);
 
         if (mounted) {
@@ -510,9 +543,9 @@ class _ScannerBottomSheetState extends State<_ScannerBottomSheet> {
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
       ),
       child: Stack(
         children: [

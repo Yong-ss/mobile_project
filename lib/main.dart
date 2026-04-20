@@ -5,6 +5,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'utils/supabase_config.dart'; // 导入配置类
 import 'package:shared_preferences/shared_preferences.dart';
 import 'utils/globals.dart';
+import 'utils/theme_manager.dart';
 import 'utils/snackbar_helper.dart'; // 导入全局 snackbar key
 import 'screens/auth/login_screen.dart';
 import 'screens/core/home_screen.dart';
@@ -29,10 +30,15 @@ void main() async {
   // 4. Persistence check
   final prefs = await SharedPreferences.getInstance();
   final userId = prefs.getString('user_id');
-  
+
   if (userId != null) {
-     final supabase = Supabase.instance.client;
-     currentUser = await supabase.from('user').select().eq('id', userId).maybeSingle();
+    final supabase = Supabase.instance.client;
+    currentUser = await supabase.from('user').select().eq('id', userId).maybeSingle();
+
+    // Sync theme from database immediately if user is restored
+    if (currentUser != null && currentUser!['appearance'] != null) {
+      themeManager.updateThemeFromDatabase(currentUser!['appearance'] as int);
+    }
   }
 
   // 4. 运行 App
@@ -44,15 +50,45 @@ class PrisconApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Priscon',
-      debugShowCheckedModeBanner: false, // hide debug function
-      scaffoldMessengerKey: snackbarKey, // 注册全局 key
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightBlue),
-        useMaterial3: true, // Use modern M3 UI
-      ),
-      home: currentUser != null ? const HomeScreen() : const LoginScreen(),
+    return ListenableBuilder(
+      listenable: themeManager,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Priscon',
+          debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: snackbarKey,
+          // Isolation Logic: Use user preference only if logged in, otherwise follow System Theme
+          themeMode: currentUser != null ? themeManager.themeMode : ThemeMode.system,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.lightBlue,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.lightBlue,
+              brightness: Brightness.dark,
+              surface: const Color(0xFF212121),
+            ),
+            scaffoldBackgroundColor: const Color(0xFF212121),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF212121),
+              elevation: 0,
+              centerTitle: true,
+              titleTextStyle: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              iconTheme: IconThemeData(color: Colors.white),
+            ),
+          ),
+          home: currentUser != null ? const HomeScreen() : const LoginScreen(),
+        );
+      },
     );
   }
 }
