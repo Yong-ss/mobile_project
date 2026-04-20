@@ -90,18 +90,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
         }
       } else {
-        // Traditional registration
-        final supabase = Supabase.instance.client;
-        await supabase.from('user').insert({
-          'email': email,
-          'password': password,
-          'username': username,
-          'password_custom': true,
-          'appearance': 0, // 0: system, 1: light, 2: dark
-        });
+        // Traditional registration (Real System)
+        await _authService.signUpWithPassword(
+          email: email,
+          password: password,
+          username: username,
+        );
 
         if (mounted) {
-          snackbar('Registration Successful!', Colors.green);
+          snackbar('Registration Successful! Please check your email.', Colors.green);
           Navigator.pop(context);
         }
       }

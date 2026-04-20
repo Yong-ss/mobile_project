@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/home_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 import '../admin/admin_dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +35,17 @@ class _LoginScreenState extends State<LoginScreen> {
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _isInitialLoading = false);
     });
+
+    // Listen for Auth changes (specifically for Password Recovery link clicks)
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      if (event == AuthChangeEvent.passwordRecovery) {
+        // Only show if the LoginScreen is current (prevents double-dialogs)
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          _showResetPasswordDialog(context);
+        }
+      }
+    });
   }
 
   @override
@@ -57,44 +69,24 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final supabase = Supabase.instance.client;
+      final userData = await _authService.signInWithPassword(email, password);
 
-      final foundedData = await supabase
-          .from('user')
-          .select()
-          .eq('email', email)
-          .eq('password', password)
-          .maybeSingle();
-
-      if (foundedData == null) {
-        if (mounted) {
-          snackbar('Invalid email or password!', Colors.red);
+      if (mounted) {
+        // Sync theme preference after login
+        if (userData['appearance'] != null) {
+          themeManager.updateThemeFromDatabase(userData['appearance'] as int);
         }
-      } else {
-        if (mounted) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_id', foundedData['id']);
-          await prefs.setString('user_email', foundedData['email']);
-          await prefs.setString('user_name', foundedData['username']);
 
-          currentUser = foundedData;
+        snackbar('Login successful!', Colors.green);
 
-          // Sync theme preference after login
-          if (currentUser!['appearance'] != null) {
-            themeManager.updateThemeFromDatabase(currentUser!['appearance'] as int);
-          }
-
-          snackbar('Login successful!', Colors.green);
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
       }
     } catch (e) {
       if (mounted) {
-        snackbar('Error: $e', Colors.red);
+        snackbar('Login Error: $e', Colors.red);
       }
     } finally {
       if (mounted) {
@@ -150,6 +142,79 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
+  }
+
+  void _showResetPasswordDialog(BuildContext context) {
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('New Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Your identity is verified! Enter a new password.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'New Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: confirmController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Confirm Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await _authService.signOut(); // Ensure we are clean if cancelled
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newPass = passwordController.text;
+              final confirmPass = confirmController.text;
+
+              if (newPass.length < 6) {
+                snackbar('Password must be at least 6 characters', Colors.red);
+                return;
+              }
+
+              if (newPass != confirmPass) {
+                snackbar('Passwords do not match!', Colors.red);
+                return;
+              }
+
+              try {
+                await _authService.updatePassword(newPass);
+                await _authService.signOut(); // Clean up session after update
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  snackbar('Password updated successfully! Please login.', Colors.green);
+                }
+              } catch (e) {
+                snackbar('Update failed: $e', Colors.red);
+              }
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -292,7 +357,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                    );
+                  },
+                  child: const Text(
+                    'Forgot password?',
+                    style: TextStyle(color: Colors.blue, fontWeight: FontWeight.normal),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               // Login button
               Center(

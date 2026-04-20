@@ -23,6 +23,94 @@ class GoogleSignInResult {
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  /// Sign in with Email and Password (Hybrid System)
+  Future<Map<String, dynamic>> signInWithPassword(String email, String password) async {
+    try {
+      // 1. Try the REAL official Supabase Auth first
+      final AuthResponse res = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = res.user;
+      if (user == null) throw 'Login failed';
+
+      // Fetch synced data from public.user
+      final userData = await _supabase
+          .from('user')
+          .select()
+          .eq('id', user.id)
+          .single();
+
+      await _saveUserDataLocally(userData);
+      return userData;
+    } catch (e) {
+      // 2. FALLBACK: Check your MANUAL table for test users like 'try@'
+      final legacyUser = await _supabase
+          .from('user')
+          .select()
+          .eq('email', email)
+          .eq('password', password) // Manual plaintext check for testing
+          .maybeSingle();
+
+      if (legacyUser != null) {
+        await _saveUserDataLocally(legacyUser);
+        return legacyUser;
+      }
+
+      // If both fail, rethrow the original error
+      rethrow;
+    }
+  }
+
+  /// Sign up with Email and Password (Real System)
+  Future<void> signUpWithPassword({
+    required String email,
+    required String password,
+    required String username,
+  }) async {
+    await _supabase.auth.signUp(
+      email: email,
+      password: password,
+      data: {'username': username},
+    );
+    // Note: The SQL trigger handles the insert into public.user automatically
+  }
+
+  /// Send Real Password Reset Email
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _supabase.auth.resetPasswordForEmail(
+      email,
+      redirectTo: 'io.supabase.flutter://reset-callback/',
+    );
+  }
+
+  /// Verify 6-digit OTP for password reset
+  Future<void> verifyPasswordResetOTP(String email, String token) async {
+    await _supabase.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: OtpType.recovery,
+    );
+  }
+
+  /// Update password (called after recovery redirect)
+  Future<void> updatePassword(String newPassword) async {
+    // 1. Update the REAL system
+    await _supabase.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+
+    // 2. Update your MANUAL table so your other screens still see it
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      await _supabase
+          .from('user')
+          .update({'password': newPassword})
+          .eq('id', user.id);
+    }
+  }
+
   // Get Client ID from .env
   String get _webClientId => dotenv.get('GOOGLE_WEB_CLIENT_ID');
 
