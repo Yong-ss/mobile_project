@@ -75,56 +75,71 @@ class _SellerVerificationScreenState extends State<SellerVerificationScreen> {
   Future<void> _rejectSeller(Map<String, dynamic> user) async {
     final TextEditingController reasonController = TextEditingController();
 
-    await showDialog(
+    final String? reason = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Reject Application'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(
-            labelText: 'Reason for rejection',
-            hintText: 'e.g., Invalid shop name or documentation',
-          ),
-          maxLines: 3,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: reasonController,
+              maxLength: 30,
+              decoration: InputDecoration(
+                labelText: 'Reason for rejection',
+                hintText: 'e.g., Invalid shop name',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                alignLabelWithHint: true,
+              ),
+              maxLines: 2,
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (reasonController.text.trim().isEmpty) {
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              final text = reasonController.text.trim();
+              if (text.isEmpty) {
                 snackbar('Please provide a reason', Colors.orange);
                 return;
               }
-              Navigator.pop(context);
-
-              try {
-                final reason = reasonController.text.trim();
-                await Supabase.instance.client.from('user').update({
-                  'seller_application_status': 'rejected',
-                  'rejection_reason': reason,
-                }).eq('id', user['id']);
-
-                await _logAction('Reject Seller', 'Rejected "${user['shop_name']}" (${user['email']}). Reason: $reason');
-
-                if (!mounted) return;
-                setState(() {
-                  _pendingUsers.removeWhere((u) => u['id'] == user['id']);
-                });
-
-                snackbar('Application rejected.', Colors.orange);
-              } catch (e) {
-                if (mounted) snackbar('Error rejecting application: $e', Colors.red);
-              }
+              Navigator.pop(dialogContext, text);
             },
             child: const Text('Confirm Reject'),
           ),
         ],
       ),
     );
+
+    if (reason != null && reason.isNotEmpty) {
+      try {
+        await Supabase.instance.client.from('user').update({
+          'seller_application_status': 'rejected',
+          'rejection_reason': reason,
+        }).eq('id', user['id']);
+
+        await _logAction('Reject Seller', 'Rejected "${user['shop_name']}" (${user['email']}). Reason: $reason');
+
+        if (!mounted) return;
+        setState(() {
+          _pendingUsers.removeWhere((u) => u['id'] == user['id']);
+        });
+
+        snackbar('Application rejected.', Colors.orange);
+      } catch (e) {
+        if (mounted) snackbar('Error rejecting application: $e', Colors.red);
+      }
+    }
     reasonController.dispose();
   }
 
@@ -155,12 +170,12 @@ class _SellerVerificationScreenState extends State<SellerVerificationScreen> {
             child: _isLoading
                 ? _buildSkeleton()
                 : _pendingUsers.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _pendingUsers.length,
-                        itemBuilder: (context, index) => _buildApplicantCard(_pendingUsers[index]),
-                      ),
+                ? _buildEmptyState()
+                : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _pendingUsers.length,
+              itemBuilder: (context, index) => _buildApplicantCard(_pendingUsers[index]),
+            ),
           ),
         ),
       ),
@@ -218,7 +233,12 @@ class _SellerVerificationScreenState extends State<SellerVerificationScreen> {
               children: [
                 CircleAvatar(
                   backgroundColor: const Color(0xFFE3F2FD),
-                  child: const Icon(Icons.person, color: Color(0xFF1976D2)),
+                  backgroundImage: (user['user_pic'] != null || user['google_profile_image'] != null)
+                      ? NetworkImage((user['user_pic'] ?? user['google_profile_image']).toString().split(',')[0])
+                      : null,
+                  child: (user['user_pic'] == null && user['google_profile_image'] == null)
+                      ? const Icon(Icons.person, color: Color(0xFF1976D2))
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(

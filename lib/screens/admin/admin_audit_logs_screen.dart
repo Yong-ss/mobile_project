@@ -88,12 +88,12 @@ class _AdminAuditLogsScreenState extends State<AdminAuditLogsScreen> {
                 child: _isLoading
                     ? _buildSkeleton()
                     : _logs.isEmpty
-                        ? const Center(child: Text('No logs found.'))
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: _logs.length,
-                            itemBuilder: (context, index) => _buildLogTile(_logs[index]),
-                          ),
+                    ? const Center(child: Text('No logs found.'))
+                    : ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _logs.length,
+                  itemBuilder: (context, index) => _buildLogTile(_logs[index]),
+                ),
               ),
             ],
           ),
@@ -116,11 +116,11 @@ class _AdminAuditLogsScreenState extends State<AdminAuditLogsScreen> {
   Widget _buildLogTile(Map<String, dynamic> log) {
     final createdAt = DateTime.tryParse(log['created_at'] ?? '') ?? DateTime.now();
     final formattedDate = DateFormat('MM/dd HH:mm').format(createdAt);
-    
+
     // Choose icon based on action type
     IconData actionIcon = Icons.info_outline;
     Color iconColor = Colors.blueGrey;
-    
+
     final action = (log['action'] ?? '').toString().toLowerCase();
     if (action.contains('delete')) {
       actionIcon = Icons.delete_forever;
@@ -151,7 +151,7 @@ class _AdminAuditLogsScreenState extends State<AdminAuditLogsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              log['details'] ?? 'No details provided', 
+              log['details'] ?? 'No details provided',
               style: const TextStyle(fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -175,38 +175,46 @@ class _AdminAuditLogsScreenState extends State<AdminAuditLogsScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(log['action'] ?? 'Action Detail', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-              ],
-            ),
-            const Divider(),
-            const SizedBox(height: 16),
-            const Text('DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-            const SizedBox(height: 8),
-            Text(log['details'] ?? 'No details', style: const TextStyle(fontSize: 16, height: 1.5)),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                _buildInfoChip(Icons.person, log['admin_id'] ?? 'Unknown'),
-                const SizedBox(width: 12),
-                _buildInfoChip(Icons.access_time, DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(log['created_at']))),
-              ],
-            ),
-            const SizedBox(height: 32),
-          ],
+      builder: (context) => SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                      log['action'] ?? 'Action Detail',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)
+                  ),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.black54)),
+                ],
+              ),
+              const Divider(),
+              const SizedBox(height: 16),
+              const Text('DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              const SizedBox(height: 8),
+              Text(
+                  log['details'] ?? 'No details',
+                  style: const TextStyle(fontSize: 16, height: 1.5, color: Colors.black87)
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  _buildInfoChip(Icons.person, log['admin_id'] ?? 'Unknown'),
+                  const SizedBox(width: 12),
+                  _buildInfoChip(Icons.access_time, DateFormat('MMM dd, yyyy HH:mm').format(DateTime.parse(log['created_at']))),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

@@ -59,10 +59,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     if (currentUser != null) {
       setState(() {
-        _showName = currentUser!['username'] ?? 'Load Username fail';
-        _showEmail = currentUser!['email'] ?? 'Load Email fail';
+        _showName = currentUser!['username'] ?? 'User';
+        _showEmail = currentUser!['email'] ?? 'No Email';
         _isSeller = currentUser!['is_seller'] ?? false;
-        _shopName = currentUser!['shop_name'] ?? 'Load Shop Name fail';
+        _shopName = currentUser!['shop_name'] ?? t('unnamed_shop');
 
         // New fields for verification flow
         _applicationStatus = currentUser!['seller_application_status'] ?? 'none';
@@ -138,6 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Update global and local state
                   setState(() {
                     _applicationStatus = 'pending';
+                    _shopName = shopNameInput; // FIXED: Update local state immediately
                     currentUser!['seller_application_status'] = 'pending';
                     currentUser!['shop_name'] = shopNameInput;
                   });
@@ -317,7 +318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ListTile(
                   leading: const Icon(Icons.error_outline, color: Colors.red),
                   title: Text(
-                    'Application Rejected',
+                    t('application_rejected'),
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text('Reason: $_rejectionReason. Tap to re-apply.'),

@@ -275,9 +275,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: _isGoogleLoading ? 54 : MediaQuery.of(context).size.width - 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade900 : Colors.white,
                     borderRadius: BorderRadius.circular(_isGoogleLoading ? 24 : 8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white12 : Colors.grey.shade300),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -313,10 +313,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 20,
                               ),
                               const SizedBox(width: 12),
-                              const Text(
+                              Text(
                                 "Sign in with Google",
                                 style: TextStyle(
-                                  color: Colors.black87,
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
                                 ),
