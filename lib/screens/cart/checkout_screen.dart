@@ -956,7 +956,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       if (mounted && status == 'Pending') {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Payment Successful!'), backgroundColor: Colors.green, duration: const Duration(seconds: 2))
+            const SnackBar(content: Text('Payment Successful!'), backgroundColor: Colors.green, duration: Duration(seconds: 2))
         );
       }
       final supabase = Supabase.instance.client;
@@ -1018,7 +1018,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'total_amount': sellerTotal,
           'status': status,
           'location_id': locationId,
-          'payment_method': '${_paymentMethod}${_paymentMethod != 'Cash on Delivery' ? ' ($_paymentSubMethod)' : ''} [ID: $transactionId]',
+          'payment_method': '$_paymentMethod${_paymentMethod != 'Cash on Delivery' ? ' ($_paymentSubMethod)' : ''} [ID: $transactionId]',
           'payment_at': status == 'Pending' ? DateTime.now().toIso8601String() : null,
         }).select().single();
 

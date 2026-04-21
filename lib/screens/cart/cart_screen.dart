@@ -279,7 +279,7 @@ class _CartScreenState extends State<CartScreen> {
                               borderRadius: BorderRadius.circular(16),
                               image: product['image_url'] != null
                                   ? DecorationImage(
-                                image: NetworkImage(product['image_url']),
+                                image: NetworkImage(product['image_url'].toString().split(',')[0]),
                                 fit: BoxFit.cover,
                               )
                                   : null,

@@ -11,6 +11,7 @@ import 'utils/snackbar_helper.dart'; // 导入全局 snackbar key
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/core/home_screen.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
 
 void main() async {
   // 1. 确保 Flutter 绑定初始化（异步 main 必须加这一行）
@@ -104,7 +105,11 @@ class PrisconApp extends StatelessWidget {
               iconTheme: IconThemeData(color: Colors.white),
             ),
           ),
-          home: currentUser != null ? const HomeScreen() : const LoginScreen(),
+          home: currentUser == null
+              ? const LoginScreen()
+              : (currentUser!['role'] == 'admin'
+              ? const AdminDashboardScreen()
+              : const HomeScreen()),
         );
       },
     );

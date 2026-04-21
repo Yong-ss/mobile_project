@@ -679,7 +679,7 @@ class ShopScreenState extends State<ShopScreen> {
                                 child: product['image_url'] != null
                                     ? ClipRRect(
                                   borderRadius: BorderRadius.circular(16),
-                                  child: Image.network(product['image_url'], fit: BoxFit.cover),
+                                  child: Image.network(product['image_url'].toString().split(',')[0], fit: BoxFit.cover),
                                 )
                                     : const Icon(Icons.shopping_bag, size: 50),
                               ),

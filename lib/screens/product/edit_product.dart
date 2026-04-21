@@ -197,7 +197,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       CircleAvatar(
                         radius: 65,
                         backgroundColor: Colors.blue.shade50,
-                        backgroundImage: _newImageUrl != null ? NetworkImage(_newImageUrl!) : null,
+                        backgroundImage: _newImageUrl != null ? NetworkImage(_newImageUrl!.split(',')[0]) : null,
                         child: (_newImageUrl == null)
                             ? const Icon(Icons.inventory, size: 60, color: Colors.lightBlue)
                             : null,

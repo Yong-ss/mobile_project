@@ -4,7 +4,9 @@ import 'language_manager.dart';
 class Translations {
   static const Map<String, Map<String, String>> _data = {
     'en': {
+      'messages': 'Messages',
       'hello': 'Hello',
+
       'back': 'Back',
       'cancel': 'Cancel',
       'save': 'Save',
@@ -70,7 +72,10 @@ class Translations {
       'appearance': 'APPEARANCE',
       'light': 'Light',
       'system': 'System',
+      'dark': 'Dark',
+      'language': 'Language',
       'choose_language': 'Choose Language',
+
       'order_id': 'Order ID',
       'date': 'Date',
       'items_ordered': 'ITEMS ORDERED',
@@ -228,7 +233,9 @@ class Translations {
       'inventory_restored': 'Order cancelled and inventory restored.',
     },
     'zh': {
+      'messages': '消息',
       'hello': '你好',
+
       'back': '返回',
       'cancel': '取消',
       'save': '保存',
@@ -294,7 +301,10 @@ class Translations {
       'appearance': '外观',
       'light': '浅色',
       'system': '跟随系统',
+      'dark': '深色',
+      'language': '语言',
       'choose_language': '选择语言',
+
       'order_id': '订单编号',
       'date': '日期',
       'items_ordered': '订单商品',
@@ -452,7 +462,9 @@ class Translations {
       'inventory_restored': '订单已取消，库存已恢复。',
     },
     'ms': {
+      'messages': 'Mesej',
       'hello': 'Halo, apa khabar',
+
       'back': 'Kembali',
       'cancel': 'Batal',
       'save': 'Simpan',
@@ -518,7 +530,10 @@ class Translations {
       'appearance': 'PENAMPILAN',
       'light': 'Cerah',
       'system': 'Sistem',
+      'dark': 'Gelap',
+      'language': 'Bahasa',
       'choose_language': 'Pilih Bahasa',
+
       'order_id': 'ID Pesanan',
       'date': 'Tarikh',
       'items_ordered': 'BARANG DIPESAN',

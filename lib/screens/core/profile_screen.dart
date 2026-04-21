@@ -11,6 +11,8 @@ import '../../services/auth_service.dart';
 import 'settings_screen.dart';
 import '../order/to_pay_screen.dart';
 import '../../utils/translations.dart';
+import '../../widgets/chat_badge_icon.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,6 +26,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _showEmail = 'Loading...';
   bool _isSeller = false;
   String _shopName = '';
+  String _applicationStatus = 'none';
+  String _rejectionReason = '';
   bool _isLoading = true;
   int _pendingCount = 0;
 
@@ -59,6 +63,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _showEmail = currentUser!['email'] ?? 'Load Email fail';
         _isSeller = currentUser!['is_seller'] ?? false;
         _shopName = currentUser!['shop_name'] ?? 'Load Shop Name fail';
+
+        // New fields for verification flow
+        _applicationStatus = currentUser!['seller_application_status'] ?? 'none';
+        _rejectionReason = currentUser!['rejection_reason'] ?? '';
+
         _isLoading = false;
       });
     } else {
@@ -121,24 +130,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   await supabase
                       .from('user')
                       .update({
-                    'is_seller': true,
+                    'seller_application_status': 'pending',
                     'shop_name': shopNameInput,
-                    'shop_created_at': DateTime.now().toIso8601String(),
                   })
                       .eq('id', currentUser!['id']);
 
+                  // Update global and local state
                   setState(() {
-                    currentUser!['is_seller'] = true;
+                    _applicationStatus = 'pending';
+                    currentUser!['seller_application_status'] = 'pending';
                     currentUser!['shop_name'] = shopNameInput;
-                    _isSeller = true;
-                    _shopName = shopNameInput;
                   });
 
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pop(context);
                     snackbar(
-                      'Congratulations! "$shopNameInput" is now registered.',
-                      Colors.green,
+                      'Application submitted! "$shopNameInput" is now awaiting admin approval.',
+                      Colors.blue,
                     );
                   }
                 } catch (e) {
@@ -165,8 +173,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: Text(t('my_profile')),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline_rounded),
+          ChatBadgeIcon(
+            isSellerMode: false,
             onPressed: () {
               Navigator.push(
                 context,
@@ -174,6 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
           ),
+
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () {
@@ -215,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(_isProfileExpanded ? 0 : 48),
                           image: DecorationImage(
                             image: (currentUser!['user_pic'] != null || currentUser!['google_profile_image'] != null)
-                                ? NetworkImage(currentUser!['user_pic'] ?? currentUser!['google_profile_image'])
+                                ? NetworkImage((currentUser!['user_pic'] ?? currentUser!['google_profile_image']).toString().split(',')[0])
                                 : const AssetImage('assets/images/placeholder_avatar.png') as ImageProvider,
                             fit: BoxFit.cover,
                           ),
@@ -294,16 +303,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // ── Seller Mode Toggle / Entry ──
             if (!_isSeller)
-              ListTile(
-                leading: const Icon(Icons.store, color: Colors.lightBlue),
-                title: Text(
-                  t('become_seller'),
-                  style: const TextStyle(color: Colors.lightBlue),
-                ),
-                subtitle: Text(t('start_listing_sub')),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _showBecomeSellerDialog,
-              )
+              if (_applicationStatus == 'pending')
+                ListTile(
+                  leading: const Icon(Icons.hourglass_empty, color: Colors.orange),
+                  title: Text(
+                    t('application_pending'), // You may need to add this to translations, or use hardcoded
+                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('Your shop "$_shopName" is under review by admin.'),
+                  trailing: const CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (_applicationStatus == 'rejected')
+                ListTile(
+                  leading: const Icon(Icons.error_outline, color: Colors.red),
+                  title: Text(
+                    'Application Rejected',
+                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('Reason: $_rejectionReason. Tap to re-apply.'),
+                  trailing: const Icon(Icons.refresh, color: Colors.red),
+                  onTap: _showBecomeSellerDialog,
+                )
+              else
+                ListTile(
+                  leading: const Icon(Icons.store, color: Colors.lightBlue),
+                  title: Text(
+                    t('become_seller'),
+                    style: const TextStyle(color: Colors.lightBlue),
+                  ),
+                  subtitle: Text(t('start_listing_sub')),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _showBecomeSellerDialog,
+                )
             else
               ListTile(
                 leading: const Icon(
@@ -389,7 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 setState(() => _isLoading = true);
                 try {
                   await AuthService().signOut();
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(

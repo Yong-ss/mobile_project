@@ -61,7 +61,7 @@ class _AnnouncementDetailsScreenState extends State<AnnouncementDetailsScreen> {
                     height: 300,
                     decoration: BoxDecoration(
                       image: DecorationImage(
-                        image: NetworkImage(imageUrl),
+                        image: NetworkImage(imageUrl.split(',')[0]),
                         fit: BoxFit.cover,
                       ),
                     ),

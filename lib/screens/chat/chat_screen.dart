@@ -9,12 +9,15 @@ import '../../widgets/shimmer_skeletons.dart';
 class ChatScreen extends StatefulWidget {
   final String remoteUserId;
   final String remoteUserName;
+  final List<String> relatedRemoteIds;
 
   const ChatScreen({
     super.key,
     required this.remoteUserId,
     required this.remoteUserName,
+    this.relatedRemoteIds = const [],
   });
+
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -82,7 +85,9 @@ class _ChatScreenState extends State<ChatScreen> {
       await Future.wait([
         _fetchMessages(),
         _fetchRemoteUserStatus(),
+        _markAsRead(), // New: Mark incoming messages as read
       ]);
+
 
       // 2. Setup high-speed streams
       _setupLiveStream();
@@ -177,13 +182,27 @@ class _ChatScreenState extends State<ChatScreen> {
           (data) {
         if (mounted) {
           final myId = _currentUserId?.toLowerCase();
-          final remoteId = widget.remoteUserId.toLowerCase();
+
+          final targetIds = {widget.remoteUserId, ...widget.relatedRemoteIds}.map((id) => id.toString().toLowerCase()).toSet();
 
           final chatMessages = data.where((msg) {
             final sId = msg['sender_id']?.toString().toLowerCase();
             final rId = msg['receiver_id']?.toString().toLowerCase();
-            return (sId == myId && rId == remoteId) || (sId == remoteId && rId == myId);
+
+            return (sId == myId && targetIds.contains(rId)) || (targetIds.contains(sId) && rId == myId);
           }).toList();
+
+          // New: If we see new messages from ANY of the target IDs, mark them as read
+          final hasUnreadFromRemote = chatMessages.any((m) =>
+          targetIds.contains(m['sender_id']?.toString().toLowerCase()) &&
+              m['is_read'] != true
+          );
+
+          if (hasUnreadFromRemote) {
+            _markAsRead();
+          }
+
+
 
           setState(() {
             _serverMessages = List<Map<String, dynamic>>.from(chatMessages);
@@ -230,11 +249,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _fetchMessages({bool isBackground = false}) async {
     try {
+      final List<String> targetIds = {
+        widget.remoteUserId,
+        ...widget.relatedRemoteIds
+      }.toList();
+
       final res = await _supabase
           .from('messages')
           .select()
-          .or('and(sender_id.eq.$_currentUserId,receiver_id.eq.${widget.remoteUserId}),and(sender_id.eq.${widget.remoteUserId},receiver_id.eq.$_currentUserId)')
+          .or('and(sender_id.eq.$_currentUserId,receiver_id.in.("${targetIds.join('","')}")),and(sender_id.in.("${targetIds.join('","')}"),receiver_id.eq.$_currentUserId)')
           .order('created_at', ascending: true);
+
 
       if (mounted) {
         final incoming = List<Map<String, dynamic>>.from(res);
@@ -309,8 +334,49 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
-
   }
+
+  Future<void> _markAsRead() async {
+    if (_currentUserId == null) return;
+
+    final List<String> targetSenderIds = {
+      widget.remoteUserId,
+      ...widget.relatedRemoteIds
+    }.toList();
+
+    try {
+      // 1. Fetch the exact IDs of messages that need marking as read
+      final data = await _supabase
+          .from('messages')
+          .select('id')
+          .eq('receiver_id', _currentUserId!)
+          .inFilter('sender_id', targetSenderIds)
+          .not('is_read', 'eq', true);
+
+      final List<dynamic> rows = data as List;
+      if (rows.isEmpty) return;
+
+      final List<String> idsToUpdate = rows.map((r) => r['id'].toString()).toList();
+      debugPrint('ID-Direct Clear: Attempting to update ${idsToUpdate.length} specific messages');
+
+      // 2. Update by specific ID list (This is harder for RLS to block if select is allowed)
+      final response = await _supabase
+          .from('messages')
+          .update({'is_read': true})
+          .inFilter('id', idsToUpdate)
+          .select();
+
+      debugPrint('ID-Direct SUCCESS: ${response.length} messages updated.');
+    } catch (e) {
+      debugPrint('ID-Direct Error: $e');
+    }
+  }
+
+
+
+
+
+
 
   bool _isSameDay(DateTime d1, DateTime d2) {
     return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
@@ -375,7 +441,8 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
+
                   blurRadius: 1,
                   offset: const Offset(0, 1),
                 )
@@ -469,7 +536,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       const SizedBox(width: 6),
                       Text(
                         _remoteUserStatus,
-                        style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.9), letterSpacing: 0.2),
+                        style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), letterSpacing: 0.2),
+
                       ),
                     ],
                   ),
@@ -484,17 +552,12 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: SafeArea(
         child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF0B141A)
-                : const Color(0xFFEFE7DE),
-            image: const DecorationImage(
-              image: AssetImage('assets/images/chat_bg.png'),
-              fit: BoxFit.cover,
-              opacity: 0.05,
-            ),
-          ),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF0B141A)
+              : const Color(0xFFEFE7DE),
           child: Column(
+
+
             children: [
               Expanded(
                 child: _isLoading
@@ -536,7 +599,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, -3))
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3))
+
                   ],
                 ),
                 child: Row(
@@ -572,7 +636,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: Colors.blue.shade600,
                           shape: BoxShape.circle,
                           boxShadow: [
-                            BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))
+                            BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))
+
                           ],
                         ),
                         child: _isSending
@@ -652,12 +717,14 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.grey.shade800.withOpacity(0.8)
-              : Colors.blueGrey.shade100.withOpacity(0.9),
+              ? Colors.grey.shade800.withValues(alpha: 0.8)
+              : Colors.blueGrey.shade100.withValues(alpha: 0.9),
+
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
+
               blurRadius: 2,
               offset: const Offset(0, 1),
             )

@@ -311,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
                                 image: DecorationImage(
-                                  image: NetworkImage(ann['image_url']),
+                                  image: NetworkImage(ann['image_url'].toString().split(',')[0]),
                                   fit: BoxFit.cover,
                                 ),
                                 boxShadow: [

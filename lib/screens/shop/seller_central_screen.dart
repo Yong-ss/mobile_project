@@ -10,6 +10,8 @@ import '../../utils/snackbar_helper.dart';
 import '../../utils/translations.dart';
 import 'seller_settings_screen.dart';
 import '../chat/chat_list_screen.dart';
+import '../../widgets/chat_badge_icon.dart';
+
 
 
 class SellerCentralScreen extends StatefulWidget {
@@ -46,8 +48,8 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
         title: Text(t('seller_central')),
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline_rounded),
+          ChatBadgeIcon(
+            isSellerMode: true,
             onPressed: () {
               Navigator.push(
                 context,
@@ -55,6 +57,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
               );
             },
           ),
+
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () {

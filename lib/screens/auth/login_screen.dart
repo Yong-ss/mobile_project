@@ -31,7 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     // Premium reveal: show shimmer for 800ms on first load
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(milliseconds: 800), () async {
+      // Seed the admin account silently in the background
+      await _authService.seedAdminAccount();
       if (mounted) setState(() => _isInitialLoading = false);
     });
 
@@ -78,15 +80,34 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         snackbar('Login successful!', Colors.green);
+        currentUser = userData;
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        // Redirect based on role
+        if (userData['role'] == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        snackbar('Login Error: $e', Colors.red);
+        String errorMsg = e.toString();
+        // Modernized error mapping: prioritize user-friendly message for auth failures
+        if (e is AuthException) {
+          if (e.message.toLowerCase().contains('invalid login credentials') ||
+              e.toString().contains('invalid_credentials')) {
+            errorMsg = 'Invalid Login Credential please try again';
+          } else {
+            errorMsg = e.message;
+          }
+        }
+        snackbar(errorMsg, Colors.red, icon: Icons.error_outline);
       }
     } finally {
       if (mounted) {
@@ -133,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } catch (e) {
-      if (mounted) snackbar('Google Login Error: $e', Colors.red);
+      if (mounted) snackbar('Google Login Error: $e', Colors.red, icon: Icons.g_mobiledata);
     } finally {
       if (mounted) {
         setState(() {
@@ -204,10 +225,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 await _authService.signOut(); // Clean up session after update
                 if (context.mounted) {
                   Navigator.pop(context);
-                  snackbar('Password updated successfully! Please login.', Colors.green);
+                  snackbar('Password updated successfully! Please login.', Colors.green, icon: Icons.check_circle_outline);
                 }
               } catch (e) {
-                snackbar('Update failed: $e', Colors.red);
+                snackbar('Update failed: $e', Colors.red, icon: Icons.error_outline);
               }
             },
             child: const Text('Update'),
@@ -427,25 +448,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                 },
                 child: Text("Don't have an account? Register"),
-              ),
-
-              // Admin Dashboard link
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AdminDashboardScreen(),
-                    ),
-                  );
-                },
-                child: Text(
-                  'Admin Dashboard',
-                  style: TextStyle(
-                    color: Colors.lightBlue,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
               ),
             ],
           ),

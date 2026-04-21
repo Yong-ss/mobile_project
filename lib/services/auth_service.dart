@@ -22,6 +22,28 @@ class GoogleSignInResult {
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  static const String adminEmail = 'admin';
+  static const String adminPass = 'admin';
+
+  /// Seeds the standard admin account for testing/system use
+  Future<void> seedAdminAccount() async {
+    try {
+      // Upsert the fixed admin user into the custom 'user' table
+      // Note: We use the email 'admin' as a unique identifier for the seed
+      await _supabase.from('user').upsert({
+        'email': adminEmail,
+        'password': adminPass,
+        'username': 'System Admin',
+        'role': 'admin',
+        'customer_verified': true,
+        'appearance': 0, // 0: system
+      }, onConflict: 'email');
+      debugPrint('Admin account seeded successfully.');
+    } catch (e) {
+      // If 'role' column doesn't exist yet, we catch it here
+      debugPrint('Admin seeding info: $e');
+    }
+  }
 
   /// Sign in with Email and Password (Hybrid System)
   Future<Map<String, dynamic>> signInWithPassword(String email, String password) async {

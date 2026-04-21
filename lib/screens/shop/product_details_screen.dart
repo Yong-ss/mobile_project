@@ -96,7 +96,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       builder: (context) => _FlyToCartOverlay(
         startPosition: imageOffset(imageBox),
         endPosition: cartOffset(cartBox),
-        imageUrl: _productData?['image_url'] ?? '',
+        imageUrl: (_productData?['image_url']?.toString() ?? '').split(',')[0],
         onComplete: () {
           overlayEntry?.remove();
           if (isNewItem) {
@@ -252,7 +252,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               width: double.infinity,
               height: 300,
               child: (_productData!['image_url'] != null)
-                  ? Image.network(_productData!['image_url'], fit: BoxFit.cover)
+                  ? Image.network(_productData!['image_url'].toString().split(',')[0], fit: BoxFit.cover)
                   : const Placeholder(),
             ),
             Padding(
@@ -362,7 +362,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           child: CircleAvatar(
                             backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade100,
                             backgroundImage: (_sellerData?['shop_pic'] != null)
-                                ? NetworkImage(_sellerData!['shop_pic'])
+                                ? NetworkImage(_sellerData!['shop_pic'].toString().split(',')[0])
                                 : null,
                             child: (_sellerData?['shop_pic'] == null)
                                 ? const Icon(Icons.store, color: Colors.lightBlue)

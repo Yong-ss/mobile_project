@@ -139,7 +139,6 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     final locationType = location?['location_type'] ?? 'Delivery';
     final bool isPickup = locationType == 'Pick Up';
     final String status = _order!['status'] ?? 'Pending';
-    final bool isReadyForPickup = status == 'Ready for Pickup';
 
     final seller = _order!['seller'] as Map<String, dynamic>?;
     final String shopName = seller?['shop_name'] ?? seller?['username'] ?? 'Unknown Shop';
@@ -263,7 +262,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         backgroundColor: Theme.of(context).brightness == Brightness.dark
                             ? Colors.white10
                             : Colors.grey.shade100,
-                        backgroundImage: shopPic.isNotEmpty ? NetworkImage(shopPic) : null,
+                        backgroundImage: shopPic.isNotEmpty ? NetworkImage(shopPic.split(',')[0]) : null,
                         child: shopPic.isEmpty ? const Icon(Icons.store, color: Colors.grey) : null,
                       ),
                       const SizedBox(width: 16),
@@ -276,22 +275,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ],
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {
-                          if (seller?['id'] != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ChatScreen(
-                                  remoteUserId: seller!['id'],
-                                  remoteUserName: shopName,
+                      if (seller?['id'] != null && seller?['id'] != Supabase.instance.client.auth.currentUser?.id)
+                        IconButton(
+                          onPressed: () {
+                            if (seller?['id'] != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    remoteUserId: seller!['id'],
+                                    remoteUserName: shopName,
+                                  ),
                                 ),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
-                      ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
+                        ),
+
                     ],
                   ),
                 ),
@@ -324,7 +325,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            product?['image_url'] ?? '',
+                            (product?['image_url']?.toString() ?? '').split(',')[0],
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,

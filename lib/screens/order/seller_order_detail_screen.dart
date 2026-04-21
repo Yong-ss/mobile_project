@@ -40,9 +40,10 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
     try {
       final response = await _supabase
           .from('orders')
-          .select('*, buyer:buyer_id(username, email), location:location_id(*), order_items:order_item(*, product:product_id(*))')
+          .select('*, buyer:buyer_id(id, username, email), location:location_id(*), order_items:order_item(*, product:product_id(*))')
           .eq('id', widget.orderId)
           .single();
+
 
       if (mounted) {
         setState(() {
@@ -56,21 +57,7 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
     }
   }
 
-  Color _statusColor(String status) {
-    status = status.toLowerCase();
-    switch (status) {
-      case 'pending':
-      case 'order placed': return Colors.blue;
-      case 'preparing': return Colors.orange;
-      case 'ready for pickup':
-      case 'out for delivery': return Colors.lightBlue;
-      case 'delivered':
-      case 'picked up':
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
-      default: return Colors.grey;
-    }
-  }
+
 
   String _getEffectiveStatus(String status, bool isPickup) {
     if (['Order Placed', 'Pending'].contains(status)) return 'Pending';
@@ -209,65 +196,82 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Order Summary Card ──
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.blueAccent.shade700,
-                      Colors.lightBlue.shade500,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blueAccent.withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
+              (() {
+                final effectiveStatusForGradient = _getEffectiveStatus(status, isPickup);
+                List<Color> gradientColors;
+                Color shadowColor;
+
+                if (effectiveStatusForGradient == 'Pending') {
+                  gradientColors = [Colors.grey.shade700, Colors.grey.shade600, Colors.grey.shade500];
+                  shadowColor = Colors.grey.withValues(alpha: 0.3);
+                } else if (effectiveStatusForGradient == 'Preparing') {
+                  gradientColors = [Colors.blueAccent.shade700, Colors.lightBlue.shade500];
+                  shadowColor = Colors.blueAccent.withValues(alpha: 0.3);
+                } else if (['Out for Delivery', 'Ready for Pickup'].contains(effectiveStatusForGradient)) {
+                  gradientColors = [Colors.lime.shade900, Colors.lime.shade700, Colors.lime.shade600];
+                  shadowColor = Colors.lime.withValues(alpha: 0.3);
+                } else {
+                  gradientColors = [const Color(0xFF1B5E20), const Color(0xFF2E7D32), const Color(0xFF388E3C)];
+                  shadowColor = Colors.green.withValues(alpha: 0.3);
+                }
+
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${t('order_id')}: $displayOrderId',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
-                              const SizedBox(height: 4),
-                              Text('${t('placed_on')} $formattedDate',
-                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-                          ),
-                          child: Text(
-                            status,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: shadowColor,
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${t('order_id')}: $displayOrderId',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.0)),
+                                const SizedBox(height: 4),
+                                Text('${t('placed_on')} $formattedDate',
+                                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 13)),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              status,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              })(),
               const SizedBox(height: 24),
 
               // ── Status Management (SELLER SPECIFIC) ──
@@ -389,22 +393,24 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () {
-                        if (buyer?['id'] != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChatScreen(
-                                remoteUserId: buyer!['id'],
-                                remoteUserName: buyer['username'] ?? 'Unknown Buyer',
+                    if (buyer?['id'] != null && buyer?['id'] != Supabase.instance.client.auth.currentUser?.id)
+                      IconButton(
+                        onPressed: () {
+                          if (buyer?['id'] != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  remoteUserId: buyer!['id'],
+                                  remoteUserName: buyer['username'] ?? 'Unknown Buyer',
+                                ),
                               ),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
-                    ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
+                      ),
+
                   ],
                 ),
               ),
@@ -436,7 +442,7 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            product?['image_url'] ?? '',
+                            (product?['image_url']?.toString() ?? '').split(',')[0],
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
@@ -756,17 +762,28 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
               Text(t('order_journey'),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 16),
-              _buildStatusStep('Order Placed', true, t('order_received_sub')),
-              _buildStatusStep('Preparing', status != 'Order Placed', t('preparing_sub')),
-              _buildStatusStep(
-                  isPickup ? 'Ready for Pickup' : 'Out For Delivery',
-                  ['Ready for Pickup', 'Out for Delivery', 'Delivered', 'Picked Up', 'Completed'].contains(status),
-                  isPickup ? t('ready_for_pickup_sub') : t('out_for_delivery_sub')),
-              _buildStatusStep(
-                  isPickup ? 'Picked Up' : 'Delivered',
-                  ['Delivered', 'Picked Up', 'Completed'].contains(status),
-                  isPickup ? t('order_handover_complete') : t('package_delivered'),
-                  isLast: true),
+
+              (() {
+                final effectiveStatusForJourney = _getEffectiveStatus(status, isPickup);
+                final currentFlow = isPickup ? pickupFlow : deliveryFlow;
+                final currentIndex = currentFlow.indexOf(effectiveStatusForJourney);
+
+                return Column(
+                  children: [
+                    _buildStatusStep('Order Placed', currentIndex >= 0, t('order_received_sub')),
+                    _buildStatusStep('Preparing', currentIndex >= 1, t('preparing_sub')),
+                    _buildStatusStep(
+                        isPickup ? 'Ready for Pickup' : 'Out For Delivery',
+                        currentIndex >= 2,
+                        isPickup ? t('ready_for_pickup_sub') : t('out_for_delivery_sub')),
+                    _buildStatusStep(
+                        isPickup ? 'Picked Up' : 'Delivered',
+                        currentIndex >= 3,
+                        isPickup ? t('order_handover_complete') : t('package_delivered'),
+                        isLast: true),
+                  ],
+                );
+              })(),
 
               const SizedBox(height: 100), // Safe spacing
             ],

@@ -26,7 +26,7 @@ class LocationScreen extends StatefulWidget {
 
 class _LocationScreenState extends State<LocationScreen> {
   GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   bool _isLoading = true;
   LatLng? _selectedLocation;
 
@@ -318,36 +318,40 @@ class _LocationScreenState extends State<LocationScreen> {
                           child: Text('Select a Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         ),
                         Expanded(
-                          child: ListView.separated(
-                            controller: scrollController,
-                            itemCount: _stores.length,
-                            separatorBuilder: (context, index) => Divider(height: 1, color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey[200], indent: 16, endIndent: 16),
-                            itemBuilder: (context, index) {
-                              final store = _stores[index];
-                              return RadioListTile<String>(
-                                value: store['name'],
-                                groupValue: _storeName,
-                                title: Text(store['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text(store['street']),
-                                activeColor: Colors.lightBlue,
-                                onChanged: (String? value) {
-                                  Navigator.pop(ctx);
-                                  setState(() {
-                                    _selectedLocation = store['latLng'];
-                                    _storeName = store['name'];
-                                    _storeAddress = store['street'];
-                                    _storeHours = store['hours'];
-                                  });
-                                  _mapController?.animateCamera(
-                                    CameraUpdate.newCameraPosition(
-                                      CameraPosition(target: store['latLng'], zoom: 15.0),
-                                    ),
-                                  ).then((_) {
-                                    _mapController?.showMarkerInfoWindow(MarkerId(store['id']));
-                                  });
-                                },
-                              );
+                          child: RadioGroup<String>(
+                            groupValue: _storeName,
+                            onChanged: (String? value) {
+                              if (value == null) return;
+                              final store = _stores.firstWhere((s) => s['name'] == value);
+                              Navigator.pop(ctx);
+                              setState(() {
+                                _selectedLocation = store['latLng'];
+                                _storeName = store['name'];
+                                _storeAddress = store['street'];
+                                _storeHours = store['hours'];
+                              });
+                              _mapController?.animateCamera(
+                                CameraUpdate.newCameraPosition(
+                                  CameraPosition(target: store['latLng'], zoom: 15.0),
+                                ),
+                              ).then((_) {
+                                _mapController?.showMarkerInfoWindow(MarkerId(store['id']));
+                              });
                             },
+                            child: ListView.separated(
+                              controller: scrollController,
+                              itemCount: _stores.length,
+                              separatorBuilder: (context, index) => Divider(height: 1, color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[700] : Colors.grey[200], indent: 16, endIndent: 16),
+                              itemBuilder: (context, index) {
+                                final store = _stores[index];
+                                return RadioListTile<String>(
+                                  value: store['name'],
+                                  title: Text(store['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text(store['street']),
+                                  activeColor: Colors.lightBlue,
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ],

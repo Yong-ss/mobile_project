@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/globals.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -13,31 +15,88 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _users = [];
+  String _searchQuery = '';
+  String _filterRole = 'All'; // 'All', 'Customer', 'Seller'
+  bool _allSelected = false;
+  bool _isSelectionMode = false;
+  RealtimeChannel? _realtimeChannel;
+  final ScrollController _scrollController = ScrollController();
+  bool _hasMore = true;
+  bool _isFetchingMore = false;
+  final int _pageSize = 20;
+  int _offset = 0;
 
   @override
   void initState() {
     super.initState();
     _fetchUsers();
+    _setupRealtime();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        if (!_isFetchingMore && _hasMore) {
+          _fetchUsers(loadMore: true);
+        }
+      }
+    });
   }
 
-  Future<void> _fetchUsers() async {
+  void _setupRealtime() {
+    final supabase = Supabase.instance.client;
+    _realtimeChannel = supabase.channel('public:user:admin_management')
+        .onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'user',
+      callback: (payload) {
+        debugPrint('User table changed via realtime. Refreshing...');
+        _fetchUsers();
+      },
+    )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _realtimeChannel?.unsubscribe();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+
+  Future<void> _fetchUsers({bool loadMore = false}) async {
+    if (loadMore) {
+      if (mounted) {
+        setState(() => _isFetchingMore = true);
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _offset = 0;
+          _hasMore = true;
+          _users.clear();
+        });
+      }
+    }
+
     try {
       final supabase = Supabase.instance.client;
-      // Fetch only from the main user table as it now contains all seller info
-      // Sort by username ascending
-      final response = await supabase.from('user').select('*').order('username', ascending: true);
+      final response = await supabase
+          .from('user')
+          .select('*')
+          .order('username', ascending: true)
+          .range(_offset, _offset + _pageSize - 1);
 
-      final List<Map<String, dynamic>> fetchedUsers = [];
+      final List<Map<String, dynamic>> newUsers = [];
       for (var row in response) {
-        fetchedUsers.add({
+        newUsers.add({
           'id': row['id']?.toString() ?? '',
           'customer_name': row['username'] ?? 'Unknown',
           'customer_email': row['email'] ?? 'No email',
-          // New column: customer_verified
           'customer_verified': row['customer_verified'] == true ? 'Verified' : 'Not Verified',
           'customer_joined_at': _formatDate(row['created_at']),
           'user_pic': row['user_pic'] ?? '',
-          // Seller info from the same table
+          'google_pic': row['google_profile_image'] ?? '',
           'seller_name': row['shop_name'] ?? '',
           'seller_status': row['is_seller'] == true ? 'Registered' : 'Unregistered',
           'seller_joined_at': _formatDate(row['shop_created_at']),
@@ -48,17 +107,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       }
 
       setState(() {
-        _users = fetchedUsers;
+        if (loadMore) {
+          _users.addAll(newUsers);
+        } else {
+          _users = newUsers;
+        }
         _isLoading = false;
+        _isFetchingMore = false;
+        _hasMore = newUsers.length == _pageSize;
+        _offset += newUsers.length;
       });
     } catch (e) {
       debugPrint('Error fetching users from Supabase: $e');
       if (mounted) {
         setState(() {
-          _users = [];
           _isLoading = false;
+          _isFetchingMore = false;
         });
-        snackbar('Failed to load from Supabase.', Colors.red);
+        snackbar('Failed to load users.', Colors.red);
       }
     }
   }
@@ -70,6 +136,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return isoDate.toString();
+    }
+  }
+
+  Future<void> _logAction(String action, String details) async {
+    try {
+      await Supabase.instance.client.from('system_logs').insert({
+        'admin_id': currentUser?['email'] ?? 'Unknown Admin',
+        'action': action,
+        'details': details,
+      });
+    } catch (e) {
+      debugPrint('Error logging action: $e');
     }
   }
 
@@ -86,14 +164,61 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           TextButton(
             onPressed: () async {
-              // Note: Usually requires an API call to delete from Supabase
-              setState(() {
-                _users.removeAt(index);
-              });
-              Navigator.pop(context);
-              snackbar('User deleted successfully', Colors.green);
+              final user = _users[index];
+              try {
+                await Supabase.instance.client.from('user').delete().eq('id', user['id']);
+                await _logAction('Delete User', 'Permanently deleted user ${user['customer_email']}');
+
+                setState(() {
+                  _users.removeAt(index);
+                });
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                snackbar('User deleted successfully', Colors.green);
+              } catch (e) {
+                if (context.mounted) snackbar('Error deleting user: $e', Colors.red);
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _batchDelete() {
+    final selectedUsers = _users.where((u) => u['isChecked'] == true).toList();
+    if (selectedUsers.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${selectedUsers.length} Users?'),
+        content: const Text('This will permanently remove all selected accounts. This action is irreversible.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final List<String> ids = selectedUsers.map((u) => u['id'].toString()).toList();
+                await Supabase.instance.client.from('user').delete().filter('id', 'in', '(${ids.join(',')})');
+
+                await _logAction('Batch Delete Users', 'Deleted ${selectedUsers.length} users: ${selectedUsers.map((u) => u['customer_email']).join(', ')}');
+
+                if (!mounted) return;
+                setState(() {
+                  _users.removeWhere((u) => u['isChecked'] == true);
+                  _allSelected = false;
+                  _isSelectionMode = false;
+                });
+                snackbar('Successfully deleted ${selectedUsers.length} users', Colors.green);
+              } catch (e) {
+                if (mounted) snackbar('Batch delete error: $e', Colors.red);
+              }
+            },
+            child: const Text('Delete All Selected'),
           ),
         ],
       ),
@@ -134,7 +259,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: customerVerified,
+                        initialValue: customerVerified,
                         decoration: const InputDecoration(labelText: 'Verification', isDense: true),
                         items: ['Verified', 'Not Verified'].map((status) {
                           return DropdownMenuItem(value: status, child: Text(status));
@@ -151,7 +276,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: sellerStatus,
+                        initialValue: sellerStatus,
                         decoration: const InputDecoration(labelText: 'Seller Status', isDense: true),
                         items: ['Registered', 'Unregistered'].map((status) {
                           return DropdownMenuItem(value: status, child: Text(status));
@@ -253,7 +378,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     Color dotColor;
 
     // Normalize status for comparison
-    final normalizedStatus = status.trim();
+    final String normalizedStatus = status.trim();
 
     if (normalizedStatus == 'Verified' || normalizedStatus == 'Registered' || normalizedStatus.toLowerCase().contains('success')) {
       textColor = const Color(0xFF1B5E20); // Dark green
@@ -308,30 +433,238 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text('User Management'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        centerTitle: true,
+    return Theme(
+      data: ThemeData.light(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: _isSelectionMode
+              ? Text('${_users.where((u) => u['isChecked'] == true).length} Selected', style: const TextStyle(fontWeight: FontWeight.bold))
+              : const Text('User Management', style: TextStyle(fontWeight: FontWeight.bold)),
+          foregroundColor: Colors.black87,
+          leading: _isSelectionMode
+              ? IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              setState(() {
+                _isSelectionMode = false;
+                _allSelected = false;
+                for (var u in _users) {
+                  u['isChecked'] = false;
+                }
+              });
+            },
+          )
+              : null,
+          elevation: 2,
+          shadowColor: Colors.lightBlue.withValues(alpha: 0.2),
+          centerTitle: true,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.lightBlue, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+        ),
+        floatingActionButton: _users.any((u) => u['isChecked'] == true)
+            ? FloatingActionButton.extended(
+          onPressed: _batchDelete,
+          backgroundColor: Colors.red,
+          icon: const Icon(Icons.delete_sweep, color: Colors.white),
+          label: Text(
+            'Delete Selected (${_users.where((u) => u['isChecked'] == true).length})',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        )
+            : null,
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: _fetchUsers,
+            color: Colors.lightBlue,
+            child: Column(
+              children: [
+                _buildSearchAndFilter(),
+                Expanded(
+                  child: _isLoading
+                      ? _buildUserSkeleton()
+                      : _users.isEmpty
+                      ? ListView(children: const [SizedBox(height: 100), Center(child: Text('No users found.'))])
+                      : _buildUserList(),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _users.isEmpty
-          ? const Center(child: Text('No users found.'))
-          : _buildUserList(),
     );
   }
 
+  Widget _buildUserSkeleton() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: BaseSkeleton(width: double.infinity, height: 160, borderRadius: 16),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchAndFilter() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search by Name, Email, or UUID...',
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+                prefixIcon: const Icon(Icons.search, color: Colors.lightBlue),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              onChanged: (val) {
+                setState(() => _searchQuery = val.toLowerCase());
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['All', 'Customer', 'Seller'].map((role) {
+                      final isSelected = _filterRole == role;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: FilterChip(
+                          label: Text(role),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) setState(() => _filterRole = role);
+                          },
+                          backgroundColor: Colors.white,
+                          selectedColor: Colors.lightBlue.shade50,
+                          checkmarkColor: Colors.lightBlue,
+                          labelStyle: TextStyle(
+                              color: isSelected ? Colors.lightBlue : Colors.grey.shade700,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(color: isSelected ? Colors.lightBlue : Colors.grey.shade300),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildUserList() {
-    final List<Map<String, dynamic>> customers = _users.where((u) => u['is_seller'] != true).toList();
-    final List<Map<String, dynamic>> sellers = _users.where((u) => u['is_seller'] == true).toList();
+    final filteredUsers = _users.where((u) {
+      final matchesSearch = u['customer_name'].toString().toLowerCase().contains(_searchQuery) ||
+          u['customer_email'].toString().toLowerCase().contains(_searchQuery) ||
+          u['id'].toString().toLowerCase().contains(_searchQuery);
+
+      final matchesRole = _filterRole == 'All' ||
+          (_filterRole == 'Customer' && u['is_seller'] != true) ||
+          (_filterRole == 'Seller' && u['is_seller'] == true);
+
+      return matchesSearch && matchesRole;
+    }).toList();
+
+    final List<Map<String, dynamic>> customers = filteredUsers.where((u) => u['is_seller'] != true).toList();
+    final List<Map<String, dynamic>> sellers = filteredUsers.where((u) => u['is_seller'] == true).toList();
+
+    if (filteredUsers.isEmpty) return const Center(child: Text('No matches found.'));
 
     return ListView(
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(vertical: 16),
       children: [
+        if (_isSelectionMode)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _allSelected = !_allSelected;
+                  for (var user in _users) {
+                    final bool matchesRole = _filterRole == 'All' ||
+                        (_filterRole == 'Customer' && user['is_seller'] != true) ||
+                        (_filterRole == 'Seller' && user['is_seller'] == true);
+
+                    if (matchesRole) {
+                      user['isChecked'] = _allSelected;
+                    }
+                  }
+                });
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      value: _allSelected,
+                      activeColor: const Color(0xFF1976D2),
+                      onChanged: (val) {
+                        setState(() {
+                          _allSelected = val ?? false;
+                          for (var user in _users) {
+                            final bool matchesRole = _filterRole == 'All' ||
+                                (_filterRole == 'Customer' && user['is_seller'] != true) ||
+                                (_filterRole == 'Seller' && user['is_seller'] == true);
+
+                            if (matchesRole) {
+                              user['isChecked'] = _allSelected;
+                            }
+                          }
+                        });
+                      },
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Select All Visible', style: TextStyle(fontSize: 13, color: Colors.blue, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
         if (customers.isNotEmpty) ...[
           _buildCategoryHeader('Customer'),
           ...customers.map((user) => _buildUserCard(user, _users.indexOf(user))),
@@ -342,6 +675,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ...sellers.map((user) => _buildUserCard(user, _users.indexOf(user))),
           const SizedBox(height: 32),
         ],
+        if (_isFetchingMore)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
       ],
     );
   }
@@ -383,167 +721,125 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row
-            Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: Checkbox(
-                    value: user['isChecked'] ?? false,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        user['isChecked'] = value;
-                      });
-                    },
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    side: const BorderSide(color: Color(0xFFBDBDBD)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    user['id'].toString().length > 8
-                        ? user['id'].toString().substring(0, 8).toUpperCase()
-                        : user['id'].toString().toUpperCase(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Color(0xFF212121),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.copy_outlined, size: 20, color: Color(0xFF757575)),
-                  onPressed: () => _copyToClipboard(user['id']),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFF757575)),
-                  onPressed: () => _deleteUser(index),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF757575)),
-                  onPressed: () => _editUser(index),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-            const SizedBox(height: 12),
-
-            // CUSTOMER SECTION
-            const Text(
-              'CUSTOMER INFO',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
-            ),
-            const SizedBox(height: 8),
-
-            _buildDetailRow(
-              'Customer',
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: InkWell(
+        onLongPress: () {
+          setState(() {
+            _isSelectionMode = true;
+            user['isChecked'] = true;
+          });
+        },
+        onTap: () {
+          if (_isSelectionMode) {
+            setState(() {
+              user['isChecked'] = !(user['isChecked'] ?? false);
+              // If nothing selected, maybe exit mode?
+              if (!_users.any((u) => u['isChecked'] == true)) {
+                _isSelectionMode = false;
+              }
+            });
+          }
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row
+              Row(
                 children: [
-                  Text(
-                    user['customer_name'],
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
+                  if (_isSelectionMode) ...[
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: user['isChecked'] ?? false,
+                        activeColor: Colors.lightBlue,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            user['isChecked'] = value;
+                            if (!_users.any((u) => u['isChecked'] == true)) {
+                              _isSelectionMode = false;
+                            }
+                          });
+                        },
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        side: const BorderSide(color: Color(0xFFBDBDBD)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Flexible(
+                    child: Text(
+                      user['id'].toString().length > 8
+                          ? user['id'].toString().substring(0, 8).toUpperCase()
+                          : user['id'].toString().toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xFF212121),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    user['customer_email'],
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.copy_outlined, size: 20, color: Color(0xFF757575)),
+                    onPressed: () => _copyToClipboard(user['id']),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFF757575)),
+                    onPressed: () => _deleteUser(index),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF757575)),
+                    onPressed: () => _editUser(index),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
                   ),
                 ],
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-            ),
+              const SizedBox(height: 12),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+              const SizedBox(height: 12),
 
-            _buildDetailRow(
-              'Profile',
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFFE3F2FD),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: user['user_pic'].isNotEmpty
-                    ? Image.network(user['user_pic'], fit: BoxFit.contain)
-                    : const Icon(Icons.person, size: 18, color: Color(0xFF1E88E5)),
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-            ),
-
-            _buildDetailRow(
-              'Status',
-              _buildStatusChip(user['customer_verified']),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-            ),
-
-            _buildDetailRow(
-              'Date & Time',
-              Text(
-                user['customer_joined_at'],
-                style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
-              ),
-            ),
-
-            if (isSeller) ...[
-              const SizedBox(height: 24),
-              // SELLER SECTION
+              // CUSTOMER SECTION
               const Text(
-                'SELLER INFO',
+                'CUSTOMER INFO',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
               ),
               const SizedBox(height: 8),
 
               _buildDetailRow(
-                'Seller',
-                Text(
-                  user['seller_name'],
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
+                'Customer',
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user['customer_name'],
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      user['customer_email'],
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF757575)),
+                    ),
+                  ],
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
-              ),
-
-              _buildDetailRow(
-                'Status',
-                _buildStatusChip(user['seller_status']),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -557,13 +853,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   height: 32,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xFFFFF3E0),
+                    color: Color(0xFFE3F2FD),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: user['shop_pic'].isNotEmpty
-                      ? Image.network(user['shop_pic'], fit: BoxFit.contain)
-                      : const Icon(Icons.store, size: 18, color: Color(0xFFF57C00)),
+                  child: (user['user_pic']?.toString() ?? '').isNotEmpty
+                      ? Image.network(user['user_pic']!.toString().split(',')[0], fit: BoxFit.contain)
+                      : (user['google_pic']?.toString() ?? '').isNotEmpty
+                      ? Image.network(user['google_pic']!.toString().split(',')[0], fit: BoxFit.contain)
+                      : const Icon(Icons.person, size: 18, color: Color(0xFF1E88E5)),
                 ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+              ),
+
+              _buildDetailRow(
+                'Status',
+                _buildStatusChip(user['customer_verified']),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -573,12 +880,71 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               _buildDetailRow(
                 'Date & Time',
                 Text(
-                  user['seller_joined_at'],
+                  user['customer_joined_at'],
                   style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
                 ),
               ),
+
+              if (isSeller) ...[
+                const SizedBox(height: 24),
+                // SELLER SECTION
+                const Text(
+                  'SELLER INFO',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 0.5),
+                ),
+                const SizedBox(height: 8),
+
+                _buildDetailRow(
+                  'Seller',
+                  Text(
+                    user['seller_name'],
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF212121)),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+                ),
+
+                _buildDetailRow(
+                  'Status',
+                  _buildStatusChip(user['seller_status']),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+                ),
+
+                _buildDetailRow(
+                  'Profile',
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFFFFF3E0),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: (user['shop_pic']?.toString() ?? '').isNotEmpty
+                        ? Image.network(user['shop_pic']!.toString().split(',')[0], fit: BoxFit.contain)
+                        : const Icon(Icons.store, size: 18, color: Color(0xFFF57C00)),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+                ),
+
+                _buildDetailRow(
+                  'Date & Time',
+                  Text(
+                    user['seller_joined_at'],
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF424242)),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

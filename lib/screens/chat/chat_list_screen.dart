@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:intl/intl.dart';
 import '../../utils/globals.dart';
 import '../../utils/translations.dart';
@@ -22,12 +24,60 @@ class _ChatListScreenState extends State<ChatListScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _conversations = [];
   bool _isLoading = true;
+  RealtimeChannel? _realtimeChannel;
+
 
   @override
   void initState() {
     super.initState();
     _loadConversations();
+    _setupRealtimeListener();
   }
+
+  Timer? _refreshTimer;
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    if (_realtimeChannel != null) {
+      _supabase.removeChannel(_realtimeChannel!);
+    }
+    super.dispose();
+  }
+
+  void _setupRealtimeListener() {
+    final myId = currentUser?['id'];
+    if (myId == null) return;
+
+    _realtimeChannel = _supabase
+        .channel('public:messages:chat_list')
+        .onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'messages',
+      callback: (payload) {
+        final newRecord = payload.newRecord;
+        final oldRecord = payload.oldRecord;
+
+        final senderId = newRecord['sender_id']?.toString() ?? oldRecord['sender_id']?.toString();
+        final receiverId = newRecord['receiver_id']?.toString() ?? oldRecord['receiver_id']?.toString();
+
+        if (senderId == myId.toString() || receiverId == myId.toString()) {
+          // Debounce refresh to avoid spamming database calls
+          _refreshTimer?.cancel();
+          _refreshTimer = Timer(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              debugPrint('ChatList: Real-time update triggered (debounced)');
+              _loadConversations();
+            }
+          });
+        }
+      },
+    )
+        .subscribe();
+  }
+
+
 
   Future<void> _loadConversations() async {
     final myId = currentUser?['id'];
@@ -49,51 +99,86 @@ class _ChatListScreenState extends State<ChatListScreen> {
         return;
       }
 
-      // 2. Identify unique participants, their FIRST message (role) and LAST message (preview)
-      final Map<String, dynamic> firstMessages = {};
-      final Map<String, dynamic> lastMessages = {};
+      // 2. Identify unique participants and group by Display Name (Twin-ID resolution)
+      // First, we need user names to group successfully
+      final Set<String> allRemoteIds = {};
+      for (var msg in allMessages) {
+        allRemoteIds.add(msg['sender_id'] == myId ? msg['receiver_id'] : msg['sender_id']);
+      }
+
+      final List<dynamic> usersData = await _supabase
+          .from('user')
+          .select('id, username, shop_name, user_pic, google_profile_image, shop_pic')
+          .inFilter('id', allRemoteIds.toList());
+
+      final Map<String, Map<String, dynamic>> userMap = {
+        for (var u in usersData) u['id']: u
+      };
+
+      final Map<String, Map<String, dynamic>> groupedConversations = {};
 
       for (var msg in allMessages) {
         final remoteId = msg['sender_id'] == myId ? msg['receiver_id'] : msg['sender_id'];
+        final user = userMap[remoteId];
+        if (user == null) continue;
 
-        // The first time we see this remoteId, it's the EARLIEST message (due to asc order)
-        if (!firstMessages.containsKey(remoteId)) {
-          firstMessages[remoteId] = msg;
+        final String displayName;
+        if (widget.isSellerMode) {
+          // As a Seller, you are talking to Buyers. Group by their username.
+          displayName = user['username'] ?? 'Unknown User';
+        } else {
+          // As a Buyer, you are talking to Sellers. Group by their shop name.
+          displayName = (user['shop_name'] != null && user['shop_name'].toString().isNotEmpty)
+              ? user['shop_name']
+              : (user['username'] ?? 'Unknown User');
         }
-        // Always update lastMessages to the current one (latest seen)
-        lastMessages[remoteId] = msg;
-      }
-
-      // 3. Fetch user information for these unique participants
-      final List<dynamic> usersData = await _supabase
-          .from('user')
-          .select('id, username, user_pic, google_profile_image, shop_name, shop_pic')
-          .inFilter('id', lastMessages.keys.toList());
-
-      // 4. Merge user profile and filter by Role (Seller vs Buyer)
-      final List<Map<String, dynamic>> combined = [];
-      for (var user in usersData) {
-        final remoteId = user['id'];
-        final firstMsg = firstMessages[remoteId];
 
         // Logic:
-        // - In Seller Mode, we only show chats where WE were the RECEIVER of the first message (Inquiry).
-        // - In Buyer Mode (default), we only show chats where WE were the SENDER of the first message (Inquiry).
-        bool shouldInclude = false;
-        if (widget.isSellerMode) {
-          shouldInclude = firstMsg['receiver_id'] == myId;
-        } else {
-          shouldInclude = firstMsg['sender_id'] == myId;
+        // - In Seller Mode, we only show chats where WE were the RECEIVER of the first message.
+        // - In Buyer Mode, we only show chats where WE were the SENDER of the first message.
+        final bool isToMe = msg['receiver_id']?.toString().toLowerCase() == myId.toString().toLowerCase();
+
+        if (!groupedConversations.containsKey(displayName)) {
+          // Mode filter based on the very first message for this NAME
+          bool shouldInclude = false;
+          if (widget.isSellerMode) {
+            shouldInclude = msg['receiver_id'] == myId;
+          } else {
+            shouldInclude = msg['sender_id'] == myId;
+          }
+
+
+          if (!shouldInclude) continue;
+
+          groupedConversations[displayName] = {
+            ...user,
+            'display_name': displayName,
+            'last_message': msg['content'] ?? '',
+            'last_message_time': msg['created_at'] ?? '',
+            'unread_count': 0,
+            'related_ids': <String>{remoteId},
+          };
         }
 
-        if (shouldInclude) {
-          combined.add({
-            ...user,
-            'last_message': lastMessages[remoteId]?['content'] ?? '',
-            'last_message_time': lastMessages[remoteId]?['created_at'] ?? '',
-          });
+        final conv = groupedConversations[displayName]!;
+        conv['related_ids'].add(remoteId);
+
+        // Update to latest message
+        conv['last_message'] = msg['content'] ?? '';
+        conv['last_message_time'] = msg['created_at'] ?? '';
+
+        // Tally unread
+        if (isToMe && msg['is_read'] != true) {
+          conv['unread_count'] = (conv['unread_count'] as int) + 1;
         }
       }
+
+      final List<Map<String, dynamic>> combined = groupedConversations.values.map((c) {
+        return {
+          ...c,
+          'related_ids': (c['related_ids'] as Set<String>).toList(),
+        };
+      }).toList();
 
       // 5. Final Sort by time descending (newest first)
       combined.sort((a, b) => (b['last_message_time'] as String).compareTo(a['last_message_time'] as String));
@@ -104,6 +189,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           _isLoading = false;
         });
       }
+
     } catch (e) {
       debugPrint('Error loading conversations: $e');
       if (mounted) setState(() => _isLoading = false);
@@ -132,11 +218,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            widget.isSellerMode ? (t('Messages') ?? 'Customer Chats') : (t('Messages') ?? 'Messages'),
+            t('messages'),
             style: const TextStyle(fontWeight: FontWeight.bold)
         ),
+        centerTitle: true,
         elevation: 0,
       ),
+
       body: _isLoading
           ? const ChatListSkeleton()
           : _conversations.isEmpty
@@ -149,8 +237,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
           separatorBuilder: (context, index) => const Divider(indent: 84, height: 1),
           itemBuilder: (context, index) {
             final chat = _conversations[index];
-            final displayName = chat['username'] ?? chat['shop_name'] ?? 'Unknown User';
-            final profilePic = chat['user_pic'] ?? chat['google_profile_image'] ?? chat['shop_pic'];
+            final displayName = chat['display_name'] ?? 'Unknown User';
+
+            final String? profilePic;
+            if (widget.isSellerMode) {
+              profilePic = chat['user_pic'] ?? chat['google_profile_image'];
+            } else {
+              profilePic = chat['shop_pic'] ?? chat['user_pic'] ?? chat['google_profile_image'];
+            }
+
             final lastMsg = chat['last_message'] ?? '';
             final timeStr = _formatDateTime(chat['last_message_time'] ?? '');
 
@@ -166,28 +261,45 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     ? const Icon(Icons.person, color: Colors.blue)
                     : null,
               ),
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              title: Text(
+                displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Expanded(
-                    child: Text(
-                      displayName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
                   Text(
                     timeStr,
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: (chat['unread_count'] ?? 0) > 0 ? Colors.blue.shade600 : Colors.grey.shade500,
                       fontSize: 12,
-                      fontWeight: FontWeight.normal,
+                      fontWeight: (chat['unread_count'] ?? 0) > 0 ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
+                  if ((chat['unread_count'] ?? 0) > 0)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade600,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${chat['unread_count']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                 ],
               ),
+
+
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4.0),
                 child: Text(
@@ -204,10 +316,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     builder: (context) => ChatScreen(
                       remoteUserId: chat['id'],
                       remoteUserName: displayName,
+                      relatedRemoteIds: List<String>.from(chat['related_ids'] ?? []),
                     ),
                   ),
                 ).then((_) => _loadConversations()); // Refresh when back
               },
+
             );
           },
         ),

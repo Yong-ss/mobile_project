@@ -17,7 +17,6 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
   bool _isLoading = true;
   final myID = currentUser!['id'];
   Map<int, double> _monthlySales = {};
-  double _maxMonthlySales = 100.0;
 
   double _totalSales = 0.0;
   int _orderCount = 0;
@@ -110,10 +109,7 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
       tempMonthlyTotal[m] = tempMonthlyTotal[m]! + revenueOfLine;
     }
 
-    double maxM = 100.0;
-    tempMonthlyTotal.forEach((k, v) {
-      if (v > maxM) maxM = v;
-    });
+
 
     if (mounted) {
       setState(() {
@@ -122,7 +118,6 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
         _productCount = tempProductCount;
         _customerCount = tempCustomerCount;
         _monthlySales = tempMonthlyTotal;
-        _maxMonthlySales = maxM;
         _topProducts = sortedResults.take(5).map((e) {
           return {
             'name': e['name'],

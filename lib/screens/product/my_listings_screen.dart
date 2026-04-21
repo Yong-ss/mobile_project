@@ -260,7 +260,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
         borderRadius: BorderRadius.circular(12),
         child: (url != null && url.isNotEmpty)
             ? Image.network(
-          url,
+          url.split(',')[0],
           fit: BoxFit.cover,
           errorBuilder: (c, e, s) =>
           const Icon(Icons.image_not_supported),

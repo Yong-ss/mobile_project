@@ -99,7 +99,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                               ? ClipRRect(
                             borderRadius: BorderRadius.circular(35),
                             child: Image.network(
-                              shopPic,
+                              shopPic.split(',')[0],
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                               const Icon(Icons.store, color: Colors.lightBlue, size: 35),

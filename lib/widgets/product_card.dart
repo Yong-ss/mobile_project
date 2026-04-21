@@ -22,10 +22,11 @@ class ProductCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 真正的图片显示
-          Expanded(
+          SizedBox(
+            height: 150,
             child: (imageUrl != null && imageUrl!.isNotEmpty)
                 ? Image.network(
-              imageUrl!,
+              imageUrl!.split(',')[0],
               fit: BoxFit.cover,
               width: double.infinity,
               errorBuilder: (context, error, stackTrace) =>

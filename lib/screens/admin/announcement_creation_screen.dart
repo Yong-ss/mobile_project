@@ -190,8 +190,14 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -274,15 +280,27 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: Text(widget.existingAnnouncement != null ? 'Edit Announcement' : 'Create Announcement'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
+    return Theme(
+      data: ThemeData.light(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: Text(widget.existingAnnouncement != null ? 'Edit Announcement' : 'Create Announcement', style: const TextStyle(fontWeight: FontWeight.bold)),
+          foregroundColor: Colors.black87,
+          elevation: 2,
+          shadowColor: Colors.lightBlue.withValues(alpha: 0.2),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.lightBlue, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+        ),
+      body: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -512,7 +530,7 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFBBE1FA)),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.info_outline, color: Color(0xFF1E88E5)),
@@ -521,9 +539,9 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Before Publishing', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1565C0))),
+                        Text('Before Publishing', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.lightBlue.shade800)),
                         SizedBox(height: 4),
-                        Text('Make sure to review your announcement carefully. All active users will receive this notification.', style: TextStyle(color: Color(0xFF1976D2), fontSize: 13)),
+                        Text('Make sure to review your announcement carefully. All active users will receive this notification.', style: TextStyle(color: Colors.lightBlue.shade700, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -532,20 +550,35 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
             ),
 
             // Publish Button
-            SizedBox(
+            Container(
               height: 50,
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : () => _saveAnnouncement(status: 'published'),
-                icon: _isLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.send, size: 18),
-                label: Text(_isLoading ? 'Publishing...' : 'Publish Announcement', style: const TextStyle(fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFCFD8DC),
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFCFD8DC),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.lightBlue, Colors.white],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(color: Colors.lightBlue.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _isLoading ? null : () => _saveAnnouncement(status: 'published'),
+                  borderRadius: BorderRadius.circular(25),
+                  child: Center(
+                    child: _isLoading
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.lightBlue))
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.send, size: 18, color: Colors.lightBlue),
+                              SizedBox(width: 8),
+                              Text('Publish Announcement', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.lightBlue, fontSize: 16)),
+                            ],
+                          ),
                   ),
                 ),
               ),
@@ -570,16 +603,18 @@ class _AnnouncementCreationScreenState extends State<AnnouncementCreationScreen>
                   side: const BorderSide(color: Color(0xFFE0E0E0)),
                   foregroundColor: const Color(0xFF424242),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
-                child: const Text('Back', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text('Back', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ),
             const SizedBox(height: 32),
           ],
         ),
       ),
+      ),
+      ),
     );
   }
-}
+}

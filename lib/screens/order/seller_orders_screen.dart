@@ -81,19 +81,27 @@ class _SellerOrdersScreenState extends State<SellerOrdersScreen> {
     }
 
     // Smart Sorting for "All": Active first, Completed/Cancelled at the absolute bottom
-    if (_selectedCategory == 'All') {
+    // Smart sorting for "All" and "Pending" categories: Prioritize action-required orders
+    if (_selectedCategory == t('all') || _selectedCategory == t('pending')) {
       final List<Map<String, dynamic>> sorted = List.from(filtered);
       sorted.sort((a, b) {
-        final statusA = (a['status'] ?? 'Pending').toString().toLowerCase();
-        final statusB = (b['status'] ?? 'Pending').toString().toLowerCase();
+        int getPriority(String status) {
+          status = status.toLowerCase();
+          if (status == 'ready for pickup') return 0; // Absolute Top
+          if (['pending', 'preparing', 'out for delivery'].contains(status)) return 1; // Active Middle
+          if (['delivered', 'picked up'].contains(status)) return 2; // Bottom-ish
+          if (['completed', 'cancelled'].contains(status)) return 3; // Absolute Bottom
+          return 1; // Default
+        }
 
-        final isFinA = ['completed', 'cancelled'].contains(statusA);
-        final isFinB = ['completed', 'cancelled'].contains(statusB);
+        final int priorityA = getPriority((a['status'] ?? 'Pending').toString());
+        final int priorityB = getPriority((b['status'] ?? 'Pending').toString());
 
-        if (isFinA && !isFinB) return 1;
-        if (!isFinA && isFinB) return -1;
+        if (priorityA != priorityB) {
+          return priorityA.compareTo(priorityB);
+        }
 
-        // Otherwise stable sort by created_at descending
+        // Tie-breaker: Latest orders first
         final dateA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime.now();
         final dateB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime.now();
         return dateB.compareTo(dateA);
@@ -295,7 +303,7 @@ class _OrderCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(12),
-                image: productImg != null ? DecorationImage(image: NetworkImage(productImg), fit: BoxFit.cover) : null,
+                image: productImg != null ? DecorationImage(image: NetworkImage(productImg.toString().split(',')[0]), fit: BoxFit.cover) : null,
               ),
               child: productImg == null ? const Icon(Icons.shopping_bag, color: Colors.grey) : null,
             ),

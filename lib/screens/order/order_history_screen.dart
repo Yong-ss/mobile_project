@@ -303,7 +303,7 @@ class _OrderCardState extends State<_OrderCard> {
                       borderRadius: BorderRadius.circular(12),
                       child: imageUrl.isNotEmpty
                           ? Image.network(
-                        imageUrl,
+                        imageUrl.split(',')[0],
                         width: 70,
                         height: 70,
                         fit: BoxFit.cover,

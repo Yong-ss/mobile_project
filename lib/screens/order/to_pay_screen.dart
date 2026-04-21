@@ -113,10 +113,7 @@ class _ToPayScreenState extends State<ToPayScreen> {
     }
   }
 
-  String _getCleanMethodName(String raw) {
-    if (!raw.contains(' [ID: ')) return raw;
-    return raw.split(' [ID: ').first;
-  }
+
 
   String _extractId(String raw) {
     if (!raw.contains(' [ID: ')) return '';
@@ -238,7 +235,6 @@ class _ToPayScreenState extends State<ToPayScreen> {
   Widget _buildPaymentCard(Map<String, dynamic> item) {
     final order = item['orders'];
     final seller = order?['seller'];
-    final rawMethod = order?['payment_method']?.toString() ?? 'Stripe';
     final shopName = seller?['shop_name'] ?? seller?['username'] ?? 'Unknown Shop';
     final amount = double.tryParse(item['amount'].toString()) ?? 0.0;
     final remainingTime = _getRemainingTime(item['created_at']);
