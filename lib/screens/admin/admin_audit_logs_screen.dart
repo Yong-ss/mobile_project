@@ -13,30 +13,85 @@ class AdminAuditLogsScreen extends StatefulWidget {
 class _AdminAuditLogsScreenState extends State<AdminAuditLogsScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _logs = [];
+  final ScrollController _scrollController = ScrollController();
+  int _page = 0;
+  final int _pageSize = 20;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
     super.initState();
     _fetchLogs();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _fetchMoreLogs();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchLogs() async {
     try {
+      if (mounted) setState(() => _isLoading = true);
+      _page = 0;
+      _hasMore = true;
+
       final supabase = Supabase.instance.client;
-      // Fetch latest logs
       final response = await supabase
           .from('system_logs')
           .select('*')
           .order('created_at', ascending: false)
-          .limit(100);
+          .range(0, _pageSize - 1);
 
-      setState(() {
-        _logs = List<Map<String, dynamic>>.from(response);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _logs = List<Map<String, dynamic>>.from(response);
+          _hasMore = response.length == _pageSize;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching audit logs: $e');
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchMoreLogs() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    if (mounted) setState(() => _isLoadingMore = true);
+    try {
+      _page++;
+      final from = _page * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('system_logs')
+          .select('*')
+          .order('created_at', ascending: false)
+          .range(from, to);
+
+      if (mounted) {
+        setState(() {
+          _logs.addAll(List<Map<String, dynamic>>.from(response));
+          _hasMore = response.length == _pageSize;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching more audit logs: $e');
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -90,9 +145,20 @@ class _AdminAuditLogsScreenState extends State<AdminAuditLogsScreen> {
                     : _logs.isEmpty
                     ? const Center(child: Text('No logs found.'))
                     : ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) => _buildLogTile(_logs[index]),
+                  itemCount: _logs.length + (_hasMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _logs.length) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
+                    return _buildLogTile(_logs[index]);
+                  },
                 ),
               ),
             ],

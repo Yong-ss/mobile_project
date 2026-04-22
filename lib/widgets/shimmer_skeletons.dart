@@ -7,6 +7,7 @@ class BaseSkeleton extends StatelessWidget {
   final double height;
   final double borderRadius;
   final Widget? child;
+  final bool? isDarkOverride;
 
   const BaseSkeleton({
     super.key,
@@ -14,11 +15,13 @@ class BaseSkeleton extends StatelessWidget {
     required this.height,
     this.borderRadius = 8,
     this.child,
+    this.isDarkOverride,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = isDarkOverride ?? (Theme.of(context).brightness == Brightness.dark);
+
     return Shimmer.fromColors(
       baseColor: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
       highlightColor: isDark ? Colors.grey.shade700 : Colors.grey.shade100,

@@ -416,7 +416,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   width: _isGoogleLoading ? 54 : MediaQuery.of(context).size.width - 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade900 : Colors.white,
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade500 : Colors.white,
                     borderRadius: BorderRadius.circular(_isGoogleLoading ? 24 : 8),
                     border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white12 : Colors.grey.shade300),
                     boxShadow: [

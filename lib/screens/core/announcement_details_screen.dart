@@ -46,9 +46,7 @@ class _AnnouncementDetailsScreenState extends State<AnnouncementDetailsScreen> {
         title: const Text('Announcement Details', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.transparent,
       ),
-      extendBodyBehindAppBar: imageUrl != null && imageUrl.isNotEmpty,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

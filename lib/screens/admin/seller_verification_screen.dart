@@ -14,29 +14,87 @@ class SellerVerificationScreen extends StatefulWidget {
 class _SellerVerificationScreenState extends State<SellerVerificationScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _pendingUsers = [];
+  final ScrollController _scrollController = ScrollController();
+  int _page = 0;
+  final int _pageSize = 20;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
     super.initState();
     _fetchPendingUsers();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _fetchMorePendingUsers();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchPendingUsers() async {
     try {
+      if (mounted) setState(() => _isLoading = true);
+      _page = 0;
+      _hasMore = true;
+
       final supabase = Supabase.instance.client;
       final response = await supabase
           .from('user')
           .select('*')
           .eq('seller_application_status', 'pending')
-          .order('username', ascending: true);
+          .order('username', ascending: true)
+          .range(0, _pageSize - 1);
 
-      setState(() {
-        _pendingUsers = List<Map<String, dynamic>>.from(response);
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _pendingUsers = List<Map<String, dynamic>>.from(response);
+          _hasMore = response.length == _pageSize;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching pending users: $e');
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchMorePendingUsers() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    if (mounted) setState(() => _isLoadingMore = true);
+    try {
+      _page++;
+      final from = _page * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('user')
+          .select('*')
+          .eq('seller_application_status', 'pending')
+          .order('username', ascending: true)
+          .range(from, to);
+
+      if (mounted) {
+        setState(() {
+          _pendingUsers.addAll(List<Map<String, dynamic>>.from(response));
+          _hasMore = response.length == _pageSize;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching more pending users: $e');
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -172,9 +230,20 @@ class _SellerVerificationScreenState extends State<SellerVerificationScreen> {
                 : _pendingUsers.isEmpty
                 ? _buildEmptyState()
                 : ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(16),
-              itemCount: _pendingUsers.length,
-              itemBuilder: (context, index) => _buildApplicantCard(_pendingUsers[index]),
+              itemCount: _pendingUsers.length + (_hasMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _pendingUsers.length) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+                return _buildApplicantCard(_pendingUsers[index]);
+              },
             ),
           ),
         ),

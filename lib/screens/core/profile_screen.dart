@@ -12,6 +12,8 @@ import 'settings_screen.dart';
 import '../order/to_pay_screen.dart';
 import '../../utils/translations.dart';
 import '../../widgets/chat_badge_icon.dart';
+import 'notification_screen.dart';
+import '../../widgets/notification_bell.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -172,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(t('my_profile')),
+        title: Text(t('my_profile'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           ChatBadgeIcon(
             isSellerMode: false,
@@ -184,10 +186,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
 
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
+          NotificationBell(
+            isSellerMode: false,
             onPressed: () {
-              snackbar('Notifications coming soon!', Colors.blue);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationScreen()),
+              );
             },
           ),
         ],

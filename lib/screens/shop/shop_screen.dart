@@ -39,6 +39,13 @@ class ShopScreenState extends State<ShopScreen> {
   String _selectedCategory = t('all');
   bool _isLoading = true;
 
+  // Pagination
+  final ScrollController _scrollController = ScrollController();
+  int _page = 0;
+  final int _pageSize = 20;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
   // Cart State
   int _cartCount = 0;
   bool _isDraggingOverCart = false;
@@ -144,7 +151,9 @@ class ShopScreenState extends State<ShopScreen> {
     } else {
       _selectedCategory = t('all');
     }
+    _scrollController.addListener(_onScroll);
     _fetchProducts();
+    _fetchCategories(); // Separate category fetch
     _fetchCartCount();
     _initSpeech();
     _searchFocusNode.addListener(() {
@@ -152,32 +161,80 @@ class ShopScreenState extends State<ShopScreen> {
     });
   }
 
-  Future<void> _fetchProducts() async {
-    setState(() {
-      _isLoading = true;
-    });
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _searchFocusNode.dispose();
+    _searchController.dispose();
+    _speechToText.stop();
+    _autoDismissTimer?.cancel();
+    _silenceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _fetchMoreProducts();
+      }
+    }
+  }
+
+  Future<void> _fetchCategories() async {
     try {
       final supabase = Supabase.instance.client;
-      // Fetch products that are for sale
       final response = await supabase
           .from('product')
-          .select()
-          .eq('for_sale', true)
-          .order('name', ascending: true);
+          .select('category')
+          .eq('for_sale', true);
 
-      final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
-
-      // Extract unique categories
-      final Set<String> uniqueCategories = products
+      final List<dynamic> data = response;
+      final Set<String> uniqueCategories = data
           .map((p) => p['category'] as String?)
           .where((c) => c != null && c.isNotEmpty)
           .map((c) => c!)
           .toSet();
 
+      if (mounted) {
+        setState(() {
+          _categories = [t('all'), ...uniqueCategories.toList()..sort()];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching categories: $e');
+    }
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoading = true;
+      _page = 0;
+      _hasMore = true;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+
+      var query = supabase.from('product').select().eq('for_sale', true);
+
+      if (_selectedCategory != t('all')) {
+        query = query.eq('category', _selectedCategory);
+      }
+
+      final searchTerm = _searchController.text.trim();
+      if (searchTerm.isNotEmpty) {
+        query = query.ilike('name', '%$searchTerm%');
+      }
+
+      final response = await query
+          .order('name', ascending: true)
+          .limit(_pageSize);
+
+      final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
+
       setState(() {
         _allProducts = products;
-        _categories = [t('all'), ...uniqueCategories.toList()..sort()];
-        _filterProducts();
+        _filteredProducts = products;
+        _hasMore = products.length == _pageSize;
         _isLoading = false;
       });
     } catch (e) {
@@ -192,15 +249,50 @@ class ShopScreenState extends State<ShopScreen> {
     }
   }
 
+  Future<void> _fetchMoreProducts() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+    try {
+      _page++;
+      final from = _page * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final supabase = Supabase.instance.client;
+      var query = supabase.from('product').select().eq('for_sale', true);
+
+      if (_selectedCategory != t('all')) {
+        query = query.eq('category', _selectedCategory);
+      }
+
+      final searchTerm = _searchController.text.trim();
+      if (searchTerm.isNotEmpty) {
+        query = query.ilike('name', '%$searchTerm%');
+      }
+
+      final response = await query
+          .order('name', ascending: true)
+          .range(from, to);
+
+      final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
+
+      if (mounted) {
+        setState(() {
+          _allProducts.addAll(products);
+          _filteredProducts = _allProducts;
+          _hasMore = products.length == _pageSize;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching more products: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
   void _filterProducts() {
-    final query = _searchController.text.toLowerCase();
-    setState(() {
-      _filteredProducts = _allProducts.where((product) {
-        final matchesCategory = _selectedCategory == t('all') || product['category'] == _selectedCategory;
-        final matchesSearch = product['name'].toString().toLowerCase().contains(query);
-        return matchesCategory && matchesSearch;
-      }).toList();
-    });
+    // We now fetch from server when filtering/searching
+    _fetchProducts();
   }
 
   void _initSpeech() async {
@@ -447,17 +539,6 @@ class ShopScreenState extends State<ShopScreen> {
     setSheetState(() {});
   }
 
-  @override
-  void dispose() {
-    _searchFocusNode.dispose();
-    _searchController.dispose();
-    _speechTextNotifier.dispose();
-    _isErrorNotifier.dispose();
-    _isDraggingProductNotifier.dispose();
-    _cancelAutoDismissTimer();
-    _cancelSilenceTimer();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +547,7 @@ class ShopScreenState extends State<ShopScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        appBar: AppBar(title: Text(t('shop'))),
+        appBar: AppBar(title: Text(t('shop'), style: const TextStyle(fontWeight: FontWeight.bold))),
         floatingActionButton: DragTarget<Map<String, dynamic>>(
           onWillAcceptWithDetails: (details) {
             setState(() => _isDraggingOverCart = true);
@@ -641,89 +722,108 @@ class ShopScreenState extends State<ShopScreen> {
 
                   // GridView of products (Ch 3.1: GridView)
                   Expanded(
-                    child: _filteredProducts.isEmpty
+                    child: _isLoading && _allProducts.isEmpty
+                        ? const Center(child: CircularProgressIndicator())
+                        : _filteredProducts.isEmpty
                         ? Center(child: Text(t('no_products_found')))
-                        : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.75,
-                      ),
-                      itemCount: _filteredProducts.length,
-                      itemBuilder: (context, index) {
-                        final product = _filteredProducts[index];
-                        return LongPressDraggable<Map<String, dynamic>>(
-                          data: product,
-                          feedback: Material(
-                            elevation: 20,
-                            borderRadius: BorderRadius.circular(16),
-                            color: Colors.transparent,
-                            child: Transform.scale(
-                              scale: 1.05,
-                              child: Container(
-                                width: 150,
-                                height: 200,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 30,
-                                      offset: const Offset(0, 10),
-                                    )
-                                  ],
-                                ),
-                                child: product['image_url'] != null
-                                    ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Image.network(product['image_url'].toString().split(',')[0], fit: BoxFit.cover),
-                                )
-                                    : const Icon(Icons.shopping_bag, size: 50),
-                              ),
+                        : CustomScrollView(
+                      controller: _scrollController,
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                          sliver: SliverGrid(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 0.75,
                             ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.2,
-                            child: ProductCard(
-                              name: product['name'] ?? 'Unknown',
-                              price: product['price'].toString(),
-                              imageUrl: product['image_url'],
-                            ),
-                          ),
-                          onDragStarted: () {
-                            HapticFeedback.heavyImpact();
-                            _isDraggingProductNotifier.value = true;
-                          },
-                          onDragEnd: (details) {
-                            _isDraggingProductNotifier.value = false;
-                          },
-                          onDraggableCanceled: (velocity, offset) {
-                            _isDraggingProductNotifier.value = false;
-                          },
-                          child: GestureDetector(
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ProductDetailsScreen(
-                                    productId: product['id'],
+                            delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                final product = _filteredProducts[index];
+                                return LongPressDraggable<Map<String, dynamic>>(
+                                  data: product,
+                                  feedback: Material(
+                                    elevation: 20,
+                                    borderRadius: BorderRadius.circular(16),
+                                    color: Colors.transparent,
+                                    child: Transform.scale(
+                                      scale: 1.05,
+                                      child: Container(
+                                        width: 150,
+                                        height: 200,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.3),
+                                              blurRadius: 30,
+                                              offset: const Offset(0, 10),
+                                            )
+                                          ],
+                                        ),
+                                        child: product['image_url'] != null
+                                            ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Image.network(product['image_url'].toString().split(',')[0], fit: BoxFit.cover),
+                                        )
+                                            : const Icon(Icons.shopping_bag, size: 50),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              );
-                              // Refresh count when returning from details
-                              _fetchCartCount();
-                            },
-                            child: ProductCard(
-                              name: product['name'] ?? 'Unknown',
-                              price: product['price'].toString(),
-                              imageUrl: product['image_url'],
+                                  childWhenDragging: Opacity(
+                                    opacity: 0.2,
+                                    child: ProductCard(
+                                      name: product['name'] ?? 'Unknown',
+                                      price: product['price'].toString(),
+                                      imageUrl: product['image_url'],
+                                    ),
+                                  ),
+                                  onDragStarted: () {
+                                    HapticFeedback.heavyImpact();
+                                    _isDraggingProductNotifier.value = true;
+                                  },
+                                  onDragEnd: (details) {
+                                    _isDraggingProductNotifier.value = false;
+                                  },
+                                  onDraggableCanceled: (velocity, offset) {
+                                    _isDraggingProductNotifier.value = false;
+                                  },
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ProductDetailsScreen(
+                                            productId: product['id'],
+                                          ),
+                                        ),
+                                      );
+                                      // Refresh count when returning from details
+                                      _fetchCartCount();
+                                    },
+                                    child: ProductCard(
+                                      name: product['name'] ?? 'Unknown',
+                                      price: product['price'].toString(),
+                                      imageUrl: product['image_url'],
+                                    ),
+                                  ),
+                                );
+                              },
+                              childCount: _filteredProducts.length,
                             ),
                           ),
-                        );
-                      },
+                        ),
+                        if (_isLoadingMore)
+                          const SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                            ),
+                          ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                      ],
                     ),
                   ),
                 ],

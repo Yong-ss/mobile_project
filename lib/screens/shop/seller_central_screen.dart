@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../utils/circular_reveal_route.dart';
+import '../core/notification_screen.dart';
 import '../order/seller_orders_screen.dart';
 import '../product/my_listings_screen.dart';
 import '../dashboard/sales_dashboard_screen.dart';
 import '../../utils/globals.dart';
 import '../shop/seller_page_screen.dart';
 import '../../widgets/shimmer_skeletons.dart';
-import '../../utils/snackbar_helper.dart';
 import '../../utils/translations.dart';
 import 'seller_settings_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../../widgets/chat_badge_icon.dart';
+import '../../widgets/notification_bell.dart';
 
 
 
@@ -45,8 +46,7 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(t('seller_central')),
-        centerTitle: false,
+        title: Text(t('seller_central'), style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           ChatBadgeIcon(
             isSellerMode: true,
@@ -58,11 +58,13 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
             },
           ),
 
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
+          NotificationBell(
+            isSellerMode: true,
             onPressed: () {
-              // TODO: Navigate to seller notifications
-              snackbar('Notifications coming soon!', Colors.blue);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationScreen(isSystemOnly: true)),
+              );
             },
           ),
           IconButton(

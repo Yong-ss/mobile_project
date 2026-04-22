@@ -133,7 +133,7 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(t('sales_dashboard'))),
+      appBar: AppBar(title: Text(t('sales_dashboard'), style: const TextStyle(fontWeight: FontWeight.bold))),
       body: SafeArea(
         child: _isLoading
             ? _buildShimmerLoading()

@@ -7,6 +7,7 @@ import 'edit_product.dart';
 import '../../utils/circular_reveal_route.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import '../../utils/translations.dart';
+import '../../services/product_service.dart';
 
 class MyListingsScreen extends StatefulWidget {
   const MyListingsScreen({super.key});
@@ -18,6 +19,8 @@ class MyListingsScreen extends StatefulWidget {
 class _MyListingsScreenState extends State<MyListingsScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
+  bool _isSelectionMode = false;
+  final Set<dynamic> _selectedProductIds = {};
   List<Map<String, dynamic>> _myProducts = [];
   String _selectedCategory = 'All';
   final GlobalKey _addKey = GlobalKey();
@@ -49,21 +52,108 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
     }
   }
 
+  Future<void> _deleteSelectedProducts() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t('delete_product')),
+        content: Text('${t('are_you_sure_delete')} (${_selectedProductIds.length} ${t('items_selected')})'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t('cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(t('delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        setState(() => _isLoading = true);
+
+        // Loop through selected IDs and delete each with its images
+        for (final id in _selectedProductIds) {
+          final product = _myProducts.firstWhere((p) => p['id'] == id);
+          await ProductService.deleteProductComplete(id, product['image_url']);
+        }
+
+        if (mounted) {
+          snackbar(t('product_deleted'), Colors.green);
+          setState(() {
+            _isSelectionMode = false;
+            _selectedProductIds.clear();
+          });
+          _fetchMyProducts();
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          snackbar('${t('error')}: $e', Colors.red);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
-          t('my_listings'),
+          _isSelectionMode
+              ? '${_selectedProductIds.length} ${t('items_selected')}'
+              : t('my_listings'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
+        leading: _isSelectionMode
+            ? IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            setState(() {
+              _isSelectionMode = false;
+              _selectedProductIds.clear();
+            });
+          },
+        )
+            : null,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchMyProducts,
-          ),
+          if (_isSelectionMode) ...[
+            IconButton(
+              icon: Icon(_selectedProductIds.length == _filteredProducts().length
+                  ? Icons.deselect
+                  : Icons.select_all),
+              onPressed: () {
+                setState(() {
+                  if (_selectedProductIds.length == _filteredProducts().length) {
+                    _selectedProductIds.clear();
+                  } else {
+                    _selectedProductIds.addAll(
+                        _filteredProducts().map((p) => p['id']));
+                  }
+                });
+              },
+              tooltip: _selectedProductIds.length == _filteredProducts().length
+                  ? t('deselect_all')
+                  : t('select_all'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: _selectedProductIds.isEmpty
+                  ? null
+                  : _deleteSelectedProducts,
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _fetchMyProducts,
+            ),
+          ],
         ],
       ),
       body: SafeArea(
@@ -176,21 +266,58 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
             ),
           ),
           child: InkWell(
+            onLongPress: () {
+              if (!_isSelectionMode) {
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedProductIds.add(product['id']);
+                });
+              }
+            },
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditProductScreen(product: product),
-                ),
-              ).then((value) {
-                if (value == true) _fetchMyProducts();
-              });
+              if (_isSelectionMode) {
+                setState(() {
+                  final id = product['id'];
+                  if (_selectedProductIds.contains(id)) {
+                    _selectedProductIds.remove(id);
+                    if (_selectedProductIds.isEmpty) _isSelectionMode = false;
+                  } else {
+                    _selectedProductIds.add(id);
+                  }
+                });
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditProductScreen(product: product),
+                  ),
+                ).then((value) {
+                  if (value == true) _fetchMyProducts();
+                });
+              }
             },
             borderRadius: BorderRadius.circular(15),
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Row(
                 children: [
+                  if (_isSelectionMode)
+                    Checkbox(
+                      value: _selectedProductIds.contains(product['id']),
+                      onChanged: (val) {
+                        setState(() {
+                          final id = product['id'];
+                          if (val == true) {
+                            _selectedProductIds.add(id);
+                          } else {
+                            _selectedProductIds.remove(id);
+                            if (_selectedProductIds.isEmpty) _isSelectionMode = false;
+                          }
+                        });
+                      },
+                      activeColor: Colors.blue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
                   _buildProductImage(product['image_url']),
                   const SizedBox(width: 12),
                   Expanded(
@@ -238,7 +365,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Colors.grey),
+                  if (!_isSelectionMode) const Icon(Icons.chevron_right, color: Colors.grey),
                 ],
               ),
             ),

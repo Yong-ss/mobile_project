@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,6 +8,7 @@ import '../../utils/globals.dart';
 import '../../utils/translations.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import 'chat_screen.dart';
+import '../../utils/snackbar_helper.dart';
 
 class ChatListScreen extends StatefulWidget {
   final bool isSellerMode;
@@ -25,6 +27,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
   List<Map<String, dynamic>> _conversations = [];
   bool _isLoading = true;
   RealtimeChannel? _realtimeChannel;
+  bool _isSelectionMode = false;
+  final Set<String> _selectedChatIds = {}; // We'll store the remoteUserId
 
 
   @override
@@ -173,7 +177,34 @@ class _ChatListScreenState extends State<ChatListScreen> {
         }
       }
 
-      final List<Map<String, dynamic>> combined = groupedConversations.values.map((c) {
+      // 4. Fetch hidden chat timestamps
+      final List<dynamic> hiddenData = await _supabase
+          .from('hidden_chat')
+          .select('remote_user_id, hidden_at')
+          .eq('user_id', myId);
+
+      final Map<String, String> hiddenMap = {
+        for (var h in hiddenData) h['remote_user_id'].toString(): h['hidden_at'].toString()
+      };
+
+      final List<Map<String, dynamic>> combined = groupedConversations.values
+          .where((c) {
+        final remoteId = c['id'].toString();
+        final hiddenAtStr = hiddenMap[remoteId];
+        if (hiddenAtStr == null) return true;
+
+        try {
+          final hiddenAt = DateTime.parse(hiddenAtStr).toUtc();
+          final lastMsgAt = DateTime.parse(c['last_message_time'].toString()).toUtc();
+
+          // Only show if the last message is strictly AFTER the hidden timestamp
+          return lastMsgAt.isAfter(hiddenAt);
+        } catch (e) {
+          debugPrint('Error comparing timestamps: $e');
+          return true;
+        }
+      })
+          .map((c) {
         return {
           ...c,
           'related_ids': (c['related_ids'] as Set<String>).toList(),
@@ -196,6 +227,59 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
+  Future<void> _deleteSelectedChats() async {
+    final myId = currentUser?['id'];
+    if (myId == null || _selectedChatIds.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Conversations?"),
+        content: Text("Are you sure you want to delete ${_selectedChatIds.length} conversation(s)? This will hide them from your list but won't delete messages for the other person."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        setState(() => _isLoading = true);
+
+        final now = DateTime.now().toUtc().toIso8601String();
+
+        for (final remoteId in _selectedChatIds) {
+          // Use upsert to handle both insert and update in one call
+          await _supabase.from('hidden_chat').upsert({
+            'user_id': myId,
+            'remote_user_id': remoteId,
+            'hidden_at': now,
+          }, onConflict: 'user_id, remote_user_id');
+        }
+
+        if (mounted) {
+          setState(() {
+            _isSelectionMode = false;
+            _selectedChatIds.clear();
+          });
+          _loadConversations();
+          snackbar("Conversations hidden", Colors.green);
+        }
+      } catch (e) {
+        debugPrint('Error hiding chats: $e');
+        if (mounted) {
+          setState(() => _isLoading = false);
+          snackbar("Error hiding chats: $e", Colors.red);
+        }
+      }
+    }
+  }
+
   String _formatDateTime(String timestamp) {
     if (timestamp.isEmpty) return '';
     final date = DateTime.tryParse(timestamp)?.toLocal() ?? DateTime.now();
@@ -213,16 +297,60 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
   }
 
+  String _getMessagePreview(String content) {
+    if (content.trim().isEmpty) return '';
+    if (content.startsWith('{') && content.contains('"type":')) {
+      try {
+        final decoded = jsonDecode(content);
+        if (decoded is Map) {
+          if (decoded['type'] == 'product') {
+            return 'Product: ${decoded['name'] ?? 'Unknown'}';
+          }
+          if (decoded['type'] == 'session_ended') {
+            return 'Chat Ended';
+          }
+        }
+        return content;
+      } catch (_) {
+        return content;
+      }
+    }
+    return content;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            t('messages'),
+            _isSelectionMode ? "${_selectedChatIds.length} Selected" : t('messages'),
             style: const TextStyle(fontWeight: FontWeight.bold)
         ),
         centerTitle: true,
         elevation: 0,
+        leading: _isSelectionMode
+            ? IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            setState(() {
+              _isSelectionMode = false;
+              _selectedChatIds.clear();
+            });
+          },
+        )
+            : null,
+        actions: [
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _deleteSelectedChats,
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadConversations,
+            ),
+        ],
       ),
 
       body: _isLoading
@@ -250,16 +378,41 @@ class _ChatListScreenState extends State<ChatListScreen> {
             final timeStr = _formatDateTime(chat['last_message_time'] ?? '');
 
             return ListTile(
+              selected: _selectedChatIds.contains(chat['id']),
+              selectedTileColor: Colors.blue.withValues(alpha: 0.05),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              leading: CircleAvatar(
-                radius: 28,
-                backgroundColor: Colors.blue.shade100,
-                backgroundImage: (profilePic != null && profilePic.toString().isNotEmpty)
-                    ? NetworkImage(profilePic)
-                    : null,
-                child: (profilePic == null || profilePic.toString().isEmpty)
-                    ? const Icon(Icons.person, color: Colors.blue)
-                    : null,
+              leading: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.blue.shade100,
+                    backgroundImage: (profilePic != null && profilePic.toString().isNotEmpty)
+                        ? NetworkImage(profilePic)
+                        : null,
+                    child: (profilePic == null || profilePic.toString().isEmpty)
+                        ? const Icon(Icons.person, color: Colors.blue)
+                        : null,
+                  ),
+                  if (_isSelectionMode)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _selectedChatIds.contains(chat['id'])
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 20,
+                          color: _selectedChatIds.contains(chat['id']) ? Colors.blue : Colors.grey,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               title: Text(
                 displayName,
@@ -303,23 +456,46 @@ class _ChatListScreenState extends State<ChatListScreen> {
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4.0),
                 child: Text(
-                  lastMsg,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  _getMessagePreview(lastMsg),
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 14,
+                    fontStyle: lastMsg.trim().startsWith('{') ? FontStyle.italic : FontStyle.normal,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChatScreen(
-                      remoteUserId: chat['id'],
-                      remoteUserName: displayName,
-                      relatedRemoteIds: List<String>.from(chat['related_ids'] ?? []),
+                if (_isSelectionMode) {
+                  setState(() {
+                    if (_selectedChatIds.contains(chat['id'])) {
+                      _selectedChatIds.remove(chat['id']);
+                      if (_selectedChatIds.isEmpty) _isSelectionMode = false;
+                    } else {
+                      _selectedChatIds.add(chat['id']);
+                    }
+                  });
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatScreen(
+                        remoteUserId: chat['id'],
+                        remoteUserName: displayName,
+                        relatedRemoteIds: List<String>.from(chat['related_ids'] ?? []),
+                      ),
                     ),
-                  ),
-                ).then((_) => _loadConversations()); // Refresh when back
+                  ).then((_) => _loadConversations()); // Refresh when back
+                }
+              },
+              onLongPress: () {
+                if (!_isSelectionMode) {
+                  setState(() {
+                    _isSelectionMode = true;
+                    _selectedChatIds.add(chat['id']);
+                  });
+                }
               },
 
             );

@@ -18,14 +18,40 @@ class _CartScreenState extends State<CartScreen> {
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = true;
 
+  // Pagination
+  final ScrollController _scrollController = ScrollController();
+  int _page = 0;
+  final int _pageSize = 10;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _fetchCart();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _fetchMoreItems();
+      }
+    }
+  }
+
   Future<void> _fetchCart() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _page = 0;
+      _hasMore = true;
+    });
     final supabase = Supabase.instance.client;
     final user = currentUser;
     if (user == null) {
@@ -38,15 +64,51 @@ class _CartScreenState extends State<CartScreen> {
           .from('cart_item')
           .select('*, product:product_id(*, seller:seller_id(username, shop_name))')
           .eq('user_id', user['id'])
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .limit(_pageSize);
 
       setState(() {
         _cartItems = List<Map<String, dynamic>>.from(response);
         _isLoading = false;
+        _hasMore = _cartItems.length == _pageSize;
       });
     } catch (e) {
       debugPrint('Error fetching cart: $e');
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchMoreItems() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+    final supabase = Supabase.instance.client;
+    final user = currentUser;
+    if (user == null) return;
+
+    try {
+      _page++;
+      final from = _page * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final response = await supabase
+          .from('cart_item')
+          .select('*, product:product_id(*, seller:seller_id(username, shop_name))')
+          .eq('user_id', user['id'])
+          .order('created_at', ascending: false)
+          .range(from, to);
+
+      if (mounted) {
+        final newItems = List<Map<String, dynamic>>.from(response);
+        setState(() {
+          _cartItems.addAll(newItems);
+          _hasMore = newItems.length == _pageSize;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching more cart items: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -218,9 +280,18 @@ class _CartScreenState extends State<CartScreen> {
               ),
             )
                 : ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.symmetric(vertical: 12),
-              itemCount: _cartItems.length,
+              itemCount: _cartItems.length + (_hasMore ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index == _cartItems.length) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
                 final item = _cartItems[index];
                 final product = item['product'] as Map<String, dynamic>;
                 final sellerName = product['seller']?['shop_name'] ?? product['seller']?['username'] ?? 'Unknown';

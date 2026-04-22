@@ -24,7 +24,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController.text = currentUser?['display_name'] ?? '';
+    _nameController.text = currentUser?['username'] ?? '';
     _simulateLoading();
   }
 
@@ -62,19 +62,19 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (_imageFile != null) {
         final fileName = 'admin_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final path = 'avatars/$fileName';
-        
-        await _supabase.storage.from('users').upload(path, _imageFile!);
-        imageUrl = _supabase.storage.from('users').getPublicUrl(path);
+
+        await _supabase.storage.from('avatars').upload(path, _imageFile!);
+        imageUrl = _supabase.storage.from('avatars').getPublicUrl(path);
       }
 
       // 2. Update DB
       await _supabase.from('user').update({
-        'display_name': _nameController.text.trim(),
+        'username': _nameController.text.trim(),
         'user_pic': imageUrl,
-      }).eq('id', _supabase.auth.currentUser!.id);
+      }).eq('id', currentUser!['id']);
 
       // 3. Update local global
-      currentUser!['display_name'] = _nameController.text.trim();
+      currentUser!['username'] = _nameController.text.trim();
       currentUser!['user_pic'] = imageUrl;
 
       if (mounted) {
@@ -89,22 +89,63 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _changePassword() async {
-    // Show a simple dialog or navigate to a specialized screen
-    // For now, we'll use Supabase's sendPasswordResetEmail as a trigger
-    final email = currentUser?['email'] ?? '';
-    try {
-      await _supabase.auth.resetPasswordForEmail(email);
-      if (mounted) {
-        snackbar('Password reset email sent to $email', Colors.green);
-      }
-    } catch (e) {
-      debugPrint('Password reset error: $e');
-      if (mounted) {
-        if (e.toString().contains('validation_failed')) {
-          snackbar('Error: Invalid email format. Please update your email to a valid address first.', Colors.red);
-        } else {
-          snackbar('Error: $e', Colors.red);
+    // 1. Validate Admin Role
+    if (currentUser?['role'] != 'admin') {
+      snackbar('Unauthorized: Only administrators can modify security settings here.', Colors.red);
+      return;
+    }
+
+    final TextEditingController newPasswordController = TextEditingController();
+
+    // 2. Show Direct Password Change Dialog
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change Admin Password'),
+        content: TextField(
+          controller: newPasswordController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'New Password',
+            hintText: 'Enter at least 6 characters',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (newPasswordController.text.trim().length < 6) {
+                snackbar('Password must be at least 6 characters', Colors.orange);
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isLoading = true);
+      try {
+        final newPass = newPasswordController.text.trim();
+
+        // Update REAL Supabase Auth
+        await _supabase.auth.updateUser(UserAttributes(password: newPass));
+
+        // Update manual table for sync
+        await _supabase.from('user').update({'password': newPass}).eq('id', currentUser!['id']);
+
+        if (mounted) {
+          snackbar('Password updated successfully', Colors.green);
         }
+      } catch (e) {
+        debugPrint('Password update error: $e');
+        if (mounted) snackbar('Failed to update password: $e', Colors.red);
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -136,121 +177,121 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           child: _isInitialLoading
               ? _buildProfileSkeleton()
               : SingleChildScrollView(
+            child: Column(
+              children: [
+                // --- Header / Avatar ---
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.lightBlue, Colors.white],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(32),
+                      bottomRight: Radius.circular(32),
+                    ),
+                  ),
+                  padding: const EdgeInsets.only(bottom: 40, top: 20),
                   child: Column(
                     children: [
-                      // --- Header / Avatar ---
-              Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.lightBlue, Colors.white],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(32),
-                    bottomRight: Radius.circular(32),
-                  ),
-                ),
-                padding: const EdgeInsets.only(bottom: 40, top: 20),
-                child: Column(
-                  children: [
-                    Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 5))],
-                          ),
-                          child: CircleAvatar(
-                            radius: 60,
-                            backgroundColor: Colors.white,
-                            backgroundImage: _imageFile != null
-                                ? FileImage(_imageFile!)
-                                : (avatarUrl != null && avatarUrl.isNotEmpty)
-                                    ? NetworkImage(avatarUrl) as ImageProvider
-                                    : null,
-                            child: (_imageFile == null && (avatarUrl == null || avatarUrl.isEmpty))
-                                ? const Icon(Icons.person, size: 60, color: Colors.blueGrey)
-                                : null,
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: _pickImage,
-                            child: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                              child: const Icon(Icons.camera_alt, color: Color(0xFF1565C0), size: 20),
+                      Stack(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 4),
+                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: const Offset(0, 5))],
+                            ),
+                            child: CircleAvatar(
+                              radius: 60,
+                              backgroundColor: Colors.white,
+                              backgroundImage: _imageFile != null
+                                  ? FileImage(_imageFile!)
+                                  : (avatarUrl != null && avatarUrl.isNotEmpty)
+                                  ? NetworkImage(avatarUrl) as ImageProvider
+                                  : null,
+                              child: (_imageFile == null && (avatarUrl == null || avatarUrl.isEmpty))
+                                  ? const Icon(Icons.person, size: 60, color: Colors.blueGrey)
+                                  : null,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      currentUser?['display_name'] ?? 'Administrator',
-                      style: const TextStyle(color: Colors.black87, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      currentUser?['email'] ?? '',
-                      style: const TextStyle(color: Colors.black54, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader('Personal Information'),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      label: 'Display Name',
-                      controller: _nameController,
-                      icon: Icons.person_outline,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      label: 'Email Address',
-                      initialValue: currentUser?['email'],
-                      icon: Icons.email_outlined,
-                      enabled: false,
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    _buildSectionHeader('Security & Account'),
-                    const SizedBox(height: 16),
-                    _buildActionTile(
-                      title: 'Change Password',
-                      subtitle: 'Update your login credentials',
-                      icon: Icons.lock_outline,
-                      onTap: _changePassword,
-                    ),
-                    const SizedBox(height: 40),
-                    
-                    if (_isLoading)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton(
-                          onPressed: _updateProfile,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.lightBlue,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 4,
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _pickImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: const Icon(Icons.camera_alt, color: Color(0xFF1565C0), size: 20),
+                              ),
+                            ),
                           ),
-                          child: const Text('Save Profile Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        ),
+                        ],
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        currentUser?['username'] ?? 'Administrator',
+                        style: const TextStyle(color: Colors.black87, fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        currentUser?['email'] ?? '',
+                        style: const TextStyle(color: Colors.black54, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader('Personal Information'),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        label: 'Display Name',
+                        controller: _nameController,
+                        icon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        label: 'Email Address',
+                        initialValue: currentUser?['email'],
+                        icon: Icons.email_outlined,
+                        enabled: false,
+                      ),
+
+                      const SizedBox(height: 32),
+                      _buildSectionHeader('Security & Account'),
+                      const SizedBox(height: 16),
+                      _buildActionTile(
+                        title: 'Change Password',
+                        subtitle: 'Update your login credentials',
+                        icon: Icons.lock_outline,
+                        onTap: _changePassword,
+                      ),
+                      const SizedBox(height: 40),
+
+                      if (_isLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _updateProfile,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.lightBlue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 4,
+                            ),
+                            child: const Text('Save Profile Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
                     ],
                   ),
                 ),

@@ -54,13 +54,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  final ScrollController _mainScrollController = ScrollController();
+  int _productPage = 0;
+  final int _pageSize = 10;
+  bool _isProductLoadingMore = false;
+  bool _hasMoreProducts = true;
+
   @override
   void initState() {
     super.initState();
     _mainPageController = PageController(initialPage: _selectedIndex);
+    _mainScrollController.addListener(_onMainScroll);
     _fetchAnnouncements();
     _fetchProducts();
     _startWelcomeTimer();
+  }
+
+  void _onMainScroll() {
+    if (_mainScrollController.position.pixels >= _mainScrollController.position.maxScrollExtent - 200) {
+      if (!_isProductLoadingMore && _hasMoreProducts) {
+        _fetchMoreProducts();
+      }
+    }
   }
 
   void _startWelcomeTimer() {
@@ -78,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _welcomeTimer?.cancel();
     _bannerController.dispose();
     _mainPageController.dispose();
+    _mainScrollController.dispose();
     super.dispose();
   }
 
@@ -96,6 +112,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleRefresh() async {
+    _productPage = 0;
+    _hasMoreProducts = true;
     await Future.wait([
       _fetchAnnouncements(),
       _fetchProducts(),
@@ -154,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .select('*')
           .eq('for_sale', true)
           .order('created_at', ascending: false)
-          .limit(10);
+          .limit(_pageSize);
 
       if (mounted) {
         final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(data);
@@ -168,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _featuredProducts = products;
           _categories = (uniqueLabels.toList()..sort()).map((label) => {'label': label}).toList();
           _isLoadingProducts = false;
+          _hasMoreProducts = products.length == _pageSize;
         });
       }
     } catch (e) {
@@ -175,6 +194,36 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() => _isLoadingProducts = false);
       }
+    }
+  }
+
+  Future<void> _fetchMoreProducts() async {
+    if (_isProductLoadingMore || !_hasMoreProducts) return;
+
+    setState(() => _isProductLoadingMore = true);
+    try {
+      _productPage++;
+      final from = _productPage * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final data = await _supabase
+          .from('product')
+          .select('*')
+          .eq('for_sale', true)
+          .order('created_at', ascending: false)
+          .range(from, to);
+
+      if (mounted) {
+        final List<Map<String, dynamic>> newProducts = List<Map<String, dynamic>>.from(data);
+        setState(() {
+          _featuredProducts.addAll(newProducts);
+          _hasMoreProducts = data.length == _pageSize;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching more products: $e');
+    } finally {
+      if (mounted) setState(() => _isProductLoadingMore = false);
     }
   }
 
@@ -230,7 +279,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: (_isLoadingAnnouncements && _announcements.isEmpty) || (_isLoadingProducts && _featuredProducts.isEmpty)
             ? const HomeSkeleton()
             : SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 16), // Added top gap
+          controller: _mainScrollController,
+          padding: const EdgeInsets.only(top: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -465,6 +515,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
+              const SizedBox(height: 16),
+              if (_isProductLoadingMore)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
               const SizedBox(height: 32),
             ],
           ),

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'receipt_screen.dart';
 import '../../utils/translations.dart';
 import '../chat/chat_screen.dart';
+import '../../utils/globals.dart';
 
 // Buyer's order detail view — Member 3
 // Shows full order info and status.
@@ -275,7 +276,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                           ],
                         ),
                       ),
-                      if (seller?['id'] != null && seller?['id'] != Supabase.instance.client.auth.currentUser?.id)
+                      if (seller?['id'] != null && seller?['id'] != currentUser?['id'])
                         IconButton(
                           onPressed: () {
                             if (seller?['id'] != null) {

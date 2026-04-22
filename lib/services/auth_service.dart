@@ -28,19 +28,26 @@ class AuthService {
   /// Seeds the standard admin account for testing/system use
   Future<void> seedAdminAccount() async {
     try {
-      // Upsert the fixed admin user into the custom 'user' table
-      // Note: We use the email 'admin' as a unique identifier for the seed
-      await _supabase.from('user').upsert({
-        'email': adminEmail,
-        'password': adminPass,
-        'username': 'System Admin',
-        'role': 'admin',
-        'customer_verified': true,
-        'appearance': 0, // 0: system
-      }, onConflict: 'email');
-      debugPrint('Admin account seeded successfully.');
+      // Check if admin already exists first
+      // This prevents overwriting user-modified data (like Display Name) on every app start
+      final existing = await _supabase
+          .from('user')
+          .select('id')
+          .eq('email', adminEmail)
+          .maybeSingle();
+
+      if (existing == null) {
+        await _supabase.from('user').insert({
+          'email': adminEmail,
+          'password': adminPass,
+          'username': 'System Admin',
+          'role': 'admin',
+          'customer_verified': true,
+          'appearance': 0, // 0: system
+        });
+        debugPrint('Admin account seeded successfully.');
+      }
     } catch (e) {
-      // If 'role' column doesn't exist yet, we catch it here
       debugPrint('Admin seeding info: $e');
     }
   }

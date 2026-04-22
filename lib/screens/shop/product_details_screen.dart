@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'seller_page_screen.dart';
 import '../cart/cart_screen.dart';
+import '../chat/chat_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/translations.dart';
@@ -278,14 +279,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           Icon(
                             Icons.inventory_2,
                             size: 14,
-                            color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
+                            color: _getStockColor(_productData!['quantity'] ?? 0),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${t('stock')}: ${_productData!['quantity'] ?? 0}',
+                            _getStockLabel(_productData!['quantity'] ?? 0),
                             style: TextStyle(
                               fontSize: 14,
-                              color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
+                              color: _getStockColor(_productData!['quantity'] ?? 0),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -308,15 +309,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                          color: _getStockColor(_productData!['quantity'] ?? 0).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          (_productData!['quantity'] ?? 0) > 0 ? t('in_stock') : t('out_of_stock'),
+                          _getStockLabel(_productData!['quantity'] ?? 0),
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: (_productData!['quantity'] ?? 0) > 0 ? Colors.green : Colors.red,
+                            color: _getStockColor(_productData!['quantity'] ?? 0),
                           ),
                         ),
                       ),
@@ -392,6 +393,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                             ],
                           ),
                         ),
+                        if (_sellerData?['id'] != null && _sellerData?['id'] != currentUser?['id'])
+                          IconButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    remoteUserId: _sellerData!['id'],
+                                    remoteUserName: _sellerData!['shop_name'] ?? 'Unknown Seller',
+                                    initialProduct: _productData,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.chat_bubble_outline, color: Colors.lightBlue),
+                          ),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
@@ -442,6 +459,22 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       ),
     );
   }
+
+  Color _getStockColor(int quantity) {
+    if (quantity <= 0) return Colors.red;
+    if (quantity < 5) return Colors.red;
+    if (quantity < 10) return Colors.orange;
+    return Colors.green;
+  }
+
+  String _getStockLabel(int quantity) {
+    if (quantity <= 0) return t('out_of_stock');
+    if (quantity < 5) return 'Last In Stock: $quantity';
+    if (quantity < 10) return 'Remaining Stock: $quantity';
+    return '${t('in_stock')}: $quantity';
+  }
+
+  String t(String key) => Translations.translate(key);
 }
 
 class _FlyToCartOverlay extends StatefulWidget {

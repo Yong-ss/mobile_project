@@ -7,6 +7,7 @@ import '../../utils/snackbar_helper.dart';
 import '../../utils/translations.dart';
 import '../chat/chat_screen.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../../utils/globals.dart';
 import 'receipt_screen.dart';
 
 class SellerOrderDetailScreen extends StatefulWidget {
@@ -393,7 +394,7 @@ class _SellerOrderDetailScreenState extends State<SellerOrderDetailScreen> {
                         ],
                       ),
                     ),
-                    if (buyer?['id'] != null && buyer?['id'] != Supabase.instance.client.auth.currentUser?.id)
+                    if (buyer?['id'] != null && buyer?['id'] != currentUser?['id'])
                       IconButton(
                         onPressed: () {
                           if (buyer?['id'] != null) {

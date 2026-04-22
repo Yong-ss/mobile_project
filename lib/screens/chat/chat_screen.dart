@@ -1,21 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../utils/globals.dart';
 import '../../widgets/shimmer_skeletons.dart';
+import '../cart/cart_screen.dart';
+import '../../utils/snackbar_helper.dart';
 
 class ChatScreen extends StatefulWidget {
   final String remoteUserId;
   final String remoteUserName;
   final List<String> relatedRemoteIds;
+  final Map<String, dynamic>? initialProduct;
 
   const ChatScreen({
     super.key,
     required this.remoteUserId,
     required this.remoteUserName,
     this.relatedRemoteIds = const [],
+    this.initialProduct,
   });
 
 
@@ -37,9 +42,49 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _currentUserId;
   bool _isSending = false;
 
+  // Pagination
+  int _chatPage = 0;
+  final int _pageSize = 20;
+  bool _isLoadingOlder = false;
+  bool _hasMoreOlder = true;
+
   // High-Performance Sync State
   List<Map<String, dynamic>> _serverMessages = [];
   final List<Map<String, dynamic>> _pendingMessages = [];
+
+  void _endSession() async {
+    if (_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) return;
+    final sessionData = {'type': 'session_ended'};
+    final content = jsonEncode(sessionData);
+    _sendMessage(manualContent: content);
+    _sessionCountdownTimer?.cancel();
+  }
+
+  void _startSessionTimer({int? resetSeconds}) {
+    _sessionCountdownTimer?.cancel();
+    if (_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) return;
+
+    if (resetSeconds != null) {
+      setState(() => _sessionRemainingSeconds = resetSeconds);
+    }
+
+    _sessionCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        if (_sessionRemainingSeconds > 0) {
+          setState(() => _sessionRemainingSeconds--);
+        } else {
+          _endSession();
+          timer.cancel();
+        }
+      }
+    });
+  }
+
+  String _formatSessionTime(int seconds) {
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
 
 
   // User Presence State
@@ -50,12 +95,60 @@ class _ChatScreenState extends State<ChatScreen> {
   RealtimeChannel? _statusChannel;
   Timer? _pollingTimer;
   Timer? _connectionCheckTimer;
+  Timer? _sessionCountdownTimer;
+  int _sessionRemainingSeconds = 300; // 5 minutes
+  DateTime? _historyLimit;
 
   @override
   void initState() {
     super.initState();
     _currentUserId = currentUser?['id'];
-    _initializeChat();
+    _scrollController.addListener(_onScroll);
+    _initializeChat().then((_) {
+      if (widget.initialProduct != null) {
+        _sendProductMessage(widget.initialProduct!);
+      }
+    });
+  }
+
+  Future<void> _fetchHistoryLimit() async {
+    try {
+      final res = await _supabase
+          .from('hidden_chat')
+          .select('hidden_at')
+          .eq('user_id', _currentUserId!)
+          .eq('remote_user_id', widget.remoteUserId)
+          .maybeSingle();
+      if (res != null && mounted) {
+        setState(() {
+          _historyLimit = DateTime.parse(res['hidden_at']);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching history limit: $e');
+    }
+  }
+
+  Future<void> _sendProductMessage(Map<String, dynamic> product) async {
+    final productData = {
+      'type': 'product',
+      'id': product['id'],
+      'name': product['name'],
+      'price': product['price']?.toString() ?? '0.00',
+      'image': (product['image_url']?.toString() ?? '').split(',')[0],
+      'seller_id': product['seller_id'],
+      'stock': product['quantity'] ?? 0,
+    };
+
+    final content = jsonEncode(productData);
+
+    // Check if the last message was the same product to avoid spam
+    if (_messages.isNotEmpty) {
+      final lastMsg = _messages.last;
+      if (lastMsg['content'] == content) return;
+    }
+
+    _sendMessage(manualContent: content);
   }
 
   @override
@@ -69,8 +162,18 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels <= 100) {
+      if (!_isLoadingOlder && _hasMoreOlder) {
+        _fetchMoreOlderMessages();
+      }
+    }
+  }
+
   Future<void> _initializeChat() async {
     if (_currentUserId == null) return;
+
+    await _fetchHistoryLimit();
 
     setState(() {
       _isLoading = true;
@@ -180,12 +283,20 @@ class _ChatScreenState extends State<ChatScreen> {
         .order('created_at', ascending: true)
         .listen(
           (data) {
+        final incoming = data.where((m) {
+          if (_historyLimit != null) {
+            final createdAt = DateTime.parse(m['created_at']);
+            return createdAt.isAfter(_historyLimit!);
+          }
+          return true;
+        }).toList();
+
         if (mounted) {
           final myId = _currentUserId?.toLowerCase();
 
           final targetIds = {widget.remoteUserId, ...widget.relatedRemoteIds}.map((id) => id.toString().toLowerCase()).toSet();
 
-          final chatMessages = data.where((msg) {
+          final chatMessages = incoming.where((msg) {
             final sId = msg['sender_id']?.toString().toLowerCase();
             final rId = msg['receiver_id']?.toString().toLowerCase();
 
@@ -219,6 +330,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _isLive = true;
             _isSyncing = false;
             _pollingTimer?.cancel();
+            _startSessionTimer(resetSeconds: 300);
           });
           _scrollToBottom();
 
@@ -254,22 +366,52 @@ class _ChatScreenState extends State<ChatScreen> {
         ...widget.relatedRemoteIds
       }.toList();
 
+      setState(() {
+        _chatPage = 0;
+        _hasMoreOlder = true;
+      });
+
       final res = await _supabase
           .from('messages')
           .select()
           .or('and(sender_id.eq.$_currentUserId,receiver_id.in.("${targetIds.join('","')}")),and(sender_id.in.("${targetIds.join('","')}"),receiver_id.eq.$_currentUserId)')
-          .order('created_at', ascending: true);
-
+          .order('created_at', ascending: false)
+          .limit(_pageSize);
 
       if (mounted) {
-        final incoming = List<Map<String, dynamic>>.from(res);
+        List<Map<String, dynamic>> incoming = List<Map<String, dynamic>>.from(res).reversed.toList();
+
+        // Filter by history limit (per-user non-destructive deletion)
+        if (_historyLimit != null) {
+          incoming = incoming.where((m) {
+            final createdAt = DateTime.parse(m['created_at']);
+            return createdAt.isAfter(_historyLimit!);
+          }).toList();
+        }
 
         setState(() {
           _serverMessages = incoming;
           _messages = [..._serverMessages, ..._pendingMessages];
           _isLoading = false;
           if (isBackground) _isSyncing = true;
+
+          // Calculate sticky timer based on last message
+          if (_messages.isNotEmpty && !_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) {
+            final lastMsgAt = DateTime.parse(_messages.last['created_at']).toUtc();
+            final now = DateTime.now().toUtc();
+            final difference = now.difference(lastMsgAt).inSeconds;
+
+            // If less than 5 minutes has passed, set timer to remaining
+            if (difference < 300) {
+              _startSessionTimer(resetSeconds: 300 - difference);
+            } else {
+              // More than 5 minutes passed while away, auto-end it
+              _sessionRemainingSeconds = 0;
+              _endSession();
+            }
+          }
         });
+        _hasMoreOlder = res.length == _pageSize;
         _scrollToBottom(immediate: !isBackground);
       }
 
@@ -279,9 +421,59 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty || _currentUserId == null) return;
+  Future<void> _fetchMoreOlderMessages() async {
+    if (_isLoadingOlder || !_hasMoreOlder) return;
+
+    setState(() => _isLoadingOlder = true);
+    try {
+      _chatPage++;
+      final List<String> targetIds = {
+        widget.remoteUserId,
+        ...widget.relatedRemoteIds
+      }.toList();
+
+      final from = _chatPage * _pageSize;
+      final to = from + _pageSize - 1;
+
+      final res = await _supabase
+          .from('messages')
+          .select()
+          .or('and(sender_id.eq.$_currentUserId,receiver_id.in.("${targetIds.join('","')}")),and(sender_id.in.("${targetIds.join('","')}"),receiver_id.eq.$_currentUserId)')
+          .order('created_at', ascending: false)
+          .range(from, to);
+
+      if (mounted) {
+        final olderMessages = List<Map<String, dynamic>>.from(res).reversed.toList();
+
+        // Save current scroll position to maintain position after prepending
+        final previousScrollOffset = _scrollController.position.pixels;
+        final previousMaxScroll = _scrollController.position.maxScrollExtent;
+
+        setState(() {
+          _serverMessages.insertAll(0, olderMessages);
+          _messages = [..._serverMessages, ..._pendingMessages];
+          _hasMoreOlder = res.length == _pageSize;
+        });
+
+        // Use a post-frame callback to adjust scroll position
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            final newMaxScroll = _scrollController.position.maxScrollExtent;
+            final scrollIncrease = newMaxScroll - previousMaxScroll;
+            _scrollController.jumpTo(previousScrollOffset + scrollIncrease);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching older messages: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingOlder = false);
+    }
+  }
+
+  Future<void> _sendMessage({String? manualContent}) async {
+    final text = manualContent ?? _messageController.text.trim();
+    if (text.isEmpty || _currentUserId == null || _isSending) return;
 
     final tempId = _uuid.v4();
     final optimisticMsg = {
@@ -298,7 +490,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages = [..._serverMessages, ..._pendingMessages];
       _isSending = true;
     });
-    _messageController.clear();
+    if (manualContent == null) _messageController.clear();
     _scrollToBottom();
 
     try {
@@ -319,6 +511,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _serverMessages.add(response);
           }
           _messages = [..._serverMessages, ..._pendingMessages];
+          _startSessionTimer(resetSeconds: 300); // Reset timer on send
         });
       }
     } catch (e) {
@@ -414,6 +607,41 @@ class _ChatScreenState extends State<ChatScreen> {
     final isSending = message['is_sending'] == true;
     final createdAt = DateTime.tryParse(message['created_at'] ?? '')?.toLocal() ?? DateTime.now();
     final timeStr = DateFormat('HH:mm').format(createdAt);
+    final String content = message['content'] ?? '';
+
+    bool isProduct = false;
+    bool isSessionEnded = false;
+    Map<String, dynamic>? productInfo;
+    if (content.trim().startsWith('{')) {
+      try {
+        final decoded = jsonDecode(content);
+        if (decoded is Map) {
+          if (decoded['type'] == 'product') {
+            productInfo = Map<String, dynamic>.from(decoded);
+            isProduct = true;
+          } else if (decoded['type'] == 'session_ended') {
+            isSessionEnded = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (isSessionEnded) {
+      return Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Text(
+            "Chat Session Ended",
+            style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+          ),
+        ),
+      );
+    }
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -448,7 +676,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 )
               ],
             ),
-            child: Stack(
+            child: isProduct ? ProductChatCard(
+              product: productInfo!,
+              isMe: isMe,
+              time: timeStr,
+              isSending: isSending,
+              currentUserId: _currentUserId,
+            ) : Stack(
               children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12, right: 55),
@@ -506,49 +740,77 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const CircleAvatar(
+              radius: 16,
               backgroundColor: Colors.white24,
-              child: Icon(Icons.person, color: Colors.white),
+              child: Icon(Icons.person, color: Colors.white, size: 20),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.remoteUserName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _statusColor,
-                          shape: BoxShape.circle,
-                        ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.remoteUserName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: _statusColor,
+                        shape: BoxShape.circle,
                       ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _remoteUserStatus,
+                      style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), letterSpacing: 0.1),
+                    ),
+                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) ...[
                       const SizedBox(width: 6),
                       Text(
-                        _remoteUserStatus,
-                        style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), letterSpacing: 0.2),
-
+                        "• ${_formatSessionTime(_sessionRemainingSeconds)}",
+                        style: const TextStyle(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold),
                       ),
                     ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         elevation: 1,
+        actions: [
+          if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+            PopupMenuButton<String>(
+              onSelected: (val) {
+                if (val == 'end') _endSession();
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'end',
+                  child: Row(
+                    children: [
+                      Icon(Icons.close_rounded, color: Colors.red, size: 20),
+                      SizedBox(width: 8),
+                      Text("End Chat"),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: SafeArea(
         child: Container(
@@ -569,16 +831,28 @@ class _ChatScreenState extends State<ChatScreen> {
                     : ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  itemCount: _messages.length,
+                  itemCount: _messages.length + (_hasMoreOlder ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final message = _messages[index];
+                    if (index == 0 && _hasMoreOlder) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: _isLoadingOlder
+                              ? const CircularProgressIndicator(strokeWidth: 2)
+                              : const SizedBox(height: 10), // Gap when not loading yet
+                        ),
+                      );
+                    }
+
+                    final adjustedIndex = _hasMoreOlder ? index - 1 : index;
+                    final message = _messages[adjustedIndex];
                     final date = DateTime.tryParse(message['created_at'] ?? '')?.toLocal() ?? DateTime.now();
 
                     bool showDateHeader = false;
-                    if (index == 0) {
+                    if (adjustedIndex == 0) {
                       showDateHeader = true;
                     } else {
-                      final prevDate = DateTime.tryParse(_messages[index - 1]['created_at'] ?? '')?.toLocal() ?? DateTime.now();
+                      final prevDate = DateTime.tryParse(_messages[adjustedIndex - 1]['created_at'] ?? '')?.toLocal() ?? DateTime.now();
                       if (!_isSameDay(date, prevDate)) {
                         showDateHeader = true;
                       }
@@ -605,46 +879,54 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        textCapitalization: TextCapitalization.sentences,
-                        maxLines: 5,
-                        minLines: 1,
-                        style: const TextStyle(fontSize: 16),
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          hintStyle: TextStyle(color: Colors.grey.shade400),
-                          filled: true,
-                          fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade100,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(28),
-                            borderSide: BorderSide.none,
+                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          textCapitalization: TextCapitalization.sentences,
+                          maxLines: 5,
+                          minLines: 1,
+                          style: const TextStyle(fontSize: 16),
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            hintStyle: TextStyle(color: Colors.grey.shade400),
+                            filled: true,
+                            fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade100,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(28),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          onSubmitted: (_) => _sendMessage(),
                         ),
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: _isSending ? null : _sendMessage,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade600,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))
-
-                          ],
+                      )
+                    else
+                      const Expanded(
+                        child: Center(
+                          child: Text(
+                            "This session has ended.",
+                            style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                          ),
                         ),
-                        child: _isSending
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.send_rounded, color: Colors.white, size: 24),
                       ),
-                    ),
+                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+                      const SizedBox(width: 10),
+                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+                      GestureDetector(
+                        onTap: () => _sendMessage(),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade700,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3))
+                            ],
+                          ),
+                          child: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -759,6 +1041,241 @@ class PositionChanged extends StatelessWidget {
       right: right,
       bottom: bottom,
       child: child,
+    );
+  }
+}
+
+class ProductChatCard extends StatefulWidget {
+  final Map<String, dynamic> product;
+  final bool isMe;
+  final String time;
+  final bool isSending;
+  final String? currentUserId;
+
+  const ProductChatCard({
+    super.key,
+    required this.product,
+    required this.isMe,
+    required this.time,
+    required this.isSending,
+    this.currentUserId,
+  });
+
+  @override
+  State<ProductChatCard> createState() => _ProductChatCardState();
+}
+
+class _ProductChatCardState extends State<ProductChatCard> {
+  int? _currentStock;
+  bool _isActionLoading = false;
+  final _supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStock = widget.product['stock'];
+    _fetchLatestStock();
+  }
+
+  Future<void> _fetchLatestStock() async {
+    try {
+      final res = await _supabase
+          .from('product')
+          .select('quantity')
+          .eq('id', widget.product['id'])
+          .maybeSingle();
+      if (res != null && mounted) {
+        setState(() {
+          _currentStock = res['quantity'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching stock: $e');
+    }
+  }
+
+  Future<void> _handleBuyNow() async {
+    if (widget.currentUserId == null) {
+      snackbar('Please login to buy', Colors.orange);
+      return;
+    }
+
+    setState(() => _isActionLoading = true);
+    try {
+      final response = await _supabase
+          .from('cart_item')
+          .select('id, quantity')
+          .eq('user_id', widget.currentUserId!)
+          .eq('product_id', widget.product['id'])
+          .maybeSingle();
+
+      if (response == null) {
+        await _supabase.from('cart_item').insert({
+          'user_id': widget.currentUserId,
+          'product_id': widget.product['id'],
+          'quantity': 1,
+        });
+      } else {
+        await _supabase
+            .from('cart_item')
+            .update({'quantity': (response['quantity'] as int) + 1})
+            .eq('id', response['id']);
+      }
+
+      if (mounted) {
+        snackbar('Added to cart!', Colors.green);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CartScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) snackbar('Error: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool isViewerSeller = widget.product['seller_id']?.toString() == widget.currentUserId?.toString();
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black12 : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      widget.product['image'] ?? '',
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 70,
+                        height: 70,
+                        color: Colors.grey.shade200,
+                        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.product['name'] ?? 'Product',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          height: 1.2,
+                          color: widget.isMe ? Colors.black87 : (isDark ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'RM ${widget.product['price']}',
+                        style: const TextStyle(
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: isViewerSeller ? null : _handleBuyNow,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isViewerSeller
+                      ? [Colors.grey.shade600, Colors.grey.shade700]
+                      : [Colors.blue.shade600, Colors.blue.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isViewerSeller ? Colors.grey : Colors.blue).withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+              ),
+              alignment: Alignment.center,
+              child: _isActionLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!isViewerSeller) ...[
+                    const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 16),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    isViewerSeller ? 'In Stock: ${_currentStock ?? '...'}' : 'Buy Now',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                widget.time,
+                style: TextStyle(
+                  color: widget.isMe ? Colors.black54 : Colors.grey.shade500,
+                  fontSize: 10,
+                ),
+              ),
+              if (widget.isMe) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  widget.isSending ? Icons.access_time_rounded : Icons.done_all_rounded,
+                  size: 13,
+                  color: widget.isSending ? Colors.black45 : Colors.blueAccent,
+                ),
+              ]
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -84,6 +84,15 @@ class PrisconApp extends StatelessWidget {
               brightness: Brightness.light,
             ),
             useMaterial3: true,
+            appBarTheme: const AppBarTheme(
+              centerTitle: true,
+              elevation: 0,
+              titleTextStyle: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           darkTheme: ThemeData(
             useMaterial3: true,

@@ -81,7 +81,7 @@ class _SellerPageScreenState extends State<SellerPageScreen> {
         : t('unknown');
 
     return Scaffold(
-      appBar: AppBar(title: Text(t('seller_shop'))),
+      appBar: AppBar(title: Text(t('seller_shop'), style: const TextStyle(fontWeight: FontWeight.bold))),
       body: SafeArea(
         child: Column(
           children: [

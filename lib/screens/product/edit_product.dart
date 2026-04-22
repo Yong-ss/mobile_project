@@ -5,6 +5,7 @@ import '../../utils/snackbar_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../widgets/shimmer_skeletons.dart';
 import '../../utils/translations.dart';
+import '../../services/product_service.dart';
 
 class EditProductScreen extends StatefulWidget {
   final Map<String, dynamic> product; // 需要传入要编辑的商品数据
@@ -160,6 +161,49 @@ class _EditProductScreenState extends State<EditProductScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         snackbar('${t('error')}: $e', Colors.red);
+      }
+    }
+  }
+
+  Future<void> _deleteProduct() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t('delete_product')),
+        content: Text(t('confirm_delete_product')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t('cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(t('delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        setState(() => _isLoading = true);
+
+        await ProductService.deleteProductComplete(
+            widget.product['id'],
+            widget.product['image_url']
+        );
+
+        if (mounted) {
+          setState(() => _isLoading = false);
+          snackbar(t('product_deleted'), Colors.green);
+          Navigator.pop(context, true); // Refresh list
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          snackbar('${t('error')}: $e', Colors.red);
+        }
       }
     }
   }
@@ -381,7 +425,25 @@ class _EditProductScreenState extends State<EditProductScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _isLoading ? null : _deleteProduct,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red, width: 1.5),
+                      minimumSize: const Size(double.infinity, 55),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    child: Text(
+                      t('delete_product'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
