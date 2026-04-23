@@ -43,10 +43,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadPendingCount() async {
     try {
       final response = await Supabase.instance.client
-          .from('payments')
+          .from('orders')
           .select('id')
-          .eq('user_id', currentUser!['id'])
-          .eq('status', 'pending');
+          .eq('buyer_id', currentUser!['id'])
+          .eq('status', 'Awaiting Payment');
 
       if (mounted) {
         setState(() {

@@ -28,6 +28,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _paymentSubMethod = '';
 
   bool _isLoading = true;
+  bool _isProcessing = false;
   String _username = '';
   List<Map<String, dynamic>> _cartItems = [];
 
@@ -717,13 +718,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton(
-                    onPressed: _handleCheckout,
+                    onPressed: _isProcessing ? null : _handleCheckout,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.lightBlue,
+                      backgroundColor: _isProcessing ? Colors.grey : Colors.lightBlue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: Text(t('place_order'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    child: _isProcessing
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(t('place_order'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -799,14 +802,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _handleCheckout() async {
+    if (_isProcessing) return;
+
     if (_cartItems.isEmpty) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
       return;
     }
 
+    setState(() => _isProcessing = true);
+
     // 1. Fulfillment Validation First
     if (_isSelfPickup) {
       if (_selectedPickupData == null) {
+        setState(() => _isProcessing = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please select a pickup point on the map'), backgroundColor: Colors.orange),
@@ -818,6 +826,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final address = _deliveryAddressController.text.trim();
       if (address.isEmpty) {
         setState(() {
+          _isProcessing = false;
           _selectedLocationData = null; // Clear any 'ghost' coordinates if text is empty
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -834,6 +843,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     // 2. Payment Method Validation
     if (_paymentMethod.isEmpty) {
+      setState(() => _isProcessing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a payment method'), backgroundColor: Colors.orange),
@@ -864,6 +874,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         await _placeOrder(transactionId);
       } catch (e) {
+        setState(() => _isProcessing = false);
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to initialize payment: $e')));
       }
     }
@@ -894,6 +905,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (mounted) Navigator.pop(context); // Close loading
     } catch (e) {
+      setState(() => _isProcessing = false);
       if (mounted) Navigator.pop(context); // Close loading
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to initialize NFC payment: $e')));
       return;
@@ -1112,6 +1124,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
     } on StripeException {
+      setState(() => _isProcessing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1126,6 +1139,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       }
     } catch (e) {
+      setState(() => _isProcessing = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }

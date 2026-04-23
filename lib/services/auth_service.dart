@@ -210,7 +210,16 @@ class AuthService {
         throw 'No ID Token found.';
       }
 
-      // 4. Authenticate with Supabase
+      // 4. PRE-CHECK: See if user exists in public.user BEFORE we authenticate.
+      // We do this because our database trigger will automatically create the public record
+      // the moment signInWithIdToken succeeds, which would trick us into thinking they are an existing user.
+      final existingUserPre = await _supabase
+          .from('user')
+          .select()
+          .or('google_uuid.eq.${googleUser.id},email.eq.${googleUser.email}')
+          .maybeSingle();
+
+      // 5. Authenticate with Supabase
       final AuthResponse res = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
@@ -220,31 +229,22 @@ class AuthService {
       final user = res.user;
       if (user == null) throw 'Supabase Auth failed';
 
-      // 5. Sync with custom 'user' table
-      final existingUser = await _supabase
-          .from('user')
-          .select()
-          .or('google_uuid.eq.${googleUser.id},email.eq.${googleUser.email}')
-          .maybeSingle();
-
-      if (existingUser == null) {
+      if (existingUserPre == null) {
         // This is a NEW user - return Google metadata so the UI can decide next steps
         return GoogleSignInResult(
           googleMetadata: googleUser,
           isNewUser: true,
         );
       } else {
-        // Existing user found (by Email or Google UUID)
-        // 1. Update their info with Google details
-        // 2. IMPORTANT: If they were a legacy user, they now have a real Supabase Auth user!
-        //    We update their ID to match the real 'user.id' from Supabase Auth.
+        // Existing user found (from before this call)
+        // Update their info with latest Google details
         final updateRes = await _supabase.from('user').update({
           'id': user.id, // Upgrade to the real official Auth ID
           'google_uuid': googleUser.id,
           'google_username': googleUser.displayName,
           'google_email': googleUser.email,
           'google_profile_image': googleUser.photoUrl,
-        }).eq('id', existingUser['id']).select().single();
+        }).eq('id', existingUserPre['id']).select().single();
 
         // Save to Prefs
         await _saveUserDataLocally(updateRes);
@@ -270,7 +270,7 @@ class AuthService {
         ? generateSecurePassword()
         : password;
 
-    final userData = await _supabase.from('user').insert({
+    final userData = await _supabase.from('user').upsert({
       'id': authUser.id,
       'username': googleMetadata.displayName ?? googleMetadata.email.split('@')[0],
       'email': googleMetadata.email,

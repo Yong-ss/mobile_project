@@ -52,8 +52,13 @@ class _ChatScreenState extends State<ChatScreen> {
   List<Map<String, dynamic>> _serverMessages = [];
   final List<Map<String, dynamic>> _pendingMessages = [];
 
+  bool get _isSessionEnded {
+    if (_messages.isEmpty) return false;
+    return _messages.last['content'].toString().contains('"type":"session_ended"');
+  }
+
   void _endSession() async {
-    if (_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) return;
+    if (_isSessionEnded) return;
     final sessionData = {'type': 'session_ended'};
     final content = jsonEncode(sessionData);
     _sendMessage(manualContent: content);
@@ -62,7 +67,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _startSessionTimer({int? resetSeconds}) {
     _sessionCountdownTimer?.cancel();
-    if (_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) return;
+    if (_isSessionEnded) return;
 
     if (resetSeconds != null) {
       setState(() => _sessionRemainingSeconds = resetSeconds);
@@ -330,7 +335,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _isLive = true;
             _isSyncing = false;
             _pollingTimer?.cancel();
-            _startSessionTimer(resetSeconds: 300);
+            if (!_isSessionEnded) _startSessionTimer(resetSeconds: 300);
           });
           _scrollToBottom();
 
@@ -396,7 +401,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (isBackground) _isSyncing = true;
 
           // Calculate sticky timer based on last message
-          if (_messages.isNotEmpty && !_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) {
+          if (_messages.isNotEmpty && !_isSessionEnded) {
             final lastMsgAt = DateTime.parse(_messages.last['created_at']).toUtc();
             final now = DateTime.now().toUtc();
             final difference = now.difference(lastMsgAt).inSeconds;
@@ -511,7 +516,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _serverMessages.add(response);
           }
           _messages = [..._serverMessages, ..._pendingMessages];
-          _startSessionTimer(resetSeconds: 300); // Reset timer on send
+          if (!_isSessionEnded) _startSessionTimer(resetSeconds: 300); // Reset timer on send
         });
       }
     } catch (e) {
@@ -775,7 +780,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       _remoteUserStatus,
                       style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.9), letterSpacing: 0.1),
                     ),
-                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"'))) ...[
+                    if (!_isSessionEnded) ...[
                       const SizedBox(width: 6),
                       Text(
                         "• ${_formatSessionTime(_sessionRemainingSeconds)}",
@@ -792,7 +797,7 @@ class _ChatScreenState extends State<ChatScreen> {
         foregroundColor: Colors.white,
         elevation: 1,
         actions: [
-          if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+          if (!_isSessionEnded)
             PopupMenuButton<String>(
               onSelected: (val) {
                 if (val == 'end') _endSession();
@@ -879,7 +884,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 child: Row(
                   children: [
-                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+                    if (!_isSessionEnded)
                       Expanded(
                         child: TextField(
                           controller: _messageController,
@@ -910,9 +915,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                       ),
-                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+                    if (!_isSessionEnded)
                       const SizedBox(width: 10),
-                    if (!_messages.any((m) => m['content'].toString().contains('"type":"session_ended"')))
+                    if (!_isSessionEnded)
                       GestureDetector(
                         onTap: () => _sendMessage(),
                         child: Container(
