@@ -151,12 +151,46 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  Future<void> _performForceDelete(List<String> userIds) async {
+    final supabase = Supabase.instance.client;
+
+    for (final userId in userIds) {
+      // 1. Delete Cart items
+      try { await supabase.from('cart').delete().eq('user_id', userId); } catch (_) {}
+
+      // 2. Identify orders related to this user (buyer or seller)
+      final ordersRes = await supabase
+          .from('orders')
+          .select('id')
+          .or('buyer_id.eq.$userId,seller_id.eq.$userId');
+
+      final List<String> orderIds = (ordersRes as List).map((o) => o['id'].toString()).toList();
+
+      if (orderIds.isNotEmpty) {
+        // 3. Delete Order Items (linked to these orders)
+        try {
+          await supabase.from('order_item').delete().filter('order_id', 'in', '(${orderIds.join(',')})');
+        } catch (_) {}
+        // 4. Delete Orders
+        try {
+          await supabase.from('orders').delete().filter('id', 'in', '(${orderIds.join(',')})');
+        } catch (_) {}
+      }
+
+      // 5. Delete Products (where user is seller)
+      try { await supabase.from('product').delete().eq('seller_id', userId); } catch (_) {}
+
+      // 6. Finally delete the user record from 'user' table
+      await supabase.from('user').delete().eq('id', userId);
+    }
+  }
+
   void _deleteUser(int index) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: Text('Are you sure you want to delete ${_users[index]['customer_name']}?'),
+        title: const Text('Confirm Force Delete'),
+        content: Text('Are you sure you want to permanently delete ${_users[index]['customer_name']} and ALL their related data (products, orders, cart)? This action is irreversible.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -166,15 +200,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             onPressed: () async {
               final user = _users[index];
               try {
-                await Supabase.instance.client.from('user').delete().eq('id', user['id']);
-                await _logAction('Delete User', 'Permanently deleted user ${user['customer_email']}');
+                await _performForceDelete([user['id'].toString()]);
+                await _logAction('Force Delete User', 'Permanently deleted user ${user['customer_email']} and all related data.');
 
                 setState(() {
                   _users.removeAt(index);
                 });
                 if (!context.mounted) return;
                 Navigator.pop(context);
-                snackbar('User deleted successfully', Colors.green);
+                snackbar('User and related data deleted successfully', Colors.green);
               } catch (e) {
                 if (context.mounted) snackbar('Error deleting user: $e', Colors.red);
               }
@@ -193,8 +227,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete ${selectedUsers.length} Users?'),
-        content: const Text('This will permanently remove all selected accounts. This action is irreversible.'),
+        title: Text('Force Delete ${selectedUsers.length} Users?'),
+        content: const Text('This will permanently remove all selected accounts and ALL their related data (products, orders, etc). This action is irreversible.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
@@ -203,9 +237,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               Navigator.pop(context);
               try {
                 final List<String> ids = selectedUsers.map((u) => u['id'].toString()).toList();
-                await Supabase.instance.client.from('user').delete().filter('id', 'in', '(${ids.join(',')})');
+                await _performForceDelete(ids);
 
-                await _logAction('Batch Delete Users', 'Deleted ${selectedUsers.length} users: ${selectedUsers.map((u) => u['customer_email']).join(', ')}');
+                await _logAction('Batch Force Delete Users', 'Deleted ${selectedUsers.length} users and their data: ${selectedUsers.map((u) => u['customer_email']).join(', ')}');
 
                 if (!mounted) return;
                 setState(() {
@@ -213,7 +247,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   _allSelected = false;
                   _isSelectionMode = false;
                 });
-                snackbar('Successfully deleted ${selectedUsers.length} users', Colors.green);
+                snackbar('Successfully deleted ${selectedUsers.length} users and their data', Colors.green);
               } catch (e) {
                 if (mounted) snackbar('Batch delete error: $e', Colors.red);
               }
