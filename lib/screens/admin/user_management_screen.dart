@@ -25,6 +25,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   bool _isFetchingMore = false;
   final int _pageSize = 20;
   int _offset = 0;
+  bool _isDialogOpen = false;
 
   @override
   void initState() {
@@ -48,6 +49,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       schema: 'public',
       table: 'user',
       callback: (payload) {
+        if (_isDialogOpen || !mounted) return;
         debugPrint('User table changed via realtime. Refreshing...');
         _fetchUsers();
       },
@@ -263,148 +265,51 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Future<void> _editUser(int index) async {
     final user = _users[index];
-    final TextEditingController nameController = TextEditingController(text: user['customer_name']);
-    final TextEditingController emailController = TextEditingController(text: user['customer_email']);
-    final TextEditingController sellerNameController = TextEditingController(text: user['seller_name']);
-
-    String customerVerified = user['customer_verified'] == 'Verified' ? 'Verified' : 'Not Verified';
-    String sellerStatus = user['seller_status'] == 'Registered' ? 'Registered' : 'Unregistered';
 
     if (!mounted) return;
 
-    await showDialog(
+    _isDialogOpen = true;
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) {
-        return Theme(
-          data: ThemeData.light(),
-          child: StatefulBuilder(
-              builder: (context, setDialogState) {
-                return AlertDialog(
-                  title: const Text('Edit User Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Customer Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: nameController,
-                          decoration: InputDecoration(
-                            labelText: 'Display Name',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: emailController,
-                          decoration: InputDecoration(
-                            labelText: 'Email Address',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: customerVerified,
-                          decoration: InputDecoration(
-                            labelText: 'Account Verification',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          items: ['Verified', 'Not Verified'].map((status) {
-                            return DropdownMenuItem(value: status, child: Text(status));
-                          }).toList(),
-                          onChanged: (val) => setDialogState(() => customerVerified = val!),
-                        ),
-
-                        const SizedBox(height: 24),
-                        const Text('Seller Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: sellerNameController,
-                          decoration: InputDecoration(
-                            labelText: 'Shop Name',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: sellerStatus,
-                          decoration: InputDecoration(
-                            labelText: 'Seller Registration',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          items: ['Registered', 'Unregistered'].map((status) {
-                            return DropdownMenuItem(value: status, child: Text(status));
-                          }).toList(),
-                          onChanged: (val) => setDialogState(() => sellerStatus = val!),
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: () async {
-                        final navigator = Navigator.of(dialogContext);
-                        try {
-                          final supabase = Supabase.instance.client;
-                          // Update consolidated user table
-                          await supabase.from('user').update({
-                            'username': nameController.text.trim(),
-                            'email': emailController.text.trim(),
-                            'customer_verified': customerVerified == 'Verified',
-                            'shop_name': sellerStatus == 'Registered' ? sellerNameController.text.trim() : null,
-                            'is_seller': sellerStatus == 'Registered',
-                          }).eq('id', user['id']);
-
-                          if (!mounted) return;
-
-                          // Update locally
-                          setState(() {
-                            _users[index]['customer_name'] = nameController.text.trim();
-                            _users[index]['customer_email'] = emailController.text.trim();
-                            _users[index]['customer_verified'] = customerVerified;
-                            _users[index]['seller_name'] = sellerStatus == 'Registered' ? sellerNameController.text.trim() : '';
-                            _users[index]['is_seller'] = sellerStatus == 'Registered';
-                            _users[index]['seller_status'] = sellerStatus;
-                          });
-
-                          navigator.pop();
-                          if (!mounted) return;
-                          snackbar('User updated successfully', Colors.green);
-                        } catch(e) {
-                          debugPrint('Update error: $e');
-                          if (mounted) snackbar('Error updating user: $e', Colors.red);
-                        }
-                      },
-                      child: const Text('Force Save Changes'),
-                    ),
-                  ],
-                );
-              }
-          ),
-        );
-      },
+      builder: (dialogContext) => _EditUserDialog(user: user),
     );
 
-    // Clean up
-    nameController.dispose();
-    emailController.dispose();
-    sellerNameController.dispose();
+    _isDialogOpen = false;
+
+    if (result == null || !mounted) return;
+
+    // All DB work happens AFTER dialog is completely gone
+    try {
+      final userId = user['id'];
+      await Supabase.instance.client.from('user').update({
+        'username': result['name'],
+        'email': result['email'],
+        'customer_verified': result['isVerified'],
+        'shop_name': result['isSeller'] ? result['shopName'] : null,
+        'is_seller': result['isSeller'],
+      }).eq('id', userId);
+
+      if (!mounted) return;
+
+      setState(() {
+        final idx = _users.indexWhere((u) => u['id'] == userId);
+        if (idx != -1) {
+          _users[idx]['customer_name'] = result['name'];
+          _users[idx]['customer_email'] = result['email'];
+          _users[idx]['customer_verified'] = result['customerVerified'];
+          _users[idx]['seller_name'] = result['isSeller'] ? result['shopName'] : '';
+          _users[idx]['is_seller'] = result['isSeller'];
+          _users[idx]['seller_status'] = result['sellerStatus'];
+        }
+      });
+
+      if (mounted) snackbar('User updated successfully', Colors.green);
+    } catch (e) {
+      debugPrint('Update error: $e');
+      if (mounted) snackbar('Error updating user: $e', Colors.red);
+    }
   }
 
   void _copyToClipboard(String text) {
@@ -1011,6 +916,139 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EditUserDialog extends StatefulWidget {
+  final Map<String, dynamic> user;
+  const _EditUserDialog({required this.user});
+
+  @override
+  State<_EditUserDialog> createState() => _EditUserDialogState();
+}
+
+class _EditUserDialogState extends State<_EditUserDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _sellerNameController;
+  late String _customerVerified;
+  late String _sellerStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.user['customer_name']);
+    _emailController = TextEditingController(text: widget.user['customer_email']);
+    _sellerNameController = TextEditingController(text: widget.user['seller_name']);
+    _customerVerified = widget.user['customer_verified'] == 'Verified' ? 'Verified' : 'Not Verified';
+    _sellerStatus = widget.user['seller_status'] == 'Registered' ? 'Registered' : 'Unregistered';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _sellerNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: ThemeData.light(),
+      child: AlertDialog(
+        title: const Text('Edit User Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Customer Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: 'Display Name',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email Address',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _customerVerified,
+                decoration: InputDecoration(
+                  labelText: 'Account Verification',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                items: ['Verified', 'Not Verified'].map((status) {
+                  return DropdownMenuItem(value: status, child: Text(status));
+                }).toList(),
+                onChanged: (val) => setState(() => _customerVerified = val!),
+              ),
+              const SizedBox(height: 24),
+              const Text('Seller Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _sellerNameController,
+                decoration: InputDecoration(
+                  labelText: 'Shop Name',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _sellerStatus,
+                decoration: InputDecoration(
+                  labelText: 'Seller Registration',
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                items: ['Registered', 'Unregistered'].map((status) {
+                  return DropdownMenuItem(value: status, child: Text(status));
+                }).toList(),
+                onChanged: (val) => setState(() => _sellerStatus = val!),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.lightBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(context, {
+                'name': _nameController.text.trim(),
+                'email': _emailController.text.trim(),
+                'shopName': _sellerNameController.text.trim(),
+                'isVerified': _customerVerified == 'Verified',
+                'isSeller': _sellerStatus == 'Registered',
+                'customerVerified': _customerVerified,
+                'sellerStatus': _sellerStatus,
+              });
+            },
+            child: const Text('Force Save Changes'),
+          ),
+        ],
       ),
     );
   }
