@@ -15,7 +15,6 @@ import '../../widgets/chat_badge_icon.dart';
 import 'notification_screen.dart';
 import '../../widgets/notification_bell.dart';
 
-
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -67,7 +66,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _shopName = currentUser!['shop_name'] ?? t('unnamed_shop');
 
         // New fields for verification flow
-        _applicationStatus = currentUser!['seller_application_status'] ?? 'none';
+        _applicationStatus =
+            currentUser!['seller_application_status'] ?? 'none';
         _rejectionReason = currentUser!['rejection_reason'] ?? '';
 
         _isLoading = false;
@@ -132,15 +132,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   await supabase
                       .from('user')
                       .update({
-                    'seller_application_status': 'pending',
-                    'shop_name': shopNameInput,
-                  })
+                        'seller_application_status': 'pending',
+                        'shop_name': shopNameInput,
+                      })
                       .eq('id', currentUser!['id']);
 
                   // Update global and local state
                   setState(() {
                     _applicationStatus = 'pending';
-                    _shopName = shopNameInput; // FIXED: Update local state immediately
+                    _shopName =
+                        shopNameInput; // FIXED: Update local state immediately
                     currentUser!['seller_application_status'] = 'pending';
                     currentUser!['shop_name'] = shopNameInput;
                   });
@@ -155,6 +156,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 } catch (e) {
                   snackbar('Error: $e', Colors.red);
                 }
+              } else {
+                snackbar('Please enter a shop name', Colors.red);
               }
             },
             child: Text(t('complete_registration')),
@@ -174,7 +177,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(t('my_profile'), style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          t('my_profile'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           ChatBadgeIcon(
             isSellerMode: false,
@@ -191,7 +197,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
               );
             },
           ),
@@ -202,15 +210,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             // ── Full-Banner Morph Header ──
             GestureDetector(
-              onTap: () => setState(() => _isProfileExpanded = !_isProfileExpanded),
+              onTap: () =>
+                  setState(() => _isProfileExpanded = !_isProfileExpanded),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 700),
                 curve: Curves.easeInOutCubic,
                 width: double.infinity,
-                height: _isProfileExpanded ? 240 : 180, // Morph the banner height
+                height: _isProfileExpanded
+                    ? 240
+                    : 180, // Morph the banner height
                 color: Theme.of(context).brightness == Brightness.dark
                     ? const Color(0xFF303030)
-                    : Colors.lightBlue.shade50,
+                    : const Color.fromARGB(255, 251, 251, 251),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -218,7 +229,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 700),
                       curve: Curves.easeInOutCubic,
-                      top: _isProfileExpanded ? 0 : 20, // Bump up when collapsed
+                      top: _isProfileExpanded
+                          ? 0
+                          : 20, // Bump up when collapsed
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 700),
                         curve: Curves.easeInOutCubic,
@@ -227,20 +240,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : 96,
                         height: _isProfileExpanded ? 240 : 96,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(_isProfileExpanded ? 0 : 48),
+                          borderRadius: BorderRadius.circular(
+                            _isProfileExpanded ? 0 : 48,
+                          ),
                           image: DecorationImage(
-                            image: (currentUser!['user_pic'] != null || currentUser!['google_profile_image'] != null)
-                                ? NetworkImage((currentUser!['user_pic'] ?? currentUser!['google_profile_image']).toString().split(',')[0])
-                                : const AssetImage('assets/images/placeholder_avatar.png') as ImageProvider,
+                            image:
+                                (currentUser!['user_pic'] != null ||
+                                    currentUser!['google_profile_image'] !=
+                                        null)
+                                ? NetworkImage(
+                                    (currentUser!['user_pic'] ??
+                                            currentUser!['google_profile_image'])
+                                        .toString()
+                                        .split(',')[0],
+                                  )
+                                : const AssetImage(
+                                        'assets/images/placeholder_avatar.png',
+                                      )
+                                      as ImageProvider,
                             fit: BoxFit.cover,
                           ),
                         ),
-                        child: (currentUser!['user_pic'] == null && currentUser!['google_profile_image'] == null)
+                        child:
+                            (currentUser!['user_pic'] == null &&
+                                currentUser!['google_profile_image'] == null)
                             ? AnimatedOpacity(
-                          opacity: _isProfileExpanded ? 0.0 : 1.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: const Icon(Icons.person, size: 48, color: Colors.lightBlue),
-                        )
+                                opacity: _isProfileExpanded ? 0.0 : 1.0,
+                                duration: const Duration(milliseconds: 300),
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: Colors.lightBlue,
+                                ),
+                              )
                             : null,
                       ),
                     ),
@@ -249,14 +281,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 500),
                       curve: Curves.easeInOut,
-                      bottom: _isProfileExpanded ? 0 : 16, // Extra padding when collapsed
+                      bottom: _isProfileExpanded
+                          ? 0
+                          : 16, // Extra padding when collapsed
                       child: ClipRect(
                         child: AnimatedOpacity(
                           opacity: _isProfileExpanded ? 0.0 : 1.0,
                           duration: const Duration(milliseconds: 400),
                           curve: Curves.easeInOut,
                           child: AnimatedSlide(
-                            offset: _isProfileExpanded ? const Offset(-0.3, 0) : Offset.zero,
+                            offset: _isProfileExpanded
+                                ? const Offset(-0.3, 0)
+                                : Offset.zero,
                             duration: const Duration(milliseconds: 500),
                             curve: Curves.easeOutQuart,
                             child: Column(
@@ -266,7 +302,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).brightness == Brightness.dark
+                                    color:
+                                        Theme.of(context).brightness ==
+                                            Brightness.dark
                                         ? Colors.white
                                         : Colors.black87,
                                   ),
@@ -274,7 +312,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Text(
                                   _showEmail,
                                   style: TextStyle(
-                                    color: Theme.of(context).brightness == Brightness.dark
+                                    color:
+                                        Theme.of(context).brightness ==
+                                            Brightness.dark
                                         ? Colors.white70
                                         : Colors.grey.shade600,
                                   ),
@@ -311,12 +351,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (!_isSeller)
               if (_applicationStatus == 'pending')
                 ListTile(
-                  leading: const Icon(Icons.hourglass_empty, color: Colors.orange),
-                  title: Text(
-                    t('application_pending'), // You may need to add this to translations, or use hardcoded
-                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                  leading: const Icon(
+                    Icons.hourglass_empty,
+                    color: Colors.orange,
                   ),
-                  subtitle: Text('Your shop "$_shopName" is under review by admin.'),
+                  title: Text(
+                    t(
+                      'application_pending',
+                    ), // You may need to add this to translations, or use hardcoded
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Your shop "$_shopName" is under review by admin.',
+                  ),
                   trailing: const CircularProgressIndicator(strokeWidth: 2),
                 )
               else if (_applicationStatus == 'rejected')
@@ -324,7 +374,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.error_outline, color: Colors.red),
                   title: Text(
                     t('application_rejected'),
-                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   subtitle: Text('Reason: $_rejectionReason. Tap to re-apply.'),
                   trailing: const Icon(Icons.refresh, color: Colors.red),
@@ -378,7 +431,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   if (_pendingCount > 0)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(20),
@@ -399,9 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ToPayScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const ToPayScreen()),
                 );
                 _loadPendingCount(); // Refresh count when coming back
               },
@@ -421,7 +475,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // ── Logout ──
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: Text(t('logout'), style: const TextStyle(color: Colors.red)),
+              title: Text(
+                t('logout'),
+                style: const TextStyle(color: Colors.red),
+              ),
               onTap: () async {
                 setState(() => _isLoading = true);
                 try {
@@ -432,7 +489,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       MaterialPageRoute(
                         builder: (context) => const LoginScreen(),
                       ),
-                          (route) => false,
+                      (route) => false,
                     );
                   }
                 } catch (e) {
