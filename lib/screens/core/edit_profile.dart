@@ -144,8 +144,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final newPass = _newPasswordController.text;
     final confirmPass = _confirmPasswordController.text;
 
-    if (confirmPass != newPass || newPass != confirmPass) {
-      snackbar(t('passwords_not_match'), Colors.red);
+    if (oldPass.isEmpty || newPass.isEmpty || confirmPass.isEmpty) {
+      snackbar(t('Please fill in all field'), Colors.red);
+      return;
+    }
+    if (newPass != confirmPass) {
+      snackbar(t('new set of password not match'), Colors.red);
+      return;
+    }
+    if (newPass == oldPass) {
+      snackbar(t('New password same as old password'), Colors.red);
+      return;
+    }
+    if (newPass.length < 6 || confirmPass.length < 6) {
+      snackbar(
+        t('New password and confirm password must be at least 6 characters'),
+        Colors.red,
+      );
       return;
     }
 
@@ -166,19 +181,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           snackbar(t('incorrect_old_password'), Colors.red);
           return;
         }
-
-        if (newPass == oldPass) {
-          snackbar(t('same_as_old_password'), Colors.red);
-          return;
-        }
       }
 
       await supabase
           .from('user')
-          .update({
-        'password': newPass,
-        'password_custom': true,
-      })
+          .update({'password': newPass, 'password_custom': true})
           .eq('id', currentUser!['id']);
 
       // Update local state
@@ -186,7 +193,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        snackbar(t('password_changed'), Colors.green);
+        snackbar(t('Password changed successfully'), Colors.green);
       }
     } catch (e) {
       if (mounted) {
@@ -245,159 +252,190 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: _isInitialLoading
           ? const EditProfileSkeleton()
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            // 自定义头像预览
-            Center(
-              child: Stack(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.blue.shade50,
-                    backgroundImage: _newImageUrl != null
-                        ? NetworkImage(_newImageUrl!)
-                        : (currentUser!['user_pic'] != null &&
-                        currentUser!['user_pic'].toString().isNotEmpty
-                        ? NetworkImage(currentUser!['user_pic'])
-                        : null),
-                    child:
-                    (_newImageUrl == null &&
-                        currentUser!['user_pic'] == null)
-                        ? const Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Colors.lightBlue,
-                    )
-                        : null,
-                  ),
+                  // 自定义头像预览
+                  Center(
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white10
+                              : Colors.blue.shade50,
+                          backgroundImage: _newImageUrl != null
+                              ? NetworkImage(_newImageUrl!)
+                              : (currentUser!['user_pic'] != null &&
+                                        currentUser!['user_pic']
+                                            .toString()
+                                            .isNotEmpty
+                                    ? NetworkImage(currentUser!['user_pic'])
+                                    : null),
+                          child:
+                              (_newImageUrl == null &&
+                                  currentUser!['user_pic'] == null)
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: Colors.lightBlue,
+                                )
+                              : null,
+                        ),
 
-                  if (_isUploading)
-                    const Positioned.fill(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 4,
-                          color: Colors.white,
+                        if (_isUploading)
+                          const Positioned.fill(
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 4,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.lightBlue,
+                            radius: 20,
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.camera_alt,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              onPressed: _pickAndUploadImage,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // 表单字段
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: t('username'),
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white70
+                            : Colors.black54,
+                      ),
+                      prefixIcon: const Icon(Icons.person_outline),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white10
+                              : Colors.grey.shade300,
                         ),
                       ),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white10
+                          : Colors.grey.shade50,
                     ),
+                  ),
 
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.lightBlue,
-                      radius: 20,
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 18,
+                  const SizedBox(height: 20),
+
+                  TextField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      labelText: t('email_address'),
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white70
+                            : Colors.black54,
+                      ),
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white10
+                              : Colors.grey.shade300,
                         ),
-                        onPressed: _pickAndUploadImage,
+                      ),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white10
+                          : Colors.grey.shade50,
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white10
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white10
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(
+                        Icons.lock_reset,
+                        color: Colors.lightBlue,
+                      ),
+                      title: Text(
+                        t('password_settings'),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                      ),
+                      subtitle: Text(
+                        t('tap_to_change_password'),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white38
+                              : Colors.grey,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _showChangePasswordDialog,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _isLoading ? null : _handleSave,
+                      child: Text(
+                        t('save_changes'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-
-            // 表单字段
-            TextField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: t('username'),
-                labelStyle: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
-                ),
-                prefixIcon: const Icon(Icons.person_outline),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
-                  ),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade50,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            TextField(
-              controller: _emailController,
-              decoration: InputDecoration(
-                labelText: t('email_address'),
-                labelStyle: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54,
-                ),
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
-                  ),
-                ),
-                filled: true,
-                fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade50,
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-
-            const SizedBox(height: 20),
-
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.grey.shade300,
-                ),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.lock_reset, color: Colors.lightBlue),
-                title: Text(
-                  t('password_settings'),
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                subtitle: Text(
-                  t('tap_to_change_password'),
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey,
-                  ),
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _showChangePasswordDialog,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.lightBlue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                onPressed: _isLoading ? null : _handleSave,
-                child: Text(
-                  t('save_changes'),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
