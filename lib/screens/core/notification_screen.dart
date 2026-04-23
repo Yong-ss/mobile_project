@@ -141,6 +141,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
       ..._announcements.map((e) => e['id'].toString()),
       ..._paymentReminders.map((e) => e['id'].toString()),
       ..._orders.map((e) => e['id'].toString()),
+      ..._logs.map((e) => e['id'].toString()),
       if (_applicationStatus != null) _applicationStatus!['id'].toString(),
     ];
 
@@ -826,11 +827,121 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
           date: log['created_at'],
           icon: log['icon'] as IconData,
           iconColor: log['iconColor'] as Color,
-          onTap: () {
-            // Simply notified as requested
-          },
+          onTap: () => _showLogDetails(log),
         );
       },
+    );
+  }
+
+  void _showLogDetails(Map<String, dynamic> log) {
+    final bool isAdmin = currentUser?['role'] == 'admin';
+    final isDark = Theme.of(context).brightness == Brightness.dark && !isAdmin;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isAdmin ? const Color(0xFFF8F9FA) : (isDark ? const Color(0xFF1A1A1A) : Colors.white),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isAdmin ? Colors.grey.shade300 : (isDark ? Colors.white12 : Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (log['iconColor'] as Color).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(log['icon'] as IconData, color: log['iconColor'] as Color, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          log['title'] ?? 'System Activity',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: isAdmin ? Colors.black87 : (isDark ? Colors.white : Colors.black87)
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('MMM dd, yyyy • HH:mm').format(DateTime.parse(log['created_at'])),
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Details',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.lightBlue),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isAdmin ? Colors.white : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isAdmin ? Colors.grey.shade200 : (isDark ? Colors.white10 : Colors.grey.shade100),
+                  ),
+                  boxShadow: isAdmin ? [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))] : [],
+                ),
+                child: Text(
+                  log['content'] ?? 'No details available.',
+                  style: TextStyle(
+                      fontSize: 15,
+                      height: 1.6,
+                      color: isAdmin ? Colors.black87 : (isDark ? Colors.white70 : Colors.black87)
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.lightBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Dismiss', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

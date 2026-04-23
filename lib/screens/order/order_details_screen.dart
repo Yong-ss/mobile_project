@@ -649,7 +649,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 16),
               _buildStatusStep('Order Placed', true, t('order_received_sub')),
-              _buildStatusStep('Preparing', status != 'Order Placed', t('preparing_sub')),
+              _buildStatusStep('Preparing', !['Order Placed', 'Pending'].contains(status), t('preparing_sub')),
               _buildStatusStep(
                   isPickup ? 'Ready for Pickup' : 'Out For Delivery',
                   ['Ready for Pickup', 'Out for Delivery', 'Delivered', 'Picked Up', 'Completed'].contains(status),
