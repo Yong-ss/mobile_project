@@ -198,19 +198,21 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           TextButton(
             onPressed: () async {
+              final navigator = Navigator.of(context);
               final user = _users[index];
               try {
                 await _performForceDelete([user['id'].toString()]);
                 await _logAction('Force Delete User', 'Permanently deleted user ${user['customer_email']} and all related data.');
 
-                setState(() {
-                  _users.removeAt(index);
-                });
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                snackbar('User and related data deleted successfully', Colors.green);
+                if (mounted) {
+                  setState(() {
+                    _users.removeAt(index);
+                  });
+                }
+                navigator.pop();
+                if (mounted) snackbar('User and related data deleted successfully', Colors.green);
               } catch (e) {
-                if (context.mounted) snackbar('Error deleting user: $e', Colors.red);
+                if (mounted) snackbar('Error deleting user: $e', Colors.red);
               }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -268,106 +270,138 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     String customerVerified = user['customer_verified'] == 'Verified' ? 'Verified' : 'Not Verified';
     String sellerStatus = user['seller_status'] == 'Registered' ? 'Registered' : 'Unregistered';
 
+    if (!mounted) return;
+
     await showDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: const Text('Edit User'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Customer Info', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(labelText: 'Name', isDense: true),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: emailController,
-                        decoration: const InputDecoration(labelText: 'Email', isDense: true),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: customerVerified,
-                        decoration: const InputDecoration(labelText: 'Verification', isDense: true),
-                        items: ['Verified', 'Not Verified'].map((status) {
-                          return DropdownMenuItem(value: status, child: Text(status));
-                        }).toList(),
-                        onChanged: (val) => setDialogState(() => customerVerified = val!),
-                      ),
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Theme(
+          data: ThemeData.light(),
+          child: StatefulBuilder(
+              builder: (context, setDialogState) {
+                return AlertDialog(
+                  title: const Text('Edit User Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Customer Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            labelText: 'Display Name',
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email Address',
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: customerVerified,
+                          decoration: InputDecoration(
+                            labelText: 'Account Verification',
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          items: ['Verified', 'Not Verified'].map((status) {
+                            return DropdownMenuItem(value: status, child: Text(status));
+                          }).toList(),
+                          onChanged: (val) => setDialogState(() => customerVerified = val!),
+                        ),
 
-                      const SizedBox(height: 16),
-                      const Text('Seller Info', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: sellerNameController,
-                        decoration: const InputDecoration(labelText: 'Seller Name', isDense: true),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        initialValue: sellerStatus,
-                        decoration: const InputDecoration(labelText: 'Seller Status', isDense: true),
-                        items: ['Registered', 'Unregistered'].map((status) {
-                          return DropdownMenuItem(value: status, child: Text(status));
-                        }).toList(),
-                        onChanged: (val) => setDialogState(() => sellerStatus = val!),
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        const Text('Seller Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: sellerNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Shop Name',
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          initialValue: sellerStatus,
+                          decoration: InputDecoration(
+                            labelText: 'Seller Registration',
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          items: ['Registered', 'Unregistered'].map((status) {
+                            return DropdownMenuItem(value: status, child: Text(status));
+                          }).toList(),
+                          onChanged: (val) => setDialogState(() => sellerStatus = val!),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel'),
-                  ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        final supabase = Supabase.instance.client;
-                        // Update consolidated user table
-                        await supabase.from('user').update({
-                          'username': nameController.text.trim(),
-                          'email': emailController.text.trim(),
-                          'customer_verified': customerVerified == 'Verified',
-                          'shop_name': sellerStatus == 'Registered' ? sellerNameController.text.trim() : null,
-                          'is_seller': sellerStatus == 'Registered',
-                        }).eq('id', user['id']);
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () async {
+                        final navigator = Navigator.of(dialogContext);
+                        try {
+                          final supabase = Supabase.instance.client;
+                          // Update consolidated user table
+                          await supabase.from('user').update({
+                            'username': nameController.text.trim(),
+                            'email': emailController.text.trim(),
+                            'customer_verified': customerVerified == 'Verified',
+                            'shop_name': sellerStatus == 'Registered' ? sellerNameController.text.trim() : null,
+                            'is_seller': sellerStatus == 'Registered',
+                          }).eq('id', user['id']);
 
-                        // Update locally
-                        setState(() {
-                          _users[index]['customer_name'] = nameController.text.trim();
-                          _users[index]['customer_email'] = emailController.text.trim();
-                          _users[index]['customer_verified'] = customerVerified;
-                          _users[index]['seller_name'] = sellerStatus == 'Registered' ? sellerNameController.text.trim() : '';
-                          _users[index]['is_seller'] = sellerStatus == 'Registered';
-                          _users[index]['seller_status'] = sellerStatus;
-                        });
+                          if (!mounted) return;
 
-                        if (context.mounted) {
-                          Navigator.pop(context);
+                          // Update locally
+                          setState(() {
+                            _users[index]['customer_name'] = nameController.text.trim();
+                            _users[index]['customer_email'] = emailController.text.trim();
+                            _users[index]['customer_verified'] = customerVerified;
+                            _users[index]['seller_name'] = sellerStatus == 'Registered' ? sellerNameController.text.trim() : '';
+                            _users[index]['is_seller'] = sellerStatus == 'Registered';
+                            _users[index]['seller_status'] = sellerStatus;
+                          });
+
+                          navigator.pop();
+                          if (!mounted) return;
                           snackbar('User updated successfully', Colors.green);
+                        } catch(e) {
+                          debugPrint('Update error: $e');
+                          if (mounted) snackbar('Error updating user: $e', Colors.red);
                         }
-                      } catch(e) {
-                        if (context.mounted) {
-                          snackbar('Error updating user: $e', Colors.red);
-                        }
-                      }
-                    },
-                    child: const Text('Save'),
-                  ),
-                ],
-              );
-            }
+                      },
+                      child: const Text('Force Save Changes'),
+                    ),
+                  ],
+                );
+              }
+          ),
         );
       },
     );
 
-    // Dispose controllers to free memory
+    // Clean up
     nameController.dispose();
     emailController.dispose();
     sellerNameController.dispose();
@@ -467,69 +501,66 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: ThemeData.light(),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
-        appBar: AppBar(
-          title: _isSelectionMode
-              ? Text('${_users.where((u) => u['isChecked'] == true).length} Selected', style: const TextStyle(fontWeight: FontWeight.bold))
-              : const Text('User Management', style: TextStyle(fontWeight: FontWeight.bold)),
-          foregroundColor: Colors.black87,
-          leading: _isSelectionMode
-              ? IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () {
-              setState(() {
-                _isSelectionMode = false;
-                _allSelected = false;
-                for (var u in _users) {
-                  u['isChecked'] = false;
-                }
-              });
-            },
-          )
-              : null,
-          elevation: 2,
-          shadowColor: Colors.lightBlue.withValues(alpha: 0.2),
-          centerTitle: true,
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.lightBlue, Colors.white],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: _isSelectionMode
+            ? Text('${_users.where((u) => u['isChecked'] == true).length} Selected', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87))
+            : const Text('User Management', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        foregroundColor: Colors.black87,
+        leading: _isSelectionMode
+            ? IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            setState(() {
+              _isSelectionMode = false;
+              _allSelected = false;
+              for (var u in _users) {
+                u['isChecked'] = false;
+              }
+            });
+          },
+        )
+            : null,
+        elevation: 2,
+        shadowColor: Colors.lightBlue.withValues(alpha: 0.2),
+        centerTitle: true,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.lightBlue, Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
         ),
-        floatingActionButton: _users.any((u) => u['isChecked'] == true)
-            ? FloatingActionButton.extended(
-          onPressed: _batchDelete,
-          backgroundColor: Colors.red,
-          icon: const Icon(Icons.delete_sweep, color: Colors.white),
-          label: Text(
-            'Delete Selected (${_users.where((u) => u['isChecked'] == true).length})',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        )
-            : null,
-        body: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _fetchUsers,
-            color: Colors.lightBlue,
-            child: Column(
-              children: [
-                _buildSearchAndFilter(),
-                Expanded(
-                  child: _isLoading
-                      ? _buildUserSkeleton()
-                      : _users.isEmpty
-                      ? ListView(children: const [SizedBox(height: 100), Center(child: Text('No users found.'))])
-                      : _buildUserList(),
-                ),
-              ],
-            ),
+      ),
+      floatingActionButton: _users.any((u) => u['isChecked'] == true)
+          ? FloatingActionButton.extended(
+        onPressed: _batchDelete,
+        backgroundColor: Colors.red,
+        icon: const Icon(Icons.delete_sweep, color: Colors.white),
+        label: Text(
+          'Delete Selected (${_users.where((u) => u['isChecked'] == true).length})',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      )
+          : null,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _fetchUsers,
+          color: Colors.lightBlue,
+          child: Column(
+            children: [
+              _buildSearchAndFilter(),
+              Expanded(
+                child: _isLoading
+                    ? _buildUserSkeleton()
+                    : _users.isEmpty
+                    ? ListView(children: const [SizedBox(height: 100), Center(child: Text('No users found.'))])
+                    : _buildUserList(),
+              ),
+            ],
           ),
         ),
       ),
@@ -543,7 +574,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       itemBuilder: (context, index) {
         return const Padding(
           padding: EdgeInsets.only(bottom: 16),
-          child: BaseSkeleton(width: double.infinity, height: 160, borderRadius: 16),
+          child: BaseSkeleton(width: double.infinity, height: 160, borderRadius: 16, isDarkOverride: false),
         );
       },
     );
