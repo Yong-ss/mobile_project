@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
+import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:nfc_manager/nfc_manager.dart';
@@ -33,6 +36,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Map<String, dynamic>? _selectedLocationData;
   Map<String, dynamic>? _selectedPickupData;
 
+  List<Map<String, dynamic>> _addressSuggestions = [];
+  Timer? _debounce;
+  bool _isSearchingAddress = false;
+
   final List<Map<String, dynamic>> _pickupStores = [
     {
       'id': 'klcc',
@@ -55,14 +62,121 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.initState();
     _fetchCheckoutData();
     _addressFocusNode.addListener(() {
+      if (!_addressFocusNode.hasFocus) {
+        // Auto-select first suggestion if user didn't pick one
+        _autoSelectFirstSuggestion();
+      }
       setState(() {});
     });
+  }
+
+  void _autoSelectFirstSuggestion() {
+    if (_addressSuggestions.isNotEmpty && _selectedLocationData == null) {
+      final s = _addressSuggestions.first;
+      // ALWAYS replace the text controller with the suggestion's title
+      _deliveryAddressController.text = s['title'];
+
+      if (s['isLocal']) {
+        setState(() {
+          _selectedLocationData = {
+            'name': s['title'],
+            'latitude': s['lat'],
+            'longitude': s['lng'],
+          };
+          _addressSuggestions = [];
+        });
+      } else {
+        // For search results, we must resolve to get coordinates
+        _resolveAddress();
+        setState(() => _addressSuggestions = []);
+      }
+    }
+  }
+
+  Future<void> _resolveAddress() async {
+    final address = _deliveryAddressController.text.trim();
+    if (address.isEmpty) return;
+
+    try {
+      List<Location> locations = await locationFromAddress(address);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        setState(() {
+          _selectedLocationData = {
+            'name': address,
+            'latitude': loc.latitude,
+            'longitude': loc.longitude,
+          };
+          _addressSuggestions = []; // Close dropdown
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Location resolved: ${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Geocoding error: $e');
+    }
+  }
+
+  void _onAddressChanged(String value) {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      final query = value.trim().toLowerCase();
+      if (query.isEmpty) {
+        setState(() => _addressSuggestions = []);
+        return;
+      }
+
+      List<Map<String, dynamic>> suggestions = [];
+
+      // 1. Geocoding search for dynamic addresses
+      setState(() => _isSearchingAddress = true);
+      try {
+        List<Placemark> placemarks = await GeocodingPlatform.instance!.placemarkFromAddress(value);
+        for (var p in placemarks) {
+          final addr = "${p.name}, ${p.subLocality}, ${p.locality}, ${p.administrativeArea}".replaceAll("null, ", "").replaceAll(", null", "");
+          suggestions.add({
+            'title': addr,
+            'subtitle': 'Search Result',
+            'lat': null, // Will resolve on selection
+            'lng': null,
+            'isLocal': false,
+          });
+        }
+      } catch (e) {
+        debugPrint('Geocoding error: $e');
+      }
+
+      if (mounted) {
+        setState(() {
+          _addressSuggestions = suggestions;
+          _isSearchingAddress = false;
+        });
+      }
+    });
+  }
+
+  DateTime _getRandomTime() {
+    final random = Random();
+    final now = DateTime.now();
+    // Range 8am (8) to 11pm (23)
+    final hour = 8 + random.nextInt(15);
+    final minute = random.nextInt(60);
+    // Random day in the last 7 days for realism
+    final dayOffset = random.nextInt(7);
+    return DateTime(now.year, now.month, now.day - dayOffset, hour, minute);
   }
 
   @override
   void dispose() {
     _deliveryAddressController.dispose();
     _addressFocusNode.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -259,9 +373,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         hintText: t('enter_address'),
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.all(12),
+                        suffixIcon: _deliveryAddressController.text.isNotEmpty
+                            ? IconButton(
+                          icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                          onPressed: _resolveAddress,
+                          tooltip: 'Verify Location',
+                        )
+                            : null,
                       ),
+                      onChanged: _onAddressChanged,
+                      onEditingComplete: () {
+                        _autoSelectFirstSuggestion();
+                        FocusScope.of(context).unfocus();
+                      },
                     ),
                   ),
+                  if (_addressSuggestions.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _isSearchingAddress
+                          ? const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                          : ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        itemCount: _addressSuggestions.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final s = _addressSuggestions[index];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.location_on_outlined, size: 18, color: Colors.grey),
+                            title: Text(s['title'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            subtitle: Text(s['subtitle'], style: const TextStyle(fontSize: 11)),
+                            onTap: () async {
+                              _deliveryAddressController.text = s['title'];
+                              if (s['isLocal']) {
+                                setState(() {
+                                  _selectedLocationData = {
+                                    'name': s['title'],
+                                    'latitude': s['lat'],
+                                    'longitude': s['lng'],
+                                  };
+                                  _addressSuggestions = [];
+                                });
+                              } else {
+                                await _resolveAddress();
+                                setState(() => _addressSuggestions = []);
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   TextButton.icon(
                     onPressed: () async {
@@ -625,16 +800,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _handleCheckout() async {
     if (_cartItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
       return;
     }
 
     // 1. Fulfillment Validation First
     if (_isSelfPickup) {
       if (_selectedPickupData == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a pickup point on the map'), backgroundColor: Colors.orange),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a pickup point on the map'), backgroundColor: Colors.orange),
+          );
+        }
         return;
       }
     } else {
@@ -648,13 +825,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
         return;
       }
+
+      // Auto-resolve if not already done or if address changed
+      if (_selectedLocationData == null || _selectedLocationData!['name'] != address) {
+        await _resolveAddress();
+      }
     }
 
     // 2. Payment Method Validation
     if (_paymentMethod.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a payment method'), backgroundColor: Colors.orange),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a payment method'), backgroundColor: Colors.orange),
+        );
+      }
       return;
     }
 
@@ -963,6 +1147,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final user = currentUser;
       if (user == null) throw Exception("User not logged in");
 
+      final randomTime = _getRandomTime();
+
       // 1. Save and Link Location
       String? locationId;
       try {
@@ -972,12 +1158,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'latitude': _selectedPickupData!['latLng']?.latitude ?? 0.0,
           'longitude': _selectedPickupData!['latLng']?.longitude ?? 0.0,
           'location_type': 'Pick Up',
+          'created_at': randomTime.toIso8601String(),
         } : {
           'user_id': user['id'],
           'title': _deliveryAddressController.text.trim(),
           'latitude': _selectedLocationData?['latitude'] ?? 0.0,
           'longitude': _selectedLocationData?['longitude'] ?? 0.0,
           'location_type': 'Delivery',
+          'created_at': randomTime.toIso8601String(),
         };
 
         final locResponse = await supabase.from('user_locations').insert(locData).select('id').single();
@@ -1019,7 +1207,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'status': status,
           'location_id': locationId,
           'payment_method': '$_paymentMethod${_paymentMethod != 'Cash on Delivery' ? ' ($_paymentSubMethod)' : ''} [ID: $transactionId]',
-          'payment_at': status == 'Pending' ? DateTime.now().toIso8601String() : null,
+          'payment_at': status == 'Pending' ? randomTime.toIso8601String() : null,
+          'created_at': randomTime.toIso8601String(),
         }).select().single();
 
         final orderId = orderResponse['id'];

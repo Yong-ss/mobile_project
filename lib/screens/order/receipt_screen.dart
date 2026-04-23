@@ -58,7 +58,10 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 
     final List<dynamic> orderItems = widget.order['order_items'] as List<dynamic>? ?? [];
     final double totalAmount = double.tryParse(widget.order['total_amount']?.toString() ?? '0') ?? 0.0;
-    final String paymentMethod = widget.order['payment_method'] ?? 'N/A';
+
+    String rawPaymentMethod = widget.order['payment_method'] ?? 'N/A';
+    // Remove the [ID: ...] part for display
+    final String paymentMethod = rawPaymentMethod.split(' [ID:')[0].trim();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

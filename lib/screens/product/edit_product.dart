@@ -8,7 +8,7 @@ import '../../utils/translations.dart';
 import '../../services/product_service.dart';
 
 class EditProductScreen extends StatefulWidget {
-  final Map<String, dynamic> product; // 需要传入要编辑的商品数据
+  final Map<String, dynamic> product;
   const EditProductScreen({super.key, required this.product});
 
   @override
@@ -25,23 +25,28 @@ class _EditProductScreenState extends State<EditProductScreen> {
   String uid = currentUser!['id'];
   bool _isLoading = false;
   bool _isInitialLoading = true;
-  String? _newImageUrl;
+
+  // Changed to List for multi-image support
+  List<String> _imageUrls = [];
   bool _isUploading = false;
   bool _forSale = true;
 
   @override
   void initState() {
     super.initState();
-    // 初始化数据填充按钮
     _nameController.text = widget.product['name'] ?? '';
     _priceController.text = widget.product['price']?.toString() ?? '';
     _quantityController.text = widget.product['quantity']?.toString() ?? '';
     _descriptionController.text = widget.product['description'] ?? '';
     _selectedCategory = widget.product['category'];
-    _newImageUrl = widget.product['image_url'];
     _forSale = widget.product['for_sale'] ?? true;
 
-    // Simulate a small loading delay for premium reveal
+    // Load multiple images from comma-separated string
+    final existingUrl = widget.product['image_url']?.toString() ?? '';
+    if (existingUrl.isNotEmpty) {
+      _imageUrls = existingUrl.split(',').where((s) => s.trim().isNotEmpty).toList();
+    }
+
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) setState(() => _isInitialLoading = false);
     });
@@ -71,7 +76,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 title: Text(t('choose_gallery')),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickAndUploadImage(ImageSource.gallery);
+                  _pickAndUploadImages();
                 },
               ),
               ListTile(
@@ -79,7 +84,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 title: Text(t('take_photo')),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickAndUploadImage(ImageSource.camera);
+                  _takePhotoAndUpload();
                 },
               ),
             ],
@@ -89,9 +94,35 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 
-  Future<void> _pickAndUploadImage(ImageSource source) async {
+  Future<void> _pickAndUploadImages() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: source);
+    final List<XFile> images = await picker.pickMultiImage();
+
+    if (images.isEmpty) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final userId = currentUser!['id'];
+      for (var image in images) {
+        final path = 'products/$userId/${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+        final bytes = await image.readAsBytes();
+
+        await _supabase.storage.from('products').uploadBinary(path, bytes);
+        final String imageUrl = _supabase.storage.from('products').getPublicUrl(path);
+        _imageUrls.add(imageUrl);
+      }
+
+      setState(() => _isUploading = false);
+    } catch (e) {
+      setState(() => _isUploading = false);
+      snackbar('${t('upload_error')}: $e', Colors.red);
+    }
+  }
+
+  Future<void> _takePhotoAndUpload() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera);
 
     if (image == null) return;
 
@@ -106,7 +137,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final String imageUrl = _supabase.storage.from('products').getPublicUrl(path);
 
       setState(() {
-        _newImageUrl = imageUrl;
+        _imageUrls.add(imageUrl);
         _isUploading = false;
       });
     } catch (e) {
@@ -123,6 +154,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
     if (name.isEmpty || priceStr.isEmpty || quantityStr.isEmpty || _selectedCategory == null) {
       snackbar(t('fill_required_fields'), Colors.orange);
+      return;
+    }
+
+    if (_imageUrls.isEmpty) {
+      snackbar(t('please_upload_at_least_one_image'), Colors.orange);
       return;
     }
 
@@ -149,8 +185,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
         'description': description,
         'category': _selectedCategory,
         'for_sale': _forSale,
-        'image_url': _newImageUrl,
-      }).eq('id', widget.product['id']); // 重要：指定更新哪个商品
+        'image_url': _imageUrls.join(','),
+      }).eq('id', widget.product['id']);
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -197,7 +233,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
           snackbar(t('product_deleted'), Colors.green);
-          Navigator.pop(context, true); // Refresh list
+          Navigator.pop(context, true);
         }
       } catch (e) {
         if (mounted) {
@@ -210,241 +246,274 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(t('edit_product_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          child: _isInitialLoading
-              ? const EditProductSkeleton()
-              : SingleChildScrollView(
-            key: const ValueKey('edit_form'),
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                    t('product_photo'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                    )
-                ),
-                const SizedBox(height: 12),
-                Center(
-                  child: Stack(
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return ColoredBox(
+      color: isDark ? const Color(0xFF212121) : Colors.white,
+      child: SafeArea(
+        top: true,
+        child: Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: Text(t('edit_product_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
+            elevation: 0,
+          ),
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            child: _isInitialLoading
+                ? const EditProductSkeleton()
+                : SingleChildScrollView(
+              key: const ValueKey('edit_form'),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      t('product_photos'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      )
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Horizontal Image List
+                  SizedBox(
+                    height: 120,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _imageUrls.length + 1,
+                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        if (index == _imageUrls.length) {
+                          return GestureDetector(
+                            onTap: _isUploading ? null : _showImageSourceDialog,
+                            child: Container(
+                              width: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(color: Colors.blue.shade100, width: 2),
+                              ),
+                              child: _isUploading
+                                  ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Icon(Icons.add_a_photo, color: Colors.blue, size: 30),
+                            ),
+                          );
+                        }
+
+                        return Stack(
+                          children: [
+                            Container(
+                              width: 100,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(15),
+                                image: DecorationImage(
+                                  image: NetworkImage(_imageUrls[index]),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: GestureDetector(
+                                onTap: () => setState(() => _imageUrls.removeAt(index)),
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  Text(
+                      t('product_name'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      )
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      hintText: t('hint_product_name'),
+                      hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text(
+                      t('price_rm'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      )
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: t('hint_price'),
+                      hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixText: 'RM ',
+                      prefixStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text(
+                      t('category'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      )
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedCategory,
+                    decoration: InputDecoration(
+                      hintText: t('hint_select_category'),
+                      hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
+                    ),
+                    items: shopCategories.where((cat) => cat != 'All').map((String category) {
+                      return DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() => _selectedCategory = newValue);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text(
+                      t('quantity'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      )
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _quantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: t('hint_quantity'),
+                      hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CircleAvatar(
-                        radius: 65,
-                        backgroundColor: Colors.blue.shade50,
-                        backgroundImage: _newImageUrl != null ? NetworkImage(_newImageUrl!.split(',')[0]) : null,
-                        child: (_newImageUrl == null)
-                            ? const Icon(Icons.inventory, size: 60, color: Colors.lightBlue)
-                            : null,
+                      Text(
+                          t('for_sale_active'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                          )
                       ),
-                      if (_isUploading)
-                        const Positioned.fill(
-                          child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 4, color: Colors.white),
-                          ),
-                        ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.blue,
-                          radius: 20,
-                          child: IconButton(
-                            icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
-                            onPressed: _showImageSourceDialog,
-                          ),
-                        ),
+                      Switch(
+                        value: _forSale,
+                        activeThumbColor: Colors.blue,
+                        onChanged: (value) => setState(() => _forSale = value),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 32),
-
-                Text(
-                    t('product_name'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                    )
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    hintText: t('hint_product_name'),
-                    hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
+                  const SizedBox(height: 16),
+                  Text(
+                      t('description'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                      )
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                    t('price_rm'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                    )
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: t('hint_price'),
-                    hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixText: 'RM ',
-                    prefixStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black),
-                    filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                    t('category'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                    )
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedCategory,
-                  decoration: InputDecoration(
-                    hintText: t('hint_select_category'),
-                    hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
-                  ),
-                  items: shopCategories.where((cat) => cat != 'All').map((String category) {
-                    return DropdownMenuItem<String>(
-                      value: category,
-                      child: Text(category),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() => _selectedCategory = newValue);
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                    t('quantity'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                    )
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _quantityController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    hintText: t('hint_quantity'),
-                    hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                        t('for_sale_active'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                        )
-                    ),
-                    Switch(
-                      value: _forSale,
-                      activeThumbColor: Colors.blue,
-                      onChanged: (value) => setState(() => _forSale = value),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                    t('description'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                    )
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _descriptionController,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: t('hint_description'),
-                    hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : updateProduct,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey.shade300,
-                      minimumSize: const Size(double.infinity, 55),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      elevation: 2,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                    )
-                        : Text(
-                      t('save_changes'),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _descriptionController,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: t('hint_description'),
+                      hintStyle: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Theme.of(context).brightness == Brightness.dark ? Colors.white10 : Colors.white,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 32),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : _deleteProduct,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red, width: 1.5),
-                      minimumSize: const Size(double.infinity, 55),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    ),
-                    child: Text(
-                      t('delete_product'),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : updateProduct,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        minimumSize: const Size(double.infinity, 55),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        elevation: 2,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                          : Text(
+                        t('save_changes'),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-              ],
+                  const SizedBox(height: 12),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _isLoading ? null : _deleteProduct,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red, width: 1.5),
+                        minimumSize: const Size(double.infinity, 55),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                      child: Text(
+                        t('delete_product'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ),
