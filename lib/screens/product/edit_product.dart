@@ -35,7 +35,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void initState() {
     super.initState();
     _nameController.text = widget.product['name'] ?? '';
-    _priceController.text = widget.product['price']?.toString() ?? '';
+    _priceController.text = (double.tryParse(widget.product['price']?.toString() ?? '') ?? 0.0).toStringAsFixed(2);
     _quantityController.text = widget.product['quantity']?.toString() ?? '';
     _descriptionController.text = widget.product['description'] ?? '';
     _selectedCategory = widget.product['category'];

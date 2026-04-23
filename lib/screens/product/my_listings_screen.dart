@@ -335,7 +335,7 @@ class _MyListingsScreenState extends State<MyListingsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'RM ${product['price']}',
+                          'RM ${(double.tryParse(product['price'].toString()) ?? 0.0).toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Colors.blue,
                             fontWeight: FontWeight.w900,

@@ -732,7 +732,7 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
         return _buildNotificationCard(
           notificationId: order['id'].toString(),
           title: 'Payment Reminder',
-          content: 'Order #${order['id'].toString().substring(0, 8)} is awaiting payment. Total: RM${order['total_amount']}',
+          content: 'Order #${order['id'].toString().substring(0, 8)} is awaiting payment. Total: RM ${(double.tryParse(order['total_amount']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2)}',
           date: order['created_at'],
           icon: Icons.payment,
           iconColor: Colors.orange,

@@ -53,7 +53,7 @@ class ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'RM $price', // 里面保留一个 RM 即可
+                  'RM ${(double.tryParse(price) ?? 0.0).toStringAsFixed(2)}', // 里面保留一个 RM 即可
                   style: const TextStyle(
                     color: Colors.blue,
                     fontWeight: FontWeight.w700,

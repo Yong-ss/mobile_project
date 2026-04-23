@@ -396,7 +396,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Row(
                         children: [
                           Text(
-                            'RM ${_productData!['price']}',
+                            'RM ${(double.tryParse(_productData!['price'].toString()) ?? 0.0).toStringAsFixed(2)}',
                             style: const TextStyle(
                               fontSize: 22,
                               color: Colors.blue,

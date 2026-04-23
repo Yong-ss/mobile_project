@@ -177,7 +177,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                     const SizedBox(height: 24),
                     _buildDetailRow('Product Name', product['name'] ?? 'N/A', isTitle: true),
                     _buildDetailRow('Shop Name', product['seller']?['shop_name'] ?? 'Unknown'),
-                    _buildDetailRow('Price', 'RM ${product['price'] ?? '0.00'}'),
+                    _buildDetailRow('Price', 'RM ${(double.tryParse(product['price']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2)}'),
                     _buildDetailRow('Category', product['category'] ?? 'N/A'),
                     const Divider(height: 32, color: Colors.black12),
                     const Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black54)),
@@ -427,7 +427,7 @@ class _ModerationQueueScreenState extends State<ModerationQueueScreen> {
                     children: [
                       const SizedBox(height: 4),
                       Text('Shop: ${product['seller']?['shop_name'] ?? 'Unknown'}', style: TextStyle(color: Colors.blue.shade700, fontSize: 12)),
-                      Text('Price: RM ${product['price']}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      Text('Price: RM ${(double.tryParse(product['price']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2)}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                     ],
                   ),
                   trailing: _isSelectionMode ? null : IconButton(

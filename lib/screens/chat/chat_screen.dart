@@ -1200,7 +1200,7 @@ class _ProductChatCardState extends State<ProductChatCard> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'RM ${widget.product['price']}',
+                        'RM ${(double.tryParse(widget.product['price']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2)}',
                         style: const TextStyle(
                           color: Colors.blueAccent,
                           fontWeight: FontWeight.bold,
