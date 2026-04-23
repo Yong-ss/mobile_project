@@ -5,8 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../utils/translations.dart';
 
-// Member 4: Upload Product screen — Placeholder for camera feature (Ch 3.1: Placeholder)
-
 class UploadProductScreen extends StatefulWidget {
   const UploadProductScreen({super.key});
 
@@ -24,7 +22,9 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
   String uid = currentUser!['id'];
   bool _isLoading = false;
   bool _isInitialLoading = true;
-  String? _newImageUrl;
+
+  // Changed to List for multi-image support
+  final List<String> _imageUrls = [];
   bool _isUploading = false;
   bool _forSale = true;
 
@@ -60,7 +60,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
                 title: Text(t('choose_gallery')),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickAndUploadImage(ImageSource.gallery);
+                  _pickAndUploadImages(); // Gallery supports multi-pick
                 },
               ),
               ListTile(
@@ -68,7 +68,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
                 title: Text(t('take_photo')),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickAndUploadImage(ImageSource.camera);
+                  _takePhotoAndUpload(); // Camera is single-pick
                 },
               ),
             ],
@@ -78,9 +78,39 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
     );
   }
 
-  Future<void> _pickAndUploadImage(ImageSource source) async {
+  // Handle Multi-Pick from Gallery
+  Future<void> _pickAndUploadImages() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: source);
+    final List<XFile> images = await picker.pickMultiImage();
+
+    if (images.isEmpty) return;
+
+    setState(() => _isUploading = true);
+
+    try {
+      final userId = currentUser!['id'];
+
+      for (var image in images) {
+        final path = 'products/$userId/${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+        final bytes = await image.readAsBytes();
+
+        await _supabase.storage.from('products').uploadBinary(path, bytes);
+        final String imageUrl = _supabase.storage.from('products').getPublicUrl(path);
+
+        _imageUrls.add(imageUrl);
+      }
+
+      setState(() => _isUploading = false);
+    } catch (e) {
+      setState(() => _isUploading = false);
+      snackbar('${t('upload_error')}: $e', Colors.red);
+    }
+  }
+
+  // Handle Single-Pick from Camera
+  Future<void> _takePhotoAndUpload() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera);
 
     if (image == null) return;
 
@@ -95,7 +125,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
       final String imageUrl = _supabase.storage.from('products').getPublicUrl(path);
 
       setState(() {
-        _newImageUrl = imageUrl;
+        _imageUrls.add(imageUrl);
         _isUploading = false;
       });
     } catch (e) {
@@ -112,6 +142,11 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
 
     if (name.isEmpty || priceStr.isEmpty || quantityStr.isEmpty || _selectedCategory == null) {
       snackbar(t('fill_required_fields'), Colors.orange);
+      return;
+    }
+
+    if (_imageUrls.isEmpty) {
+      snackbar(t('please_upload_at_least_one_image'), Colors.orange);
       return;
     }
 
@@ -138,7 +173,7 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
         'category': _selectedCategory,
         'seller_id': uid,
         'for_sale': _forSale,
-        'image_url': _newImageUrl,
+        'image_url': _imageUrls.join(','), // Join all URLs with comma
       });
 
       if (mounted) {
@@ -156,122 +191,169 @@ class _UploadProductScreenState extends State<UploadProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          t('upload_product'),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SafeArea(
-        child: _isInitialLoading
-            ? const _LocalUploadProductSkeleton()
-            : SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                t('product_photo'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Stack(
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return ColoredBox(
+      color: isDark ? const Color(0xFF212121) : Colors.white,
+      child: SafeArea(
+        top: true,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              t('upload_product'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          body: _isInitialLoading
+              ? const _LocalUploadProductSkeleton()
+              : SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t('product_photos'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+
+                // Horizontal Image List
+                SizedBox(
+                  height: 120,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _imageUrls.length + 1,
+                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      if (index == _imageUrls.length) {
+                        // Add Button Card
+                        return GestureDetector(
+                          onTap: _isUploading ? null : _showImageSourceDialog,
+                          child: Container(
+                            width: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: Colors.blue.shade100, width: 2, style: BorderStyle.solid),
+                            ),
+                            child: _isUploading
+                                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.add_a_photo, color: Colors.blue, size: 30),
+                          ),
+                        );
+                      }
+
+                      // Uploaded Image Card
+                      return Stack(
+                        children: [
+                          Container(
+                            width: 100,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                              image: DecorationImage(
+                                image: NetworkImage(_imageUrls[index]),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 5,
+                            right: 5,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _imageUrls.removeAt(index)),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.close, size: 14, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+                Text(t('product_name'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(hintText: t('hint_product_name'), border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 16),
+                Text(t('price_rm'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _priceController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(hintText: t('hint_price'), border: const OutlineInputBorder(), prefixText: 'RM '),
+                ),
+                const SizedBox(height: 16),
+                Text(t('category'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedCategory,
+                  decoration: InputDecoration(hintText: t('hint_select_category'), border: const OutlineInputBorder()),
+                  items: shopCategories
+                      .where((cat) => cat != 'All')
+                      .map((String category) => DropdownMenuItem<String>(value: category, child: Text(category)))
+                      .toList(),
+                  onChanged: (String? newValue) => setState(() => _selectedCategory = newValue),
+                ),
+                const SizedBox(height: 16),
+                Text(t('quantity'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _quantityController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(hintText: t('hint_quantity'), border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.blue.shade50,
-                      backgroundImage: _newImageUrl != null ? NetworkImage(_newImageUrl!) : null,
-                      child: (_newImageUrl == null)
-                          ? const Icon(Icons.inventory, size: 60, color: Colors.lightBlue)
-                          : null,
-                    ),
-                    if (_isUploading)
-                      const Positioned.fill(
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 4, color: Colors.white)),
-                      ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.lightBlue,
-                        radius: 20,
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
-                          onPressed: _showImageSourceDialog,
-                        ),
-                      ),
-                    ),
+                    Text(t('for_sale_active'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Switch(value: _forSale, onChanged: (value) => setState(() => _forSale = value)),
                   ],
                 ),
-              ),
-              const SizedBox(height: 32),
-              Text(t('product_name'), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(hintText: t('hint_product_name'), border: const OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              Text(t('price_rm'), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _priceController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(hintText: t('hint_price'), border: const OutlineInputBorder(), prefixText: 'RM '),
-              ),
-              const SizedBox(height: 16),
-              Text(t('category'), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
-                decoration: InputDecoration(hintText: t('hint_select_category'), border: const OutlineInputBorder()),
-                items: shopCategories
-                    .where((cat) => cat != 'All')
-                    .map((String category) => DropdownMenuItem<String>(value: category, child: Text(category)))
-                    .toList(),
-                onChanged: (String? newValue) => setState(() => _selectedCategory = newValue),
-              ),
-              const SizedBox(height: 16),
-              Text(t('quantity'), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _quantityController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(hintText: t('hint_quantity'), border: const OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              Text(t('for_sale_active'), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Switch(value: _forSale, onChanged: (value) => setState(() => _forSale = value)),
-              const SizedBox(height: 16),
-              Text(t('description'), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _descriptionController,
-                maxLines: 4,
-                decoration: InputDecoration(hintText: t('hint_description'), border: const OutlineInputBorder()),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : submitProduct,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    minimumSize: const Size(double.infinity, 55),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    elevation: 2,
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                      : Text(t('submit_listing'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                const SizedBox(height: 16),
+                Text(t('description'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _descriptionController,
+                  maxLines: 4,
+                  decoration: InputDecoration(hintText: t('hint_description'), border: const OutlineInputBorder()),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : submitProduct,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      minimumSize: const Size(double.infinity, 55),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      elevation: 2,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                        : Text(t('submit_listing'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -290,7 +372,21 @@ class _LocalUploadProductSkeleton extends StatelessWidget {
         children: [
           const ContainerSkeleton(width: 100, height: 16),
           const SizedBox(height: 12),
-          const Center(child: ContainerSkeleton(width: 120, height: 120, borderRadius: 60)),
+          const SizedBox(
+            height: 120,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ContainerSkeleton(width: 100, height: 100, borderRadius: 12),
+                  SizedBox(width: 12),
+                  ContainerSkeleton(width: 100, height: 100, borderRadius: 12),
+                  SizedBox(width: 12),
+                  ContainerSkeleton(width: 100, height: 100, borderRadius: 12),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 32),
           ...List.generate(4, (index) => Padding(
             padding: const EdgeInsets.only(bottom: 24),

@@ -153,7 +153,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
     // New Fields for Shopee Section
     final String fullOrderId = widget.orderId.toUpperCase();
-    final String paymentMethod = _order!['payment_method'] ?? 'N/A';
+    String rawPaymentMethod = _order!['payment_method'] ?? 'N/A';
+    // Remove the [ID: ...] part for display
+    final String paymentMethod = rawPaymentMethod.split(' [ID:')[0].trim();
 
     String formatTimestamp(dynamic ts) {
       if (ts == null) return 'N/A';

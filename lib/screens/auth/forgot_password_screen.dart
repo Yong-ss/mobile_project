@@ -231,7 +231,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               }
 
               try {
-                await _authService.updatePassword(newPass);
+                final email = _emailController.text.trim();
+                await _authService.updatePassword(newPass, email: email);
                 await _authService.signOut();
                 if (context.mounted) {
                   Navigator.pop(context);

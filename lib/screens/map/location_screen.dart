@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/shimmer_skeletons.dart';
 
@@ -34,6 +35,8 @@ class _LocationScreenState extends State<LocationScreen> {
   String _storeAddress = 'Tap a red marker on the map';
   String _storeHours = '-';
   bool _isInitialLoading = true;
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
 
   late List<Map<String, dynamic>> _stores;
 
@@ -132,21 +135,32 @@ class _LocationScreenState extends State<LocationScreen> {
 
   void _setupMarkers() {
     _markers.clear();
-    for (var store in _stores) {
+    if (_stores.isNotEmpty) {
+      for (var store in _stores) {
+        _markers.add(
+          Marker(
+            markerId: MarkerId(store['id']),
+            position: store['latLng'],
+            infoWindow: InfoWindow(title: store['name']),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            onTap: () {
+              setState(() {
+                _selectedLocation = store['latLng'];
+                _storeName = store['name'];
+                _storeAddress = store['street'];
+                _storeHours = store['hours'];
+              });
+            },
+          ),
+        );
+      }
+    } else if (_selectedLocation != null) {
       _markers.add(
         Marker(
-          markerId: MarkerId(store['id']),
-          position: store['latLng'],
-          infoWindow: InfoWindow(title: store['name']),
+          markerId: const MarkerId('custom_pin'),
+          position: _selectedLocation!,
+          infoWindow: InfoWindow(title: _storeName),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          onTap: () {
-            setState(() {
-              _selectedLocation = store['latLng'];
-              _storeName = store['name'];
-              _storeAddress = store['street'];
-              _storeHours = store['hours'];
-            });
-          },
         ),
       );
     }
@@ -159,22 +173,9 @@ class _LocationScreenState extends State<LocationScreen> {
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _isInitialLoading = false);
     });
-    _stores = widget.stores ?? [
-      {
-        'id': 'pv13',
-        'name': 'PV13',
-        'street': 'Platinum Victory 13, Jalan Genting Kelang',
-        'hours': 'Mon–Sun  10:00 AM – 10:00 PM',
-        'latLng': const LatLng(3.2018, 101.7163),
-      },
-      {
-        'id': 'tarumt',
-        'name': 'TARUMT',
-        'street': 'Tunku Abdul Rahman University, Setapak',
-        'hours': 'Mon–Fri  8:00 AM – 6:00 PM',
-        'latLng': const LatLng(3.2147, 101.7285),
-      },
-    ];
+
+    // If stores is null, we are in "Delivery" mode. Don't show the hardcoded stores.
+    _stores = widget.stores ?? [];
 
     if (widget.initialLat != null && widget.initialLng != null) {
       _selectedLocation = LatLng(widget.initialLat!, widget.initialLng!);
@@ -262,7 +263,49 @@ class _LocationScreenState extends State<LocationScreen> {
   }
 
   void _onMapTapped(LatLng position) {
-    // Disabled custom location mapping. User must select from the predetermined red markers or bottom list.
+    if (widget.isReadOnly) return;
+    if (_stores.isNotEmpty) return; // Only allow custom tap in delivery mode
+
+    setState(() {
+      _selectedLocation = position;
+      _storeName = 'Selected Location';
+      _storeAddress = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      _setupMarkers();
+    });
+  }
+
+  Future<void> _handleSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() => _isSearching = true);
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        final loc = locations.first;
+        final target = LatLng(loc.latitude, loc.longitude);
+
+        setState(() {
+          _selectedLocation = target;
+          _storeName = query;
+          _storeAddress = 'Search Result';
+          _isSearching = false;
+          _setupMarkers();
+        });
+
+        _mapController?.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: target, zoom: 15.0),
+          ),
+        );
+      } else {
+        setState(() => _isSearching = false);
+        snackbar('No location found for "$query"', Colors.orange);
+      }
+    } catch (e) {
+      setState(() => _isSearching = false);
+      snackbar('Error searching location: $e', Colors.red);
+    }
   }
 
   void _confirmLocation() {
@@ -388,14 +431,31 @@ class _LocationScreenState extends State<LocationScreen> {
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
                 },
+                onTap: _onMapTapped,
                 style: Theme.of(context).brightness == Brightness.dark ? _darkMapStyle : null,
                 markers: _markers,
                 myLocationEnabled: true,
                 myLocationButtonEnabled: true,
                 mapToolbarEnabled: true,
-                onTap: _onMapTapped,
               ),
             ),
+
+            if (!widget.isReadOnly && widget.stores == null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: Theme.of(context).cardColor,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search for address (e.g. Ampang)',
+                    suffixIcon: _isSearching
+                        ? const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2))
+                        : IconButton(icon: const Icon(Icons.search), onPressed: _handleSearch),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onSubmitted: (_) => _handleSearch(),
+                ),
+              ),
 
             // Info Panel below Map
             Padding(

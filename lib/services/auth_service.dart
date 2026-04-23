@@ -98,12 +98,57 @@ class AuthService {
     required String password,
     required String username,
   }) async {
-    await _supabase.auth.signUp(
-      email: email,
-      password: password,
-      data: {'username': username},
-    );
-    // Note: The SQL trigger handles the insert into public.user automatically
+    try {
+      // 1. First, check if they exist in your MANUAL table
+      final existingManual = await _supabase
+          .from('user')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (existingManual != null) {
+        throw 'User already exists in the system. Please login.';
+      }
+
+      // 2. Try the official Sign Up
+      await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'username': username,
+          'password': password,
+        },
+      );
+    } on AuthException catch (e) {
+      if (e.code == 'user_already_exists') {
+        // 3. GHOST USER RECOVERY:
+        // They exist in Auth but NOT in our manual table.
+        // We try to log them in to get their ID and fix the sync.
+        try {
+          final loginRes = await _supabase.auth.signInWithPassword(
+            email: email,
+            password: password,
+          );
+
+          if (loginRes.user != null) {
+            // Manually perform the sync that the trigger missed
+            await _supabase.from('user').insert({
+              'id': loginRes.user!.id,
+              'email': email,
+              'username': username,
+              'password': password,
+              'is_seller': false,
+              'customer_verified': false,
+              'appearance': 0,
+            });
+            return; // Recovery successful!
+          }
+        } catch (loginError) {
+          throw 'This email is already registered, but we couldn\'t sync your profile. Please contact support or use a different email.';
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Send Real Password Reset Email
@@ -123,20 +168,38 @@ class AuthService {
     );
   }
 
-  /// Update password (called after recovery redirect)
-  Future<void> updatePassword(String newPassword) async {
-    // 1. Update the REAL system
-    await _supabase.auth.updateUser(
-      UserAttributes(password: newPassword),
-    );
+  /// Update password (called after recovery redirect or manual reset)
+  Future<void> updatePassword(String newPassword, {String? email}) async {
+    // 1. Try to update the REAL official system if a session exists
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+    } catch (e) {
+      // If session is missing (common for legacy test users like try@),
+      // we ignore this and rely on the manual table update below.
+      debugPrint('Supabase Auth Update skipped: $e');
+    }
 
-    // 2. Update your MANUAL table so your other screens still see it
-    final user = _supabase.auth.currentUser;
-    if (user != null) {
+    // 2. Update the MANUAL table
+    // Use the provided email if session is missing
+    final authUser = _supabase.auth.currentUser;
+    final String? targetId = authUser?.id;
+    final String? targetEmail = email ?? authUser?.email;
+
+    if (targetId != null) {
       await _supabase
           .from('user')
           .update({'password': newPassword})
-          .eq('id', user.id);
+          .eq('id', targetId);
+    } else if (targetEmail != null) {
+      // Fallback for legacy accounts (like try@) that don't have a Supabase Auth entry
+      await _supabase
+          .from('user')
+          .update({'password': newPassword})
+          .eq('email', targetEmail);
+    } else {
+      throw 'No user session or email found to update password.';
     }
   }
 
@@ -191,8 +254,12 @@ class AuthService {
           isNewUser: true,
         );
       } else {
-        // Existing user - Update their Google info and return their data
+        // Existing user found (by Email or Google UUID)
+        // 1. Update their info with Google details
+        // 2. IMPORTANT: If they were a legacy user, they now have a real Supabase Auth user!
+        //    We update their ID to match the real 'user.id' from Supabase Auth.
         final updateRes = await _supabase.from('user').update({
+          'id': user.id, // Upgrade to the real official Auth ID
           'google_uuid': googleUser.id,
           'google_username': googleUser.displayName,
           'google_email': googleUser.email,
