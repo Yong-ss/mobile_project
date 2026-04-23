@@ -110,6 +110,10 @@ class AuthService {
         throw 'User already exists in the system. Please login.';
       }
 
+      // 2. GHOST CLEANUP:
+      // Call the database function to wipe them from auth.users if they are missing from public.user
+      await _supabase.rpc('cleanup_ghost_user', params: {'email_to_check': email});
+
       // 2. Try the official Sign Up
       await _supabase.auth.signUp(
         email: email,
@@ -121,31 +125,7 @@ class AuthService {
       );
     } on AuthException catch (e) {
       if (e.code == 'user_already_exists') {
-        // 3. GHOST USER RECOVERY:
-        // They exist in Auth but NOT in our manual table.
-        // We try to log them in to get their ID and fix the sync.
-        try {
-          final loginRes = await _supabase.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
-
-          if (loginRes.user != null) {
-            // Manually perform the sync that the trigger missed
-            await _supabase.from('user').insert({
-              'id': loginRes.user!.id,
-              'email': email,
-              'username': username,
-              'password': password,
-              'is_seller': false,
-              'customer_verified': false,
-              'appearance': 0,
-            });
-            return; // Recovery successful!
-          }
-        } catch (loginError) {
-          throw 'This email is already registered, but we couldn\'t sync your profile. Please contact support or use a different email.';
-        }
+        throw 'This email is already registered. Please login or use a different email.';
       }
       rethrow;
     }
