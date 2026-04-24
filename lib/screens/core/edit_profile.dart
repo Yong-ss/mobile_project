@@ -144,7 +144,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final newPass = _newPasswordController.text;
     final confirmPass = _confirmPasswordController.text;
 
-    if (oldPass.isEmpty || newPass.isEmpty || confirmPass.isEmpty) {
+    if (newPass.isEmpty || confirmPass.isEmpty) {
       snackbar(t('Please fill in all field'), Colors.red);
       return;
     }
@@ -185,9 +185,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // 1. Update Supabase Auth (official encrypted password)
       try {
-        await supabase.auth.updateUser(
-          UserAttributes(password: newPass),
-        );
+        await supabase.auth.updateUser(UserAttributes(password: newPass));
       } catch (e) {
         // Legacy users (like admin) don't have an auth.users record, skip silently
         debugPrint('Auth password update skipped: $e');
