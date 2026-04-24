@@ -9,9 +9,6 @@ import 'utils/theme_manager.dart';
 import 'utils/language_manager.dart';
 import 'utils/snackbar_helper.dart'; // 导入全局 snackbar key
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/core/home_screen.dart';
-import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/core/splash_screen.dart';
 
 void main() async {
