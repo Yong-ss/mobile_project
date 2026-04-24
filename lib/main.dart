@@ -10,6 +10,7 @@ import 'utils/language_manager.dart';
 import 'utils/snackbar_helper.dart'; // 导入全局 snackbar key
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/core/splash_screen.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   // 1. 确保 Flutter 绑定初始化（异步 main 必须加这一行）
@@ -51,8 +52,42 @@ void main() async {
   runApp(const PrisconApp());
 }
 
-class PrisconApp extends StatelessWidget {
+class PrisconApp extends StatefulWidget {
   const PrisconApp({super.key});
+
+  @override
+  State<PrisconApp> createState() => _PrisconAppState();
+}
+
+class _PrisconAppState extends State<PrisconApp> with WidgetsBindingObserver {
+  final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Initial sync
+    if (currentUser != null) {
+      _authService.updateUserStatus('Online');
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (currentUser == null) return;
+
+    if (state == AppLifecycleState.resumed) {
+      _authService.updateUserStatus('Online');
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _authService.updateUserStatus('Offline');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +109,6 @@ class PrisconApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          // Isolation Logic: Use user preference only if logged in, otherwise follow System Theme
           themeMode: currentUser != null ? themeManager.themeMode : ThemeMode.system,
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(

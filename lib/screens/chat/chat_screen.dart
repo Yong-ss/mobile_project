@@ -58,29 +58,58 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _endSession() async {
-    if (_isSessionEnded) return;
+    if (!mounted || _isSessionEnded) return;
+
+    // Safety check: Don't send if the very last message in the DB is already session_ended
+    // to prevent two devices from spamming it at the same time.
     final sessionData = {'type': 'session_ended'};
     final content = jsonEncode(sessionData);
+
     _sendMessage(manualContent: content);
     _sessionCountdownTimer?.cancel();
   }
 
-  void _startSessionTimer({int? resetSeconds}) {
+  void _startSessionTimer() {
     _sessionCountdownTimer?.cancel();
-    if (_isSessionEnded) return;
-
-    if (resetSeconds != null) {
-      setState(() => _sessionRemainingSeconds = resetSeconds);
-    }
+    if (_isSessionEnded || !mounted) return;
 
     _sessionCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        if (_sessionRemainingSeconds > 0) {
-          setState(() => _sessionRemainingSeconds--);
-        } else {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_messages.isEmpty) {
+        if (_sessionRemainingSeconds != 300) {
+          setState(() => _sessionRemainingSeconds = 300);
+        }
+        return;
+      }
+
+      try {
+        final lastMsg = _messages.last;
+        // If the session is already ended, stop the timer
+        if (_isSessionEnded) {
+          timer.cancel();
+          return;
+        }
+
+        final lastMsgAt = DateTime.parse(lastMsg['created_at']).toUtc();
+        final now = DateTime.now().toUtc();
+        final difference = now.difference(lastMsgAt).inSeconds;
+        final remaining = 300 - difference;
+
+        if (remaining <= 0) {
+          setState(() => _sessionRemainingSeconds = 0);
           _endSession();
           timer.cancel();
+        } else {
+          if (_sessionRemainingSeconds != remaining) {
+            setState(() => _sessionRemainingSeconds = remaining);
+          }
         }
+      } catch (e) {
+        // Fallback if parsing fails
       }
     });
   }
@@ -89,6 +118,58 @@ class _ChatScreenState extends State<ChatScreen> {
     final mins = seconds ~/ 60;
     final secs = seconds % 60;
     return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildTickIcon({required bool isSending, required bool isRead, required String remoteUserStatus}) {
+    // High-visibility colors
+    const Color blueTick = Color(0xFF34B7F1); // WhatsApp Blue
+    const Color greyTick = Colors.grey;
+
+    Widget icon;
+    if (isSending) {
+      icon = const Icon(Icons.access_time_rounded, size: 13, color: Colors.black45);
+    } else if (isRead) {
+      icon = const Icon(Icons.done_all_rounded, size: 16, color: blueTick);
+    } else if (remoteUserStatus.toLowerCase() == 'online') {
+      icon = const Icon(Icons.done_all_rounded, size: 16, color: greyTick);
+    } else {
+      icon = const Icon(Icons.done_rounded, size: 16, color: greyTick);
+    }
+
+    // Fixed width container to prevent bubble "jumping" when tick count changes
+    return Container(
+      width: 18,
+      alignment: Alignment.centerRight,
+      child: icon,
+    );
+  }
+
+
+
+  String _formatLastSeen(DateTime? lastSeen) {
+    if (lastSeen == null) return 'Offline';
+
+    final localLastSeen = lastSeen.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final startOfThisWeek = today.subtract(Duration(days: now.weekday - 1));
+    final seenDate = DateTime(localLastSeen.year, localLastSeen.month, localLastSeen.day);
+
+    final timeStr = DateFormat('HH:mm').format(localLastSeen);
+
+    if (seenDate == today) {
+      return 'last seen today at $timeStr';
+    } else if (seenDate == yesterday) {
+      return 'last seen yesterday at $timeStr';
+    } else if (seenDate.isAfter(startOfThisWeek)) {
+      return 'last seen ${DateFormat('EEEE').format(localLastSeen).toLowerCase()} at $timeStr';
+    } else if (now.difference(localLastSeen).inDays < 14) {
+      return 'last seen last week at $timeStr';
+    } else {
+      // Format matching the screenshot: Nov 11, 2016
+      return 'last seen ${DateFormat('MMM d, yyyy').format(localLastSeen)}';
+    }
   }
 
 
@@ -220,13 +301,14 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _fetchRemoteUserStatus() async {
     try {
       final data = await _supabase
-          .from('user')
-          .select('user_status')
-          .eq('id', widget.remoteUserId)
+          .from('user_presence')
+          .select('status, last_seen')
+          .eq('user_id', widget.remoteUserId)
           .maybeSingle();
 
       if (data != null && mounted) {
-        _updateStatusState(data['user_status']);
+        final lastSeen = DateTime.tryParse(data['last_seen'] ?? '');
+        _updateStatusState(data['status'], lastSeen: lastSeen);
       }
     } catch (e) {
       debugPrint('Error fetching user status: $e');
@@ -236,30 +318,53 @@ class _ChatScreenState extends State<ChatScreen> {
   void _setupStatusSubscription() {
     _statusChannel?.unsubscribe();
 
-    _statusChannel = _supabase.channel('user_status_${widget.remoteUserId}')
+    _statusChannel = _supabase.channel('presence_${widget.remoteUserId}')
         .onPostgresChanges(
-      event: PostgresChangeEvent.update,
+      event: PostgresChangeEvent.all,
       schema: 'public',
-      table: 'user',
+      table: 'user_presence',
       filter: PostgresChangeFilter(
         type: PostgresChangeFilterType.eq,
-        column: 'id',
+        column: 'user_id',
         value: widget.remoteUserId,
       ),
       callback: (payload) {
+        debugPrint('REALTIME STATUS UPDATE RECEIVED: ${payload.newRecord}');
         if (mounted) {
-          _updateStatusState(payload.newRecord['user_status']);
+          final newStatus = payload.newRecord['status'];
+          final lastSeen = DateTime.tryParse(payload.newRecord['last_seen'] ?? '');
+          _updateStatusState(newStatus, lastSeen: lastSeen);
         }
       },
     )
-        .subscribe();
+        .subscribe((status, [error]) {
+      debugPrint('Presence Subscription Status: $status');
+      if (error != null) debugPrint('Presence Subscription Error: $error');
+    });
   }
 
-  void _updateStatusState(String? status) {
+  void _updateStatusState(String? status, {DateTime? lastSeen}) {
     if (status == null) return;
 
+    // Heartbeat Timeout Check: If last_seen was > 65 seconds ago, consider them offline
+    bool isActuallyOnline = status.toLowerCase() == 'online';
+    if (isActuallyOnline && lastSeen != null) {
+      final now = DateTime.now().toUtc();
+      if (now.difference(lastSeen).inSeconds > 65) {
+        isActuallyOnline = false;
+        status = 'Offline';
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
-      _remoteUserStatus = status;
+      if (!isActuallyOnline) {
+        _remoteUserStatus = _formatLastSeen(lastSeen);
+        _statusColor = Colors.grey;
+        return;
+      }
+
+      _remoteUserStatus = status!;
       switch (status.replaceAll(' ', '').toLowerCase()) {
         case 'online':
           _statusColor = Colors.greenAccent;
@@ -320,9 +425,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
 
 
+          final bool isAtBottom = _scrollController.hasClients &&
+              (_scrollController.position.maxScrollExtent - _scrollController.offset) < 100;
+          final bool countChanged = chatMessages.length > _serverMessages.length;
+
           setState(() {
             _serverMessages = List<Map<String, dynamic>>.from(chatMessages);
-            // Deduplicate: If any server message matches a pending one, remove the pending one
             _pendingMessages.removeWhere((pending) {
               return _serverMessages.any((srv) =>
               srv['content'] == pending['content'] &&
@@ -335,9 +443,14 @@ class _ChatScreenState extends State<ChatScreen> {
             _isLive = true;
             _isSyncing = false;
             _pollingTimer?.cancel();
-            if (!_isSessionEnded) _startSessionTimer(resetSeconds: 300);
+            if (!_isSessionEnded) _startSessionTimer();
           });
-          _scrollToBottom();
+
+          if (countChanged) {
+            if (isAtBottom || (_serverMessages.isNotEmpty && _serverMessages.last['sender_id'] == _currentUserId)) {
+              _scrollToBottom();
+            }
+          }
 
         }
       },
@@ -349,15 +462,16 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _startPolling() {
-    if (_isLive || !mounted) return;
+    if (!mounted) return;
     _pollingTimer?.cancel();
 
-    setState(() => _isSyncing = true);
-
-    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (mounted && !_isLive) {
-        _fetchMessages(isBackground: true);
-        _fetchRemoteUserStatus(); // Also poll status if live fails
+    // Poll every 5 seconds as a backup to Realtime
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _fetchRemoteUserStatus();
+        if (!_isLive) {
+          _fetchMessages(isBackground: true);
+        }
       } else {
         timer.cancel();
       }
@@ -402,18 +516,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Calculate sticky timer based on last message
           if (_messages.isNotEmpty && !_isSessionEnded) {
-            final lastMsgAt = DateTime.parse(_messages.last['created_at']).toUtc();
-            final now = DateTime.now().toUtc();
-            final difference = now.difference(lastMsgAt).inSeconds;
-
-            // If less than 5 minutes has passed, set timer to remaining
-            if (difference < 300) {
-              _startSessionTimer(resetSeconds: 300 - difference);
-            } else {
-              // More than 5 minutes passed while away, auto-end it
-              _sessionRemainingSeconds = 0;
-              _endSession();
-            }
+            _startSessionTimer();
           }
         });
         _hasMoreOlder = res.length == _pageSize;
@@ -480,6 +583,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = manualContent ?? _messageController.text.trim();
     if (text.isEmpty || _currentUserId == null || _isSending) return;
 
+    // Block if session ended, UNLESS we are sending the end message itself
+    if (_isSessionEnded && !text.contains('"type":"session_ended"')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This session has already ended.')),
+      );
+      return;
+    }
+
     final tempId = _uuid.v4();
     final optimisticMsg = {
       'id': tempId,
@@ -516,7 +627,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _serverMessages.add(response);
           }
           _messages = [..._serverMessages, ..._pendingMessages];
-          if (!_isSessionEnded) _startSessionTimer(resetSeconds: 300); // Reset timer on send
+          if (!_isSessionEnded) _startSessionTimer(); // Reset timer on send
         });
       }
     } catch (e) {
@@ -598,7 +709,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         } else {
           _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent + 400,
+            _scrollController.position.maxScrollExtent,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
           );
@@ -649,6 +760,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return Align(
+      key: ValueKey(message['id']), // Use stable key to prevent flickering
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -686,6 +798,8 @@ class _ChatScreenState extends State<ChatScreen> {
               isMe: isMe,
               time: timeStr,
               isSending: isSending,
+              isRead: message['is_read'] == true,
+              remoteUserStatus: _remoteUserStatus,
               currentUserId: _currentUserId,
             ) : Stack(
               children: [
@@ -716,12 +830,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       if (isMe) ...[
                         const SizedBox(width: 4),
-                        Icon(
-                          isSending ? Icons.access_time_rounded : Icons.done_all_rounded,
-                          size: 14,
-                          color: isSending ? Colors.black45 : Colors.blueAccent, // Blue double ticks
+                        _buildTickIcon(
+                          isSending: isSending,
+                          isRead: message['is_read'] == true,
+                          remoteUserStatus: _remoteUserStatus,
                         ),
-
                       ]
                     ],
                   ),
@@ -836,7 +949,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     : ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  cacheExtent: 1000, // Stability: keep off-screen items rendered
                   itemCount: _messages.length + (_hasMoreOlder ? 1 : 0),
+                  findChildIndexCallback: (Key key) {
+                    if (key is ValueKey<String>) {
+                      final index = _messages.indexWhere((m) => m['id'] == key.value);
+                      if (index != -1) return _hasMoreOlder ? index + 1 : index;
+                    }
+                    return null;
+                  },
                   itemBuilder: (context, index) {
                     if (index == 0 && _hasMoreOlder) {
                       return Padding(
@@ -1055,6 +1176,8 @@ class ProductChatCard extends StatefulWidget {
   final bool isMe;
   final String time;
   final bool isSending;
+  final bool isRead;
+  final String remoteUserStatus;
   final String? currentUserId;
 
   const ProductChatCard({
@@ -1063,6 +1186,8 @@ class ProductChatCard extends StatefulWidget {
     required this.isMe,
     required this.time,
     required this.isSending,
+    required this.isRead,
+    required this.remoteUserStatus,
     this.currentUserId,
   });
 
@@ -1271,16 +1396,35 @@ class _ProductChatCardState extends State<ProductChatCard> {
               ),
               if (widget.isMe) ...[
                 const SizedBox(width: 4),
-                Icon(
-                  widget.isSending ? Icons.access_time_rounded : Icons.done_all_rounded,
-                  size: 13,
-                  color: widget.isSending ? Colors.black45 : Colors.blueAccent,
-                ),
+                _buildProductTickIcon(),
               ]
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProductTickIcon() {
+    // High-visibility colors
+    const Color blueTick = Color(0xFF34B7F1); // WhatsApp Blue
+    const Color greyTick = Colors.grey;
+
+    Widget icon;
+    if (widget.isSending) {
+      icon = const Icon(Icons.access_time_rounded, size: 13, color: Colors.black45);
+    } else if (widget.isRead) {
+      icon = const Icon(Icons.done_all_rounded, size: 16, color: blueTick);
+    } else if (widget.remoteUserStatus.toLowerCase() == 'online') {
+      icon = const Icon(Icons.done_all_rounded, size: 16, color: greyTick);
+    } else {
+      icon = const Icon(Icons.done_rounded, size: 16, color: greyTick);
+    }
+
+    return Container(
+      width: 18,
+      alignment: Alignment.centerRight,
+      child: icon,
     );
   }
 }

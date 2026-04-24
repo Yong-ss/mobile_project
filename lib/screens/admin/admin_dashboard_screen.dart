@@ -26,6 +26,8 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
+  final AuthService _authService = AuthService();
+  Timer? _presenceTimer;
 
   int _totalUsers = 0;
   int _totalSellers = 0;
@@ -47,6 +49,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _fetchDashboardData();
+    _startPresenceHeartbeat();
+  }
+
+  void _startPresenceHeartbeat() {
+    _presenceTimer?.cancel();
+    // Immediate update
+    _authService.updateUserStatus('Online');
+
+    _presenceTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && currentUser != null) {
+        _authService.updateUserStatus('Online');
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   Future<void> _fetchDashboardData() async {
@@ -81,6 +98,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       debugPrint('Error fetching admin stats: $e');
       if (mounted) setState(() => _isLoading = false);
     }
+    _presenceTimer?.cancel();
+    super.dispose();
   }
 
   @override

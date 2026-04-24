@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../utils/circular_reveal_route.dart';
 import '../core/notification_screen.dart';
@@ -12,6 +13,7 @@ import 'seller_settings_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../../widgets/chat_badge_icon.dart';
 import '../../widgets/notification_bell.dart';
+import '../../services/auth_service.dart';
 
 
 
@@ -29,17 +31,39 @@ class _SellerCentralScreenState extends State<SellerCentralScreen> {
   String _shopCreatedAt = '';
   bool _isLoading = true;
   final GlobalKey _viewShopButtonKey = GlobalKey();
+  final AuthService _authService = AuthService();
+  Timer? _presenceTimer;
 
   @override
   void initState() {
     super.initState();
     _currentShopName = currentUser?['shop_name'] ?? '';
     _shopCreatedAt = currentUser?['shop_created_at']?.toString() ?? 'Unknown';
+    _startPresenceHeartbeat();
 
     // Premium Reveal Strategy: 1s Shimmer
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _isLoading = false);
     });
+  }
+
+  void _startPresenceHeartbeat() {
+    _presenceTimer?.cancel();
+    _authService.updateUserStatus('Online');
+
+    _presenceTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && currentUser != null) {
+        _authService.updateUserStatus('Online');
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _presenceTimer?.cancel();
+    super.dispose();
   }
 
   @override

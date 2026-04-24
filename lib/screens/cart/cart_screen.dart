@@ -47,11 +47,13 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _fetchCart() async {
-    setState(() {
-      _isLoading = true;
-      _page = 0;
-      _hasMore = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _page = 0;
+        _hasMore = true;
+      });
+    }
     final supabase = Supabase.instance.client;
     final user = currentUser;
     if (user == null) {
@@ -67,11 +69,13 @@ class _CartScreenState extends State<CartScreen> {
           .order('created_at', ascending: false)
           .limit(_pageSize);
 
-      setState(() {
-        _cartItems = List<Map<String, dynamic>>.from(response);
-        _isLoading = false;
-        _hasMore = _cartItems.length == _pageSize;
-      });
+      if (mounted) {
+        setState(() {
+          _cartItems = List<Map<String, dynamic>>.from(response);
+          _isLoading = false;
+          _hasMore = _cartItems.length == _pageSize;
+        });
+      }
     } catch (e) {
       debugPrint('Error fetching cart: $e');
       setState(() => _isLoading = false);

@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/globals.dart';
 import 'announcement_details_screen.dart';
 import '../../utils/translations.dart';
+import '../../services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,6 +53,8 @@ class HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _featuredProducts = [];
   List<Map<String, dynamic>> _categories = [];
   bool _isLoadingProducts = true;
+  final AuthService _authService = AuthService();
+  Timer? _presenceTimer;
 
   IconData _getCategoryIcon(String label) {
     switch (label) {
@@ -82,6 +85,21 @@ class HomeScreenState extends State<HomeScreen> {
     _fetchAnnouncements();
     _fetchProducts();
     _startWelcomeTimer();
+    _startPresenceHeartbeat();
+  }
+
+  void _startPresenceHeartbeat() {
+    _presenceTimer?.cancel();
+    // Immediate update
+    _authService.updateUserStatus('Online');
+
+    _presenceTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && currentUser != null) {
+        _authService.updateUserStatus('Online');
+      } else {
+        timer.cancel();
+      }
+    });
   }
 
   void _onMainScroll() {
@@ -105,6 +123,7 @@ class HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _bannerTimer?.cancel();
     _welcomeTimer?.cancel();
+    _presenceTimer?.cancel();
     _bannerController.dispose();
     _mainPageController.dispose();
     _mainScrollController.dispose();

@@ -72,6 +72,7 @@ class AuthService {
           .single();
 
       await _saveUserDataLocally(userData);
+      await updateUserStatus('Online'); // Set status to Online on login
       return userData;
     } catch (e) {
       // 2. FALLBACK: Check your MANUAL table for test users like 'try@'
@@ -266,6 +267,7 @@ class AuthService {
 
         // Save to Prefs
         await _saveUserDataLocally(updateRes);
+        await updateUserStatus('Online'); // Set status to Online on Google login
         return GoogleSignInResult(userData: updateRes, isNewUser: false);
       }
     } catch (e) {
@@ -307,6 +309,7 @@ class AuthService {
     }).select().single();
 
     await _saveUserDataLocally(userData);
+    await updateUserStatus('Online'); // Set status to Online on Google finalize
     return userData;
   }
 
@@ -327,6 +330,9 @@ class AuthService {
 
   /// Sign out
   Future<void> signOut() async {
+    // Update status to Offline before clearing data
+    await updateUserStatus('Offline');
+
     final GoogleSignIn googleSignIn = GoogleSignIn(clientId: _webClientId);
     await googleSignIn.signOut();
     await _supabase.auth.signOut();
@@ -338,5 +344,25 @@ class AuthService {
 
     // Reset theme to system for auth screens
     await themeManager.resetToSystem();
+  }
+
+  /// Updates the user's online/offline status in the dedicated presence table
+  Future<void> updateUserStatus(String status) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id ?? currentUser?['id'];
+      if (userId == null) return;
+
+      await _supabase
+          .from('user_presence')
+          .upsert({
+        'user_id': userId,
+        'status': status,
+        'last_seen': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      debugPrint('Presence updated: $status');
+    } catch (e) {
+      debugPrint('Presence update error: $e');
+    }
   }
 }
