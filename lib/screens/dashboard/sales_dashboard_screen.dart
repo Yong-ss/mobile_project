@@ -40,7 +40,12 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
         .from('order_item')
         .select('unit_price, quantity, orders!inner(status)')
         .eq('seller_id', myID)
-        .inFilter('orders.status', ['Pending', 'Completed', 'Paid', 'Delivered']);
+        .inFilter('orders.status', [
+          'Pending',
+          'Completed',
+          'Paid',
+          'Delivered',
+        ]);
 
     for (var item in confirmedItems) {
       tempTotalSales +=
@@ -69,10 +74,15 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
     final List<dynamic> itemsForRank = await _supabase
         .from('order_item')
         .select(
-      'product_id, quantity, unit_price, created_at, product!inner(name), orders!inner(status)',
-    )
+          'product_id, quantity, unit_price, created_at, product!inner(name), orders!inner(status)',
+        )
         .eq('seller_id', myID)
-        .inFilter('orders.status', ['Pending', 'Completed', 'Paid', 'Delivered']);
+        .inFilter('orders.status', [
+          'Pending',
+          'Completed',
+          'Paid',
+          'Delivered',
+        ]);
 
     Map<int, Map<String, dynamic>> rankMap = {};
 
@@ -85,7 +95,8 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
 
       if (rankMap.containsKey(pid)) {
         rankMap[pid]!['sold_count'] += quantitySold;
-        rankMap[pid]!['revenue'] = (rankMap[pid]!['revenue'] as double) + revenueOfItem;
+        rankMap[pid]!['revenue'] =
+            (rankMap[pid]!['revenue'] as double) + revenueOfItem;
       } else {
         rankMap[pid] = {
           'name': name,
@@ -97,19 +108,18 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
 
     List<Map<String, dynamic>> sortedResults = rankMap.values.toList();
     sortedResults.sort(
-          (a, b) => (b['revenue'] as double).compareTo(a['revenue'] as double),
+      (a, b) => (b['revenue'] as double).compareTo(a['revenue'] as double),
     );
 
     Map<int, double> tempMonthlyTotal = {for (int i = 1; i <= 12; i++) i: 0.0};
 
     for (var item in itemsForRank) {
-      double revenueOfLine = ((item['unit_price'] as num) * (item['quantity'] as num)).toDouble();
+      double revenueOfLine =
+          ((item['unit_price'] as num) * (item['quantity'] as num)).toDouble();
       DateTime date = DateTime.parse(item['created_at']);
       int m = date.month;
       tempMonthlyTotal[m] = tempMonthlyTotal[m]! + revenueOfLine;
     }
-
-
 
     if (mounted) {
       setState(() {
@@ -133,208 +143,264 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(t('sales_dashboard'), style: const TextStyle(fontWeight: FontWeight.bold))),
+      appBar: AppBar(
+        title: Text(
+          t('sales_dashboard'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
       body: SafeArea(
         child: _isLoading
             ? _buildShimmerLoading()
             : SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _StatCard(
-                    label: t('total_sales'),
-                    value: 'RM ${_totalSales.toStringAsFixed(2)}',
-                    icon: Icons.attach_money,
-                  ),
-                  const SizedBox(width: 8),
-                  _StatCard(
-                    label: t('orders_count'),
-                    value: '$_orderCount',
-                    icon: Icons.receipt,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _StatCard(
-                    label: t('products'),
-                    value: '$_productCount ${t('listed')}',
-                    icon: Icons.inventory_2,
-                  ),
-                  const SizedBox(width: 8),
-                  _StatCard(
-                    label: t('total_customers'),
-                    value: '$_customerCount',
-                    icon: Icons.people,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-
-              Text(
-                t('monthly_sales_chart'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-
-              // Premium Line Chart Container
-              Container(
-                width: double.infinity,
-                height: 250,
-                padding: const EdgeInsets.only(right: 20, left: 10, top: 32, bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _StatCard(
+                          label: t('total_sales'),
+                          value: 'RM ${_totalSales.toStringAsFixed(2)}',
+                          icon: Icons.attach_money,
+                        ),
+                        const SizedBox(width: 8),
+                        _StatCard(
+                          label: t('orders_count'),
+                          value: '$_orderCount',
+                          icon: Icons.receipt,
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _StatCard(
+                          label: t('products'),
+                          value: '$_productCount ${t('listed')}',
+                          icon: Icons.inventory_2,
+                        ),
+                        const SizedBox(width: 8),
+                        _StatCard(
+                          label: t('total_customers'),
+                          value: '$_customerCount',
+                          icon: Icons.people,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    Text(
+                      t('monthly_sales_chart'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Premium Line Chart Container
+                    Container(
+                      width: double.infinity,
+                      height: 250,
+                      padding: const EdgeInsets.only(
+                        right: 20,
+                        left: 10,
+                        top: 32,
+                        bottom: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: LineChart(
+                        LineChartData(
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            horizontalInterval: 500,
+                            getDrawingHorizontalLine: (value) {
+                              return FlLine(
+                                color: Colors.grey.withValues(alpha: 0.1),
+                                strokeWidth: 1,
+                              );
+                            },
+                          ),
+                          titlesData: FlTitlesData(
+                            show: true,
+                            rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 40,
+                                interval: 1,
+                                getTitlesWidget: (value, meta) {
+                                  const months = [
+                                    'Jan',
+                                    'Feb',
+                                    'Mar',
+                                    'Apr',
+                                    'May',
+                                    'Jun',
+                                    'Jul',
+                                    'Aug',
+                                    'Sep',
+                                    'Oct',
+                                    'Nov',
+                                    'Dec',
+                                  ];
+                                  int index = value.toInt() - 1;
+                                  if (index >= 0 && index < 12) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 18.0),
+                                      child: Text(
+                                        months[index],
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return const Text('');
+                                },
+                              ),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: 1000,
+                                getTitlesWidget: (value, meta) {
+                                  return Text(
+                                    'RM ${value.toInt()}',
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 10,
+                                    ),
+                                    textAlign: TextAlign.left,
+                                  );
+                                },
+                                reservedSize: 45,
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          minX: 1,
+                          maxX: 12,
+                          minY: 0,
+                          maxY:
+                              _monthlySales.values.reduce(
+                                (a, b) => a > b ? a : b,
+                              ) *
+                              1,
+                          lineTouchData: LineTouchData(
+                            touchTooltipData: LineTouchTooltipData(
+                              getTooltipColor: (touchedSpot) =>
+                                  Colors.blue.shade800,
+                              getTooltipItems:
+                                  (List<LineBarSpot> touchedBarSpots) {
+                                    return touchedBarSpots.map((barSpot) {
+                                      final flSpot = barSpot;
+                                      return LineTooltipItem(
+                                        'RM ${flSpot.y.toStringAsFixed(2)}',
+                                        const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      );
+                                    }).toList();
+                                  },
+                            ),
+                          ),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: List.generate(12, (index) {
+                                int m = index + 1;
+                                return FlSpot(
+                                  m.toDouble(),
+                                  _monthlySales[m] ?? 0.0,
+                                );
+                              }),
+                              isCurved: false,
+                              gradient: const LinearGradient(
+                                colors: [Colors.blueAccent, Colors.blue],
+                              ),
+                              barWidth: 4,
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.blueAccent.withValues(alpha: 0.4),
+                                    Colors.white.withValues(alpha: 0.0),
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    Text(
+                      t('top_products'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    _topProducts.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Text(t('no_sales_records')),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _topProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = _topProducts[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  child: Text('${index + 1}'),
+                                ),
+                                title: Text(product['name'] ?? t('product')),
+                                subtitle: Text(
+                                  '${product['sold_count']} ${t('sold')}',
+                                ),
+                                trailing: Text(
+                                  'RM ${product['revenue']}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ],
                 ),
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: 500,
-                      getDrawingHorizontalLine: (value) {
-                        return FlLine(
-                          color: Colors.grey.withValues(alpha: 0.1),
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) {
-                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                            int index = value.toInt() - 1;
-                            if (index >= 0 && index < 12) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 18.0),
-                                child: Text(months[index], style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                              );
-                            }
-                            return const Text('');
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          interval: 500,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              'RM ${value.toInt()}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 10),
-                              textAlign: TextAlign.left,
-                            );
-                          },
-                          reservedSize: 45,
-                        ),
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    minX: 1,
-                    maxX: 12,
-                    minY: 0,
-                    maxY: 2000,
-                    lineTouchData: LineTouchData(
-                      touchTooltipData: LineTouchTooltipData(
-                        getTooltipColor: (touchedSpot) => Colors.blue.shade800,
-                        getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
-                          return touchedBarSpots.map((barSpot) {
-                            final flSpot = barSpot;
-                            return LineTooltipItem(
-                              'RM ${flSpot.y.toStringAsFixed(2)}',
-                              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            );
-                          }).toList();
-                        },
-                      ),
-                    ),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: List.generate(12, (index) {
-                          int m = index + 1;
-                          return FlSpot(m.toDouble(), _monthlySales[m] ?? 0.0);
-                        }),
-                        isCurved: true,
-                        gradient: const LinearGradient(
-                          colors: [Colors.blueAccent, Colors.blue],
-                        ),
-                        barWidth: 4,
-                        isStrokeCapRound: true,
-                        dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.blueAccent.withValues(alpha: 0.4),
-                              Colors.white.withValues(alpha: 0.0),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
-              const SizedBox(height: 24),
-
-              Text(
-                t('top_products'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-
-              _topProducts.isEmpty
-                  ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(t('no_sales_records')),
-                ),
-              )
-                  : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _topProducts.length,
-                itemBuilder: (context, index) {
-                  final product = _topProducts[index];
-                  return ListTile(
-                    leading: CircleAvatar(
-                      child: Text('${index + 1}'),
-                    ),
-                    title: Text(product['name'] ?? t('product')),
-                    subtitle: Text('${product['sold_count']} ${t('sold')}'),
-                    trailing: Text(
-                      'RM ${product['revenue']}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -391,17 +457,20 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            ...List.generate(3, (index) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Container(
-                width: double.infinity,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+            ...List.generate(
+              3,
+              (index) => Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Container(
+                  width: double.infinity,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-            )),
+            ),
           ],
         ),
       ),
