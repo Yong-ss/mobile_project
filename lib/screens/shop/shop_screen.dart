@@ -37,7 +37,8 @@ class ShopScreenState extends State<ShopScreen> {
   List<Map<String, dynamic>> _filteredProducts = [];
   List<String> _categories = [t('all')];
   String _selectedCategory = t('all');
-  bool _isLoading = true;
+  bool _isInitialLoading = true;
+  bool _isFetching = false;
 
   // Pagination
   final ScrollController _scrollController = ScrollController();
@@ -47,7 +48,6 @@ class ShopScreenState extends State<ShopScreen> {
   bool _hasMore = true;
 
   // Cart State
-  int _cartCount = 0;
   bool _isDraggingOverCart = false;
   final ValueNotifier<bool> _isDraggingProductNotifier = ValueNotifier<bool>(false);
   final GlobalKey _cartButtonKey = GlobalKey();
@@ -127,9 +127,7 @@ class ShopScreenState extends State<ShopScreen> {
           .select('id')
           .eq('user_id', currentUser!['id']);
 
-      setState(() {
-        _cartCount = response.length;
-      });
+      cartCountNotifier.value = response.length;
     } catch (e) {
       debugPrint('Error fetching cart count: $e');
     }
@@ -206,11 +204,14 @@ class ShopScreenState extends State<ShopScreen> {
   }
 
   Future<void> _fetchProducts() async {
+    if (_isFetching) return;
+
     setState(() {
-      _isLoading = true;
+      _isFetching = true;
       _page = 0;
       _hasMore = true;
     });
+
     try {
       final supabase = Supabase.instance.client;
 
@@ -231,21 +232,23 @@ class ShopScreenState extends State<ShopScreen> {
 
       final List<Map<String, dynamic>> products = List<Map<String, dynamic>>.from(response);
 
-      setState(() {
-        _allProducts = products;
-        _filteredProducts = products;
-        _hasMore = products.length == _pageSize;
-        _isLoading = false;
-      });
-    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching products: $e'), backgroundColor: Colors.red),
-        );
+        setState(() {
+          _allProducts = products;
+          _filteredProducts = products;
+          _hasMore = products.length == _pageSize;
+          _isFetching = false;
+          _isInitialLoading = false;
+        });
       }
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (e) {
+      debugPrint('Error fetching products: $e');
+      if (mounted) {
+        setState(() {
+          _isFetching = false;
+          _isInitialLoading = false;
+        });
+      }
     }
   }
 
@@ -589,12 +592,17 @@ class ShopScreenState extends State<ShopScreen> {
                         ] : [],
                       ),
                       child: Center(
-                        child: Badge(
-                          label: Text(_cartCount.toString()),
-                          backgroundColor: Colors.red,
-                          isLabelVisible: _cartCount > 0,
-                          offset: const Offset(6, -6),
-                          child: const Icon(Icons.shopping_cart, color: Colors.white),
+                        child: ValueListenableBuilder<int>(
+                          valueListenable: cartCountNotifier,
+                          builder: (context, count, child) {
+                            return Badge(
+                              label: Text(count.toString()),
+                              backgroundColor: Colors.red,
+                              isLabelVisible: count > 0,
+                              offset: const Offset(6, -6),
+                              child: const Icon(Icons.shopping_cart, color: Colors.white),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -604,228 +612,245 @@ class ShopScreenState extends State<ShopScreen> {
             );
           },
         ),
-        body: _isLoading
-            ? const ShopSkeleton()
-            : SafeArea(
+        body: SafeArea(
           child: Stack(
             children: [
               Column(
                 children: [
-                  // Search bar (Ch 3.1: TextField)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            decoration: BoxDecoration(
-                              color: isFocused
-                                  ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.white)
-                                  : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C).withValues(alpha: 0.5) : Colors.grey.shade100),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isFocused ? Colors.lightBlue : Colors.transparent,
-                                width: isFocused ? 2 : 0,
+                  if (_isInitialLoading) ...[
+                    // Show a full skeleton for the very first load
+                    const Expanded(child: ShopSkeleton()),
+                  ] else ...[
+                    // Search bar stays fixed
+                    // Search bar (Ch 3.1: TextField)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              decoration: BoxDecoration(
+                                color: isFocused
+                                    ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C) : Colors.white)
+                                    : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C2C2C).withValues(alpha: 0.5) : Colors.grey.shade100),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isFocused ? Colors.lightBlue : Colors.transparent,
+                                  width: isFocused ? 2 : 0,
+                                ),
+                                boxShadow: isFocused
+                                    ? [
+                                  BoxShadow(
+                                    color: Colors.lightBlue.withValues(alpha: isFocused ? 0.1 : 0.0),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                                    : [],
                               ),
-                              boxShadow: isFocused
-                                  ? [
-                                BoxShadow(
-                                  color: Colors.lightBlue.withValues(alpha: isFocused ? 0.1 : 0.0),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                  offset: const Offset(0, 2),
-                                )
-                              ]
-                                  : [],
+                              child: TextField(
+                                focusNode: _searchFocusNode,
+                                controller: _searchController,
+                                textInputAction: TextInputAction.done,
+                                decoration: InputDecoration(
+                                  hintText: t('search_products'),
+                                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                onChanged: (value) {
+                                  _filterProducts();
+                                },
+                                onSubmitted: (_) => _searchFocusNode.unfocus(),
+                              ),
                             ),
-                            child: TextField(
-                              focusNode: _searchFocusNode,
-                              controller: _searchController,
-                              textInputAction: TextInputAction.done,
-                              decoration: InputDecoration(
-                                hintText: t('search_products'),
-                                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: _startListening,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                color: Colors.lightBlue,
+                                shape: BoxShape.circle,
                               ),
-                              onChanged: (value) {
-                                _filterProducts();
+                              child: const Icon(
+                                Icons.mic_none,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
+                    SizedBox(
+                      height: 48,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _categories.length,
+                        itemBuilder: (context, index) {
+                          final category = _categories[index];
+                          final isSelected = _selectedCategory == category;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: FilterChip(
+                              label: Text(
+                                category,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.lightBlue.shade800
+                                      : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                              selected: isSelected,
+                              onSelected: (bool value) {
+                                setState(() {
+                                  _selectedCategory = category;
+                                  _filterProducts();
+                                });
                               },
-                              onSubmitted: (_) => _searchFocusNode.unfocus(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: _startListening,
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: const BoxDecoration(
-                              color: Colors.lightBlue,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.mic_none,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Category filter chips row (Ch 3.1: horizontal ListView + FilterChip)
-                  SizedBox(
-                    height: 48,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final category = _categories[index];
-                        final isSelected = _selectedCategory == category;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: FilterChip(
-                            label: Text(
-                              category,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.lightBlue.shade800
-                                    : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87),
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              selectedColor: Colors.lightBlue.shade100,
+                              checkmarkColor: Colors.lightBlue,
+                              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white10
+                                  : Colors.grey.shade100,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
                               ),
                             ),
-                            selected: isSelected,
-                            onSelected: (bool value) {
-                              setState(() {
-                                _selectedCategory = category;
-                                _filterProducts();
-                              });
-                            },
-                            selectedColor: Colors.lightBlue.shade100,
-                            checkmarkColor: Colors.lightBlue,
-                            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.white10
-                                : Colors.grey.shade100,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                  // GridView of products (Ch 3.1: GridView)
-                  Expanded(
-                    child: _isLoading && _allProducts.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : _filteredProducts.isEmpty
-                        ? Center(child: Text(t('no_products_found')))
-                        : CustomScrollView(
-                      controller: _scrollController,
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                          sliver: SliverGrid(
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.75,
-                            ),
-                            delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                final product = _filteredProducts[index];
-                                return LongPressDraggable<Map<String, dynamic>>(
-                                  data: product,
-                                  feedback: Material(
-                                    elevation: 20,
-                                    borderRadius: BorderRadius.circular(16),
-                                    color: Colors.transparent,
-                                    child: Transform.scale(
-                                      scale: 1.05,
-                                      child: Container(
-                                        width: 150,
-                                        height: 200,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(16),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.3),
-                                              blurRadius: 30,
-                                              offset: const Offset(0, 10),
+                    // Smooth progress indicator when fetching new category data
+                    AnimatedOpacity(
+                      opacity: _isFetching ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: const LinearProgressIndicator(
+                        backgroundColor: Colors.transparent,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlue),
+                        minHeight: 2,
+                      ),
+                    ),
+
+                    // GridView of products with AnimatedSwitcher for smooth transitions
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        child: _filteredProducts.isEmpty && !_isFetching
+                            ? Center(key: const ValueKey('no_products'), child: Text(t('no_products_found')))
+                            : CustomScrollView(
+                          key: ValueKey('grid_${_selectedCategory}_${_searchController.text}'),
+                          controller: _scrollController,
+                          slivers: [
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                              sliver: SliverGrid(
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.75,
+                                ),
+                                delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                    final product = _filteredProducts[index];
+                                    return LongPressDraggable<Map<String, dynamic>>(
+                                      data: product,
+                                      feedback: Material(
+                                        elevation: 20,
+                                        borderRadius: BorderRadius.circular(16),
+                                        color: Colors.transparent,
+                                        child: Transform.scale(
+                                          scale: 1.05,
+                                          child: Container(
+                                            width: 150,
+                                            height: 200,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.3),
+                                                  blurRadius: 30,
+                                                  offset: const Offset(0, 10),
+                                                )
+                                              ],
+                                            ),
+                                            child: product['image_url'] != null
+                                                ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(16),
+                                              child: Image.network(product['image_url'].toString().split(',')[0], fit: BoxFit.cover),
                                             )
-                                          ],
-                                        ),
-                                        child: product['image_url'] != null
-                                            ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(16),
-                                          child: Image.network(product['image_url'].toString().split(',')[0], fit: BoxFit.cover),
-                                        )
-                                            : const Icon(Icons.shopping_bag, size: 50),
-                                      ),
-                                    ),
-                                  ),
-                                  childWhenDragging: Opacity(
-                                    opacity: 0.2,
-                                    child: ProductCard(
-                                      name: product['name'] ?? 'Unknown',
-                                      price: product['price'].toString(),
-                                      imageUrl: product['image_url'],
-                                    ),
-                                  ),
-                                  onDragStarted: () {
-                                    HapticFeedback.heavyImpact();
-                                    _isDraggingProductNotifier.value = true;
-                                  },
-                                  onDragEnd: (details) {
-                                    _isDraggingProductNotifier.value = false;
-                                  },
-                                  onDraggableCanceled: (velocity, offset) {
-                                    _isDraggingProductNotifier.value = false;
-                                  },
-                                  child: GestureDetector(
-                                    onTap: () async {
-                                      await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ProductDetailsScreen(
-                                            productId: product['id'],
+                                                : const Icon(Icons.shopping_bag, size: 50),
                                           ),
                                         ),
-                                      );
-                                      // Refresh count when returning from details
-                                      _fetchCartCount();
-                                    },
-                                    child: ProductCard(
-                                      name: product['name'] ?? 'Unknown',
-                                      price: product['price'].toString(),
-                                      imageUrl: product['image_url'],
-                                    ),
-                                  ),
-                                );
-                              },
-                              childCount: _filteredProducts.length,
+                                      ),
+                                      childWhenDragging: Opacity(
+                                        opacity: 0.2,
+                                        child: ProductCard(
+                                          name: product['name'] ?? 'Unknown',
+                                          price: product['price'].toString(),
+                                          imageUrl: product['image_url'],
+                                        ),
+                                      ),
+                                      onDragStarted: () {
+                                        HapticFeedback.heavyImpact();
+                                        _isDraggingProductNotifier.value = true;
+                                      },
+                                      onDragEnd: (details) {
+                                        _isDraggingProductNotifier.value = false;
+                                      },
+                                      onDraggableCanceled: (velocity, offset) {
+                                        _isDraggingProductNotifier.value = false;
+                                      },
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ProductDetailsScreen(
+                                                productId: product['id'],
+                                              ),
+                                            ),
+                                          );
+                                          // Refresh count when returning from details
+                                          _fetchCartCount();
+                                        },
+                                        child: ProductCard(
+                                          name: product['name'] ?? 'Unknown',
+                                          price: product['price'].toString(),
+                                          imageUrl: product['image_url'],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  childCount: _filteredProducts.length,
+                                ),
+                              ),
                             ),
-                          ),
+                            if (_isLoadingMore)
+                              const SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                ),
+                              ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                          ],
                         ),
-                        if (_isLoadingMore)
-                          const SliverToBoxAdapter(
-                            child: Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                            ),
-                          ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 80)),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
 

@@ -8,7 +8,6 @@ import '../../widgets/shimmer_skeletons.dart';
 import 'announcement_details_screen.dart';
 import '../order/order_details_screen.dart';
 import '../order/seller_order_detail_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationScreen extends StatefulWidget {
   final bool isSystemOnly;
@@ -119,24 +118,47 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
   }
 
   Future<void> _loadReadIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _readIds = (prefs.getStringList('read_notification_ids') ?? []).toSet();
-      });
+    final userId = currentUser?['id'];
+    if (userId == null) return;
+
+    try {
+      final res = await _supabase
+          .from('notification_read')
+          .select('notification_id')
+          .eq('user_id', userId);
+
+      if (mounted) {
+        setState(() {
+          _readIds = (res as List).map((e) => e['notification_id'].toString()).toSet();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading read history: $e');
     }
   }
 
   Future<void> _markAsRead(String id) async {
-    if (_readIds.contains(id)) return;
+    final userId = currentUser?['id'];
+    if (userId == null || _readIds.contains(id)) return;
+
     setState(() {
       _readIds.add(id);
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('read_notification_ids', _readIds.toList());
+
+    try {
+      await _supabase.from('notification_read').upsert({
+        'user_id': userId,
+        'notification_id': id,
+      });
+    } catch (e) {
+      debugPrint('Error marking as read: $e');
+    }
   }
 
   Future<void> _markAllAsRead() async {
+    final userId = currentUser?['id'];
+    if (userId == null) return;
+
     final List<String> allIds = [
       ..._announcements.map((e) => e['id'].toString()),
       ..._paymentReminders.map((e) => e['id'].toString()),
@@ -145,11 +167,22 @@ class _NotificationScreenState extends State<NotificationScreen> with SingleTick
       if (_applicationStatus != null) _applicationStatus!['id'].toString(),
     ];
 
+    if (allIds.isEmpty) return;
+
     setState(() {
       _readIds.addAll(allIds);
     });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('read_notification_ids', _readIds.toList());
+
+    try {
+      final List<Map<String, dynamic>> upsertData = allIds.map((id) => {
+        'user_id': userId,
+        'notification_id': id,
+      }).toList();
+
+      await _supabase.from('notification_read').upsert(upsertData);
+    } catch (e) {
+      debugPrint('Error marking all as read: $e');
+    }
   }
 
   @override

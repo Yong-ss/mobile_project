@@ -1255,6 +1255,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           await supabase.from('cart_item').delete().eq('id', item['id']);
         }
       }
+      cartCountNotifier.value = 0;
 
       if (mounted) Navigator.pop(context); // Dismiss loading
 

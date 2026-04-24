@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../utils/globals.dart';
@@ -64,7 +63,7 @@ class _NotificationBellState extends State<NotificationBell> with SingleTickerPr
       final userId = currentUser?['id'];
       if (userId == null) return;
 
-      // Determine target role based on context (Seller Mode or Buyer Mode)
+      // Determine target role
       final rawRole = currentUser?['role']?.toString().toLowerCase() ?? '';
       String targetRole = 'All Users';
 
@@ -78,7 +77,7 @@ class _NotificationBellState extends State<NotificationBell> with SingleTickerPr
 
       final now = DateTime.now().toIso8601String();
 
-      // Fetch relevant published announcements
+      // 1. Fetch relevant published announcements
       final annRes = await supabase
           .from('announcements')
           .select('id, expire_at')
@@ -86,8 +85,15 @@ class _NotificationBellState extends State<NotificationBell> with SingleTickerPr
           .lte('publish_at', now)
           .or('target_role.eq.All Users,target_role.eq.$targetRole');
 
-      final prefs = await SharedPreferences.getInstance();
-      final readIds = prefs.getStringList('read_notification_ids') ?? [];
+      // 2. Fetch read history from Supabase
+      final readRes = await supabase
+          .from('notification_read')
+          .select('notification_id')
+          .eq('user_id', userId);
+
+      final Set<String> readIds = (readRes as List)
+          .map((e) => e['notification_id'].toString())
+          .toSet();
 
       int count = 0;
       for (var ann in annRes) {
@@ -102,11 +108,39 @@ class _NotificationBellState extends State<NotificationBell> with SingleTickerPr
         }
       }
 
+      // 3. Fetch Orders (Seller Mode: Incoming Orders, Buyer Mode: Payment Reminders/Status Updates)
+      if (widget.isSellerMode) {
+        final sellerOrdersRes = await supabase
+            .from('orders')
+            .select('id')
+            .eq('seller_id', userId);
+
+        for (var order in sellerOrdersRes) {
+          if (!readIds.contains(order['id'].toString())) {
+            count++;
+          }
+        }
+      } else {
+        // Buyer Mode: Awaiting Payment or other updates
+        final buyerOrdersRes = await supabase
+            .from('orders')
+            .select('id')
+            .eq('buyer_id', userId);
+
+        for (var order in buyerOrdersRes) {
+          if (!readIds.contains(order['id'].toString())) {
+            count++;
+          }
+        }
+      }
+
       if (mounted) {
         setState(() {
           _unreadCount = count;
           if (_unreadCount > 0) {
-            _shakeController.repeat(); // Loop the 6s cycle
+            if (!_shakeController.isAnimating) {
+              _shakeController.repeat();
+            }
           } else {
             _shakeController.stop();
           }
@@ -129,7 +163,7 @@ class _NotificationBellState extends State<NotificationBell> with SingleTickerPr
           if (_shakeController.value > stillRatio) {
             // Normalize the last 3 seconds to a 0.0-1.0 range for the shake
             double shakeT = (_shakeController.value - stillRatio) / (1 - stillRatio);
-            angle = sin(shakeT * pi * 8) * 0.15;
+            angle = sin(shakeT * pi * 8) * 0.40;
           }
         }
 

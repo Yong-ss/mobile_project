@@ -47,11 +47,14 @@ class _ToPayScreenState extends State<ToPayScreen> {
     try {
       // 1. Fetch Orders that are currently "Awaiting Payment"
       // This is the source of truth for what the user needs to pay for.
+      final cutoff = DateTime.now().subtract(const Duration(minutes: 2)).toUtc().toIso8601String();
+
       final ordersResponse = await _supabase
           .from('orders')
           .select('*, seller:seller_id(shop_name, username)')
           .eq('buyer_id', currentUser!['id'])
           .eq('status', 'Awaiting Payment')
+          .gt('created_at', cutoff)
           .order('created_at', ascending: false);
 
       final List<Map<String, dynamic>> orders = List<Map<String, dynamic>>.from(ordersResponse);
@@ -86,18 +89,27 @@ class _ToPayScreenState extends State<ToPayScreen> {
           orElse: () => {},
         );
 
-        // We only show it if the payment is NOT already successful
-        // Although if the order is "Awaiting Payment", it shouldn't be Success anyway.
+        final createdAt = matchingPayment['created_at'] ?? order['created_at'];
+
+        // We only show it if the payment is NOT already successful and NOT expired
         if (matchingPayment['status'] != 'Success' && matchingPayment['status'] != 'succeeded') {
-          combined.add({
-            ...matchingPayment, // Payment details (id, status, created_at, amount)
-            'id': matchingPayment['id'] ?? -1, // Use payment ID if it exists, else -1
-            'order_id': order['id'], // Keep track of order ID
-            'orders': order,    // Order details for UI
-            'created_at': matchingPayment['created_at'] ?? order['created_at'], // Use payment time for timer
-            'amount': order['total_amount'] ?? 0.0,
-            'payment_intent_id': piid,
-          });
+          if (!_isExpired(createdAt)) {
+            combined.add({
+              ...matchingPayment, // Payment details (id, status, created_at, amount)
+              'id': matchingPayment['id'] ?? -1, // Use payment ID if it exists, else -1
+              'order_id': order['id'], // Keep track of order ID
+              'orders': order,    // Order details for UI
+              'created_at': createdAt, // Use payment time for timer
+              'amount': order['total_amount'] ?? 0.0,
+              'payment_intent_id': piid,
+            });
+          } else {
+            // It's expired already, handle it silently in the background
+            _handleExpirationSilently({
+              'order_id': order['id'],
+              'id': matchingPayment['id'] ?? -1,
+            });
+          }
         }
       }
 
@@ -184,6 +196,18 @@ class _ToPayScreenState extends State<ToPayScreen> {
       debugPrint('Auto-fail error: $e');
     } finally {
       if (mounted) setState(() => _isHandlingExpiration = false);
+    }
+  }
+
+  // A variant of handleExpiration that doesn't trigger a full UI refresh
+  Future<void> _handleExpirationSilently(Map<String, dynamic> item) async {
+    try {
+      await _supabase.from('orders').update({'status': 'Failed'}).eq('id', item['order_id']);
+      if (item['id'] != -1) {
+        await _supabase.from('payments').update({'status': 'Failed'}).eq('id', item['id']);
+      }
+    } catch (e) {
+      debugPrint('Silent auto-fail error: $e');
     }
   }
 

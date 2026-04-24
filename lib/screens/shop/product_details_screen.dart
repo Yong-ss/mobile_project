@@ -27,7 +27,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   // Animation & Badge state
   final GlobalKey _imageKey = GlobalKey();
   final GlobalKey _cartKey = GlobalKey();
-  int _cartCount = 0;
 
   // Carousel state
   late PageController _carouselController;
@@ -68,7 +67,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Future<void> _fetchCartCount() async {
     final user = currentUser;
     if (user == null) {
-      if (mounted) setState(() => _cartCount = 0);
+      if (mounted) cartCountNotifier.value = 0;
       return;
     }
 
@@ -80,7 +79,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           .eq('user_id', user['id']);
 
       if (mounted) {
-        setState(() => _cartCount = response.length);
+        cartCountNotifier.value = response.length;
       }
     } catch (e) {
       debugPrint('Error fetching cart count: $e');
@@ -134,7 +133,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         onComplete: () {
           overlayEntry?.remove();
           if (isNewItem) {
-            setState(() => _cartCount++);
+            cartCountNotifier.value++;
           }
         },
       ),
@@ -235,45 +234,50 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       );
                     },
                   ),
-                  if (_cartCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (Widget child, Animation<double> animation) {
-                          return ScaleTransition(scale: animation, child: child);
-                        },
-                        child: Container(
-                          key: ValueKey<int>(_cartCount),
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 4,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            '$_cartCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                  ValueListenableBuilder<int>(
+                    valueListenable: cartCountNotifier,
+                    builder: (context, count, child) {
+                      if (count <= 0) return const SizedBox.shrink();
+                      return Positioned(
+                        right: 8,
+                        top: 8,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return ScaleTransition(scale: animation, child: child);
+                          },
+                          child: Container(
+                            key: ValueKey<int>(count),
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
                             ),
-                            textAlign: TextAlign.center,
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
+                  ),
                 ],
               ),
               const SizedBox(width: 8),

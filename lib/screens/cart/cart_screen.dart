@@ -75,6 +75,7 @@ class _CartScreenState extends State<CartScreen> {
           _isLoading = false;
           _hasMore = _cartItems.length == _pageSize;
         });
+        cartCountNotifier.value = response.length;
       }
     } catch (e) {
       debugPrint('Error fetching cart: $e');
@@ -223,6 +224,7 @@ class _CartScreenState extends State<CartScreen> {
       setState(() {
         _cartItems.removeAt(index);
       });
+      cartCountNotifier.value = _cartItems.length;
     } catch (e) {
       debugPrint('Error removing item: $e');
     }

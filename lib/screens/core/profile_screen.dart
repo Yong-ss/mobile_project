@@ -41,11 +41,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadPendingCount() async {
     try {
+      final cutoff = DateTime.now().subtract(const Duration(minutes: 2)).toUtc().toIso8601String();
+
       final response = await Supabase.instance.client
           .from('orders')
           .select('id')
           .eq('buyer_id', currentUser!['id'])
-          .eq('status', 'Awaiting Payment');
+          .eq('status', 'Awaiting Payment')
+          .gt('created_at', cutoff);
 
       if (mounted) {
         setState(() {
@@ -132,9 +135,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   await supabase
                       .from('user')
                       .update({
-                        'seller_application_status': 'pending',
-                        'shop_name': shopNameInput,
-                      })
+                    'seller_application_status': 'pending',
+                    'shop_name': shopNameInput,
+                  })
                       .eq('id', currentUser!['id']);
 
                   // Update global and local state
@@ -245,34 +248,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           image: DecorationImage(
                             image:
-                                (currentUser!['user_pic'] != null ||
-                                    currentUser!['google_profile_image'] !=
-                                        null)
+                            (currentUser!['user_pic'] != null ||
+                                currentUser!['google_profile_image'] !=
+                                    null)
                                 ? NetworkImage(
-                                    (currentUser!['user_pic'] ??
-                                            currentUser!['google_profile_image'])
-                                        .toString()
-                                        .split(',')[0],
-                                  )
+                              (currentUser!['user_pic'] ??
+                                  currentUser!['google_profile_image'])
+                                  .toString()
+                                  .split(',')[0],
+                            )
                                 : const AssetImage(
-                                        'assets/images/placeholder_avatar.png',
-                                      )
-                                      as ImageProvider,
+                              'assets/images/placeholder_avatar.png',
+                            )
+                            as ImageProvider,
                             fit: BoxFit.cover,
                           ),
                         ),
                         child:
-                            (currentUser!['user_pic'] == null &&
-                                currentUser!['google_profile_image'] == null)
+                        (currentUser!['user_pic'] == null &&
+                            currentUser!['google_profile_image'] == null)
                             ? AnimatedOpacity(
-                                opacity: _isProfileExpanded ? 0.0 : 1.0,
-                                duration: const Duration(milliseconds: 300),
-                                child: const Icon(
-                                  Icons.person,
-                                  size: 48,
-                                  color: Colors.lightBlue,
-                                ),
-                              )
+                          opacity: _isProfileExpanded ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: const Icon(
+                            Icons.person,
+                            size: 48,
+                            color: Colors.lightBlue,
+                          ),
+                        )
                             : null,
                       ),
                     ),
@@ -303,8 +306,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                     color:
-                                        Theme.of(context).brightness ==
-                                            Brightness.dark
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
                                         ? Colors.white
                                         : Colors.black87,
                                   ),
@@ -313,8 +316,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   _showEmail,
                                   style: TextStyle(
                                     color:
-                                        Theme.of(context).brightness ==
-                                            Brightness.dark
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
                                         ? Colors.white70
                                         : Colors.grey.shade600,
                                   ),
@@ -489,7 +492,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       MaterialPageRoute(
                         builder: (context) => const LoginScreen(),
                       ),
-                      (route) => false,
+                          (route) => false,
                     );
                   }
                 } catch (e) {
