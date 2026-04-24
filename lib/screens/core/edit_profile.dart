@@ -183,6 +183,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       }
 
+      // 1. Update Supabase Auth (official encrypted password)
+      try {
+        await supabase.auth.updateUser(
+          UserAttributes(password: newPass),
+        );
+      } catch (e) {
+        // Legacy users (like admin) don't have an auth.users record, skip silently
+        debugPrint('Auth password update skipped: $e');
+      }
+
+      // 2. Update public.user (for Legacy fallback login)
       await supabase
           .from('user')
           .update({'password': newPass, 'password_custom': true})
