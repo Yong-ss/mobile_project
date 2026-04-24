@@ -15,14 +15,26 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   final GlobalKey<ShopScreenState> _shopScreenKey = GlobalKey<ShopScreenState>();
   int _selectedIndex = 0;
   late PageController _mainPageController;
+
+  void setIndex(int index) {
+    if (index >= 0 && index < 4) {
+      _onNavItemTapped(index);
+    }
+  }
+
+  void _onTabChange() {
+    if (mounted) {
+      setIndex(homeTabNotifier.value);
+    }
+  }
 
   // Announcements state
   List<Map<String, dynamic>> _announcements = [];
@@ -65,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _mainPageController = PageController(initialPage: _selectedIndex);
     _mainScrollController.addListener(_onMainScroll);
+    homeTabNotifier.addListener(_onTabChange);
     _fetchAnnouncements();
     _fetchProducts();
     _startWelcomeTimer();
@@ -94,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _bannerController.dispose();
     _mainPageController.dispose();
     _mainScrollController.dispose();
+    homeTabNotifier.removeListener(_onTabChange);
     super.dispose();
   }
 

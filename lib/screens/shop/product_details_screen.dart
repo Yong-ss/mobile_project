@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'seller_page_screen.dart';
-import '../cart/cart_screen.dart';
 import '../chat/chat_screen.dart';
 import '../../utils/globals.dart';
 import '../../utils/snackbar_helper.dart';
@@ -143,7 +142,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     Overlay.of(context).insert(overlayEntry);
   }
 
-  Offset imageOffset(RenderBox box) => box.localToGlobal(Offset.zero);
+  Offset imageOffset(RenderBox box) => box.localToGlobal(Offset(box.size.width / 2, box.size.height / 2));
   Offset cartOffset(RenderBox box) => box.localToGlobal(Offset.zero) + Offset(box.size.width / 2, box.size.height / 2);
 
   Future<void> _addToSupabaseCart() async {
@@ -228,13 +227,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   IconButton(
                     key: _cartKey,
                     icon: const Icon(Icons.shopping_cart_outlined),
-                    onPressed: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const CartScreen()),
-                      );
-                      // Refresh count when returning from cart
-                      _fetchCartCount();
+                    onPressed: () {
+                      // Modern reactive navigation: Update global notifier
+                      homeTabNotifier.value = 2;
+                      // Return to the root (Home) to see the tab change
+                      Navigator.popUntil(context, (route) => route.isFirst);
                     },
                   ),
                   if (_cartCount > 0)
@@ -291,6 +288,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       final urls = _productData!['image_url'].toString().split(',').where((u) => u.trim().isNotEmpty).toList();
 
                       return SizedBox(
+                        key: _imageKey, // Assign key here for animation start point
                         height: 350,
                         width: double.infinity,
                         child: Stack(

@@ -27,6 +27,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _newImageUrl; // 存刚才传好的 URL，用来做预览
   bool _isUploading = false; // 上传时的转圈圈标志
 
+  // Password visibility states
+  bool _obscureOld = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+
   @override
   void initState() {
     super.initState();
@@ -215,41 +220,133 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _oldPasswordController.clear();
     _newPasswordController.clear();
     _confirmPasswordController.clear();
+
+    // Reset visibility states when opening
+    setState(() {
+      _obscureOld = true;
+      _obscureNew = true;
+      _obscureConfirm = true;
+    });
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t('change_password')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (currentUser!['password_custom'] ?? false)
-              TextField(
-                controller: _oldPasswordController,
-                decoration: InputDecoration(labelText: t('old_password')),
-                obscureText: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final bool isDark = Theme.of(context).brightness == Brightness.dark;
+          final bool hasOldPass = currentUser!['password_custom'] ?? false;
+
+          Widget buildPasswordField({
+            required TextEditingController controller,
+            required String label,
+            required bool isObscured,
+            required VoidCallback onToggle,
+          }) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: TextField(
+                controller: controller,
+                obscureText: isObscured,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                decoration: InputDecoration(
+                  labelText: label,
+                  labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+                  prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      isObscured ? Icons.visibility_off : Icons.visibility,
+                      size: 20,
+                      color: isDark ? Colors.white38 : Colors.grey,
+                    ),
+                    onPressed: onToggle,
+                  ),
+                  filled: true,
+                  fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
               ),
-            TextField(
-              controller: _newPasswordController,
-              decoration: InputDecoration(labelText: t('new_password')),
-              obscureText: true,
+            );
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            backgroundColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+            title: Row(
+              children: [
+                const Icon(Icons.security, color: Colors.lightBlue, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  t('change_password'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                ),
+              ],
             ),
-            TextField(
-              controller: _confirmPasswordController,
-              decoration: InputDecoration(labelText: t('confirm_password')),
-              obscureText: true,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 16),
+                  if (hasOldPass)
+                    buildPasswordField(
+                      controller: _oldPasswordController,
+                      label: t('old_password'),
+                      isObscured: _obscureOld,
+                      onToggle: () => setDialogState(() => _obscureOld = !_obscureOld),
+                    ),
+                  buildPasswordField(
+                    controller: _newPasswordController,
+                    label: t('new_password'),
+                    isObscured: _obscureNew,
+                    onToggle: () => setDialogState(() => _obscureNew = !_obscureNew),
+                  ),
+                  buildPasswordField(
+                    controller: _confirmPasswordController,
+                    label: t('confirm_password'),
+                    isObscured: _obscureConfirm,
+                    onToggle: () => setDialogState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(t('cancel')),
-          ),
-          ElevatedButton(
-            onPressed: _handlePasswordChange, // 处理函数
-            child: Text(t('save')),
-          ),
-        ],
+            actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(t('cancel'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.lightBlue,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _handlePasswordChange,
+                      child: Text(t('save'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -261,190 +358,194 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: _isInitialLoading
           ? const EditProfileSkeleton()
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            // 自定义头像预览
+            Center(
+              child: Stack(
                 children: [
-                  // 自定义头像预览
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundColor:
-                              Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white10
-                              : Colors.blue.shade50,
-                          backgroundImage: _newImageUrl != null
-                              ? NetworkImage(_newImageUrl!)
-                              : (currentUser!['user_pic'] != null &&
-                                        currentUser!['user_pic']
-                                            .toString()
-                                            .isNotEmpty
-                                    ? NetworkImage(currentUser!['user_pic'])
-                                    : null),
-                          child:
-                              (_newImageUrl == null &&
-                                  currentUser!['user_pic'] == null)
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 60,
-                                  color: Colors.lightBlue,
-                                )
-                              : null,
-                        ),
-
-                        if (_isUploading)
-                          const Positioned.fill(
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 4,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: CircleAvatar(
-                            backgroundColor: Colors.lightBlue,
-                            radius: 20,
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.camera_alt,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: _pickAndUploadImage,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // 表单字段
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: t('username'),
-                      labelStyle: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white70
-                            : Colors.black54,
-                      ),
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white10
-                              : Colors.grey.shade300,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white10
-                          : Colors.grey.shade50,
-                    ),
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor:
+                    Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white10
+                        : Colors.blue.shade50,
+                    backgroundImage: _newImageUrl != null
+                        ? NetworkImage(_newImageUrl!)
+                        : (currentUser!['user_pic'] != null ||
+                        currentUser!['google_profile_image'] !=
+                            null)
+                        ? NetworkImage(
+                      (currentUser!['user_pic'] ??
+                          currentUser!['google_profile_image'])
+                          .toString()
+                          .split(',')[0],
+                    )
+                        : null,
+                    child: (_newImageUrl == null &&
+                        currentUser!['user_pic'] == null &&
+                        currentUser!['google_profile_image'] == null)
+                        ? const Icon(
+                      Icons.person,
+                      size: 60,
+                      color: Colors.lightBlue,
+                    )
+                        : null,
                   ),
 
-                  const SizedBox(height: 20),
-
-                  TextField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: t('email_address'),
-                      labelStyle: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white70
-                            : Colors.black54,
-                      ),
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white10
-                              : Colors.grey.shade300,
+                  if (_isUploading)
+                    const Positioned.fill(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 4,
+                          color: Colors.white,
                         ),
-                      ),
-                      filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white10
-                          : Colors.grey.shade50,
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white10
-                          : Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white10
-                            : Colors.grey.shade300,
                       ),
                     ),
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.lock_reset,
-                        color: Colors.lightBlue,
-                      ),
-                      title: Text(
-                        t('password_settings'),
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : Colors.black87,
-                        ),
-                      ),
-                      subtitle: Text(
-                        t('tap_to_change_password'),
-                        style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white38
-                              : Colors.grey,
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _showChangePasswordDialog,
-                    ),
-                  ),
 
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.lightBlue,
+                      radius: 20,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        elevation: 0,
-                      ),
-                      onPressed: _isLoading ? null : _handleSave,
-                      child: Text(
-                        t('save_changes'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        onPressed: _pickAndUploadImage,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 32),
+
+            // 表单字段
+            TextField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: t('username'),
+                labelStyle: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
+                ),
+                prefixIcon: const Icon(Icons.person_outline),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white10
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white10
+                    : Colors.grey.shade50,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(
+                labelText: t('email_address'),
+                labelStyle: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
+                ),
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white10
+                        : Colors.grey.shade300,
+                  ),
+                ),
+                filled: true,
+                fillColor: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white10
+                    : Colors.grey.shade50,
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+
+            const SizedBox(height: 20),
+
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white10
+                    : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white10
+                      : Colors.grey.shade300,
+                ),
+              ),
+              child: ListTile(
+                leading: const Icon(
+                  Icons.lock_reset,
+                  color: Colors.lightBlue,
+                ),
+                title: Text(
+                  t('password_settings'),
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : Colors.black87,
+                  ),
+                ),
+                subtitle: Text(
+                  t('tap_to_change_password'),
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white38
+                        : Colors.grey,
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _showChangePasswordDialog,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.lightBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: _isLoading ? null : _handleSave,
+                child: Text(
+                  t('save_changes'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

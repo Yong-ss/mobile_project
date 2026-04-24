@@ -762,7 +762,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               borderRadius: BorderRadius.circular(12),
               image: imageUrl != null
                   ? DecorationImage(
-                image: NetworkImage(imageUrl),
+                image: NetworkImage(imageUrl.toString().split(',')[0]),
                 fit: BoxFit.cover,
               )
                   : null,

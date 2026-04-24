@@ -189,7 +189,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Force Delete'),
+        title: const Text('Confirm Delete'),
         content: Text('Are you sure you want to permanently delete ${_users[index]['customer_name']} and ALL their related data (products, orders, cart)? This action is irreversible.'),
         actions: [
           TextButton(
@@ -198,19 +198,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           TextButton(
             onPressed: () async {
-              final navigator = Navigator.of(context);
+              Navigator.pop(context);
               final user = _users[index];
               try {
                 await _performForceDelete([user['id'].toString()]);
-                await _logAction('Force Delete User', 'Permanently deleted user ${user['customer_email']} and all related data.');
+                await _logAction('Delete User', 'Permanently deleted user ${user['customer_email']} and all related data.');
 
                 if (mounted) {
                   setState(() {
                     _users.removeAt(index);
                   });
+                  snackbar('User and related data deleted successfully', Colors.green);
                 }
-                navigator.pop();
-                if (mounted) snackbar('User and related data deleted successfully', Colors.green);
               } catch (e) {
                 if (mounted) snackbar('Error deleting user: $e', Colors.red);
               }
@@ -229,7 +228,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Force Delete ${selectedUsers.length} Users?'),
+        title: Text('Delete ${selectedUsers.length} Users?'),
         content: const Text('This will permanently remove all selected accounts and ALL their related data (products, orders, etc). This action is irreversible.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -241,7 +240,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 final List<String> ids = selectedUsers.map((u) => u['id'].toString()).toList();
                 await _performForceDelete(ids);
 
-                await _logAction('Batch Force Delete Users', 'Deleted ${selectedUsers.length} users and their data: ${selectedUsers.map((u) => u['customer_email']).join(', ')}');
+                await _logAction('Batch Delete Users', 'Deleted ${selectedUsers.length} users and their data: ${selectedUsers.map((u) => u['customer_email']).join(', ')}');
 
                 if (!mounted) return;
                 setState(() {
@@ -267,8 +266,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final TextEditingController emailController = TextEditingController(text: user['customer_email']);
     final TextEditingController sellerNameController = TextEditingController(text: user['seller_name']);
 
-    String customerVerified = user['customer_verified'] == 'Verified' ? 'Verified' : 'Not Verified';
-    String sellerStatus = user['seller_status'] == 'Registered' ? 'Registered' : 'Unregistered';
 
     if (!mounted) return;
 
@@ -276,127 +273,20 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return Theme(
-          data: ThemeData.light(),
-          child: StatefulBuilder(
-              builder: (context, setDialogState) {
-                return AlertDialog(
-                  title: const Text('Edit User Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-                  content: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Customer Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: nameController,
-                          decoration: InputDecoration(
-                            labelText: 'Display Name',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: emailController,
-                          decoration: InputDecoration(
-                            labelText: 'Email Address',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: customerVerified,
-                          decoration: InputDecoration(
-                            labelText: 'Account Verification',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          items: ['Verified', 'Not Verified'].map((status) {
-                            return DropdownMenuItem(value: status, child: Text(status));
-                          }).toList(),
-                          onChanged: (val) => setDialogState(() => customerVerified = val!),
-                        ),
-
-                        const SizedBox(height: 24),
-                        const Text('Seller Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: sellerNameController,
-                          decoration: InputDecoration(
-                            labelText: 'Shop Name',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: sellerStatus,
-                          decoration: InputDecoration(
-                            labelText: 'Seller Registration',
-                            isDense: true,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          items: ['Registered', 'Unregistered'].map((status) {
-                            return DropdownMenuItem(value: status, child: Text(status));
-                          }).toList(),
-                          onChanged: (val) => setDialogState(() => sellerStatus = val!),
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.lightBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: () async {
-                        final navigator = Navigator.of(dialogContext);
-                        try {
-                          final supabase = Supabase.instance.client;
-                          // Update consolidated user table
-                          await supabase.from('user').update({
-                            'username': nameController.text.trim(),
-                            'email': emailController.text.trim(),
-                            'customer_verified': customerVerified == 'Verified',
-                            'shop_name': sellerStatus == 'Registered' ? sellerNameController.text.trim() : null,
-                            'is_seller': sellerStatus == 'Registered',
-                          }).eq('id', user['id']);
-
-                          if (!mounted) return;
-
-                          // Update locally
-                          setState(() {
-                            _users[index]['customer_name'] = nameController.text.trim();
-                            _users[index]['customer_email'] = emailController.text.trim();
-                            _users[index]['customer_verified'] = customerVerified;
-                            _users[index]['seller_name'] = sellerStatus == 'Registered' ? sellerNameController.text.trim() : '';
-                            _users[index]['is_seller'] = sellerStatus == 'Registered';
-                            _users[index]['seller_status'] = sellerStatus;
-                          });
-
-                          navigator.pop();
-                          if (!mounted) return;
-                          snackbar('User updated successfully', Colors.green);
-                        } catch(e) {
-                          debugPrint('Update error: $e');
-                          if (mounted) snackbar('Error updating user: $e', Colors.red);
-                        }
-                      },
-                      child: const Text('Force Save Changes'),
-                    ),
-                  ],
-                );
-              }
-          ),
+        return _EditUserDialog(
+          user: user,
+          onSave: (updatedData) {
+            if (mounted) {
+              setState(() {
+                _users[index]['customer_name'] = updatedData['username'];
+                _users[index]['customer_email'] = updatedData['email'];
+                _users[index]['customer_verified'] = updatedData['customer_verified'] ? 'Verified' : 'Not Verified';
+                _users[index]['seller_name'] = updatedData['is_seller'] ? updatedData['shop_name'] : '';
+                _users[index]['is_seller'] = updatedData['is_seller'];
+                _users[index]['seller_status'] = updatedData['is_seller'] ? 'Registered' : 'Unregistered';
+              });
+            }
+          },
         );
       },
     );
@@ -406,6 +296,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     emailController.dispose();
     sellerNameController.dispose();
   }
+
 
   void _copyToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text));
@@ -1013,5 +904,160 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
       ),
     );
+  }
+}
+
+class _EditUserDialog extends StatefulWidget {
+  final Map<String, dynamic> user;
+  final Function(Map<String, dynamic>) onSave;
+
+  const _EditUserDialog({required this.user, required this.onSave});
+
+  @override
+  State<_EditUserDialog> createState() => _EditUserDialogState();
+}
+
+class _EditUserDialogState extends State<_EditUserDialog> {
+  late TextEditingController nameController;
+  late TextEditingController emailController;
+  late TextEditingController sellerNameController;
+  late String customerVerified;
+  late String sellerStatus;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.user['customer_name']);
+    emailController = TextEditingController(text: widget.user['customer_email']);
+    sellerNameController = TextEditingController(text: widget.user['seller_name']);
+    customerVerified = widget.user['customer_verified'] == 'Verified' ? 'Verified' : 'Not Verified';
+    sellerStatus = widget.user['seller_status'] == 'Registered' ? 'Registered' : 'Unregistered';
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    sellerNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit User Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Customer Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Display Name',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              decoration: InputDecoration(
+                labelText: 'Email Address',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: customerVerified,
+              decoration: InputDecoration(
+                labelText: 'Account Verification',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              items: ['Verified', 'Not Verified'].map((status) {
+                return DropdownMenuItem(value: status, child: Text(status));
+              }).toList(),
+              onChanged: (val) => setState(() => customerVerified = val!),
+            ),
+            const SizedBox(height: 24),
+            const Text('Seller Information', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: sellerNameController,
+              decoration: InputDecoration(
+                labelText: 'Shop Name',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: sellerStatus,
+              decoration: InputDecoration(
+                labelText: 'Seller Registration',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              items: ['Registered', 'Unregistered'].map((status) {
+                return DropdownMenuItem(value: status, child: Text(status));
+              }).toList(),
+              onChanged: (val) => setState(() => sellerStatus = val!),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.lightBlue,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: _isSaving ? null : _handleSave,
+          child: _isSaving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Save Changes'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleSave() async {
+    setState(() => _isSaving = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final updateData = {
+        'username': nameController.text.trim(),
+        'email': emailController.text.trim(),
+        'customer_verified': customerVerified == 'Verified',
+        'shop_name': sellerStatus == 'Registered' ? sellerNameController.text.trim() : null,
+        'is_seller': sellerStatus == 'Registered',
+      };
+
+      await supabase.from('user').update(updateData).eq('id', widget.user['id']);
+
+      widget.onSave(updateData);
+
+      if (mounted) {
+        // Important: unfocus to avoid "dirty widget" error with keyboard animations
+        FocusScope.of(context).unfocus();
+        Navigator.pop(context);
+        snackbar('User updated successfully', Colors.green);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        snackbar('Error updating user: $e', Colors.red);
+      }
+    }
   }
 }

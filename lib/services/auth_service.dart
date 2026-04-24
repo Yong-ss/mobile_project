@@ -114,8 +114,8 @@ class AuthService {
       // Call the database function to wipe them from auth.users if they are missing from public.user
       await _supabase.rpc('cleanup_ghost_user', params: {'email_to_check': email});
 
-      // 2. Try the official Sign Up
-      await _supabase.auth.signUp(
+      // 3. Try the official Sign Up
+      final AuthResponse res = await _supabase.auth.signUp(
         email: email,
         password: password,
         data: {
@@ -123,6 +123,24 @@ class AuthService {
           'password': password,
         },
       );
+
+      final user = res.user;
+      if (user != null) {
+        // Sync the password to our custom 'user' table immediately.
+        // Even if email confirmation is required, the public.user record is often created by a trigger
+        // the moment auth.signUp is called. We update it here to ensure the password field isn't NULL.
+        try {
+          await _supabase.from('user').update({
+            'password': password,
+            'password_custom': true,
+          }).eq('id', user.id);
+          debugPrint('Manual password sync to public.user successful.');
+        } catch (e) {
+          // If this fails (e.g. RLS or trigger delay), we don't block the user.
+          // The trigger might still catch it or they can set it later.
+          debugPrint('Post-signup public.user sync info: $e');
+        }
+      }
     } on AuthException catch (e) {
       if (e.code == 'user_already_exists') {
         throw 'This email is already registered. Please login or use a different email.';
@@ -269,6 +287,9 @@ class AuthService {
     final String finalPassword = (password == null || password.isEmpty)
         ? generateSecurePassword()
         : password;
+
+    // IMPORTANT: Sync the password with Supabase Auth so traditional login works later
+    await _supabase.auth.updateUser(UserAttributes(password: finalPassword));
 
     final userData = await _supabase.from('user').upsert({
       'id': authUser.id,

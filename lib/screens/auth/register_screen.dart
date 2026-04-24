@@ -225,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           try {
                             // Generate temporary password
                             final tempPassword =
-                                AuthService.generateSecurePassword();
+                            AuthService.generateSecurePassword();
 
                             await _authService.finalizeGoogleRegistration(
                               googleMetadata: metadata,
@@ -261,7 +261,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             _googleMetadata = metadata;
                             _usernameController.text =
                                 metadata.displayName ??
-                                metadata.email.split('@')[0];
+                                    metadata.email.split('@')[0];
                             _emailController.text = metadata.email;
                           });
                         },
@@ -455,10 +455,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         leading: _isCompletingGoogleAuth
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () =>
-                    setState(() => _isCompletingGoogleAuth = false),
-              )
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              setState(() => _isCompletingGoogleAuth = false),
+        )
             : null,
       ),
       body: SingleChildScrollView(
@@ -525,41 +525,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         duration: const Duration(milliseconds: 200),
                         child: _isGoogleLoading
                             ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.lightBlue,
-                                ),
-                              )
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.lightBlue,
+                          ),
+                        )
                             : SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                physics: const NeverScrollableScrollPhysics(),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(width: 16),
-                                    Image.network(
-                                      'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
-                                      height: 20,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      "Continue with Google",
-                                      style: TextStyle(
-                                        color:
-                                            Theme.of(context).brightness ==
-                                                Brightness.dark
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                  ],
+                          scrollDirection: Axis.horizontal,
+                          physics: const NeverScrollableScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 16),
+                              Image.network(
+                                'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png',
+                                height: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                "Continue with Google",
+                                style: TextStyle(
+                                  color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
                                 ),
                               ),
+                              const SizedBox(width: 16),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -679,31 +679,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     duration: const Duration(milliseconds: 200),
                     child: _isTraditionalLoading
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                         : SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const NeverScrollableScrollPhysics(),
-                            child: Text(
-                              _isCompletingGoogleAuth
-                                  ? 'Complete Registration'
-                                  : 'Register',
-                              key: ValueKey(
-                                _isCompletingGoogleAuth
-                                    ? 'complete'
-                                    : 'register',
-                              ),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: Text(
+                        _isCompletingGoogleAuth
+                            ? 'Complete Registration'
+                            : 'Register',
+                        key: ValueKey(
+                          _isCompletingGoogleAuth
+                              ? 'complete'
+                              : 'register',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
