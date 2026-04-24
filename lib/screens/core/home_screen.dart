@@ -26,6 +26,7 @@ class HomeScreenState extends State<HomeScreen> {
 
   void setIndex(int index) {
     if (index >= 0 && index < 4) {
+      setState(() => _selectedIndex = index);
       _onNavItemTapped(index);
     }
   }
