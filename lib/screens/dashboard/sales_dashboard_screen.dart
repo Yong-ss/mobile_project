@@ -140,8 +140,17 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
     }
   }
 
+  double _calculateMaxY() {
+    if (_monthlySales.isEmpty) return 1000;
+    double max = _monthlySales.values.reduce((a, b) => a > b ? a : b);
+    return max < 1000 ? 1000 : max * 1.15;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final double maxY = _calculateMaxY();
+    final double interval = (maxY / 5).roundToDouble();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -225,7 +234,7 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
                           gridData: FlGridData(
                             show: true,
                             drawVerticalLine: false,
-                            horizontalInterval: 500,
+                            horizontalInterval: interval > 0 ? interval : 500,
                             getDrawingHorizontalLine: (value) {
                               return FlLine(
                                 color: Colors.grey.withValues(alpha: 0.1),
@@ -281,13 +290,17 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
                             leftTitles: AxisTitles(
                               sideTitles: SideTitles(
                                 showTitles: true,
-                                interval: 1000,
+                                interval: interval > 0 ? interval : 1000,
                                 getTitlesWidget: (value, meta) {
+                                  if (value == 0) return const SizedBox.shrink();
+                                  String label = value >= 1000
+                                      ? 'RM ${(value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1)}k'
+                                      : 'RM ${value.toInt()}';
                                   return Text(
-                                    'RM ${value.toInt()}',
+                                    label,
                                     style: const TextStyle(
                                       color: Colors.grey,
-                                      fontSize: 10,
+                                      fontSize: 9,
                                     ),
                                     textAlign: TextAlign.left,
                                   );
@@ -300,11 +313,7 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
                           minX: 1,
                           maxX: 12,
                           minY: 0,
-                          maxY:
-                              _monthlySales.values.reduce(
-                                (a, b) => a > b ? a : b,
-                              ) *
-                              1,
+                          maxY: maxY,
                           lineTouchData: LineTouchData(
                             touchTooltipData: LineTouchTooltipData(
                               getTooltipColor: (touchedSpot) =>
@@ -333,13 +342,24 @@ class _SalesDashboardScreenState extends State<SalesDashboardScreen> {
                                   _monthlySales[m] ?? 0.0,
                                 );
                               }),
-                              isCurved: false,
+                              isCurved: true,
+                              curveSmoothness: 0.3,
                               gradient: const LinearGradient(
                                 colors: [Colors.blueAccent, Colors.blue],
                               ),
                               barWidth: 4,
                               isStrokeCapRound: true,
-                              dotData: const FlDotData(show: false),
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (spot, percent, barData, index) {
+                                  return FlDotCirclePainter(
+                                    radius: 3,
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                    strokeColor: Colors.blue,
+                                  );
+                                },
+                              ),
                               belowBarData: BarAreaData(
                                 show: true,
                                 gradient: LinearGradient(
